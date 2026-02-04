@@ -2,7 +2,8 @@ use std::fmt::Display;
 use std::path::Path;
 
 use egui::{
-    Align2, Button, ComboBox, Id, Key, Modifiers, Popup, PopupCloseBehavior, ScrollArea, TextEdit,
+    Align2, Button, ComboBox, Id, Key, Modifiers, Popup, PopupCloseBehavior, ScrollArea, Stroke,
+    TextEdit,
     text::{CCursor, CCursorRange},
 };
 use egui_flex::{Flex, FlexAlignContent, item};
@@ -39,10 +40,18 @@ impl Default for PromptInput {
 impl PromptInput {
     pub fn show(&mut self, ui: &mut egui::Ui) {
         let frame_height = 90.0;
+        let text_input_id = ui.make_persistent_id("prompt_input_text_input");
+        let text_input_focused = ui.ctx().memory(|mem| mem.has_focus(text_input_id));
+
+        let parent_stroke = if text_input_focused {
+            Stroke::new(1.0, ui.visuals().selection.stroke.color)
+        } else {
+            Stroke::new(1.0, ui.visuals().widgets.noninteractive.bg_stroke.color)
+        };
+
         ui.allocate_ui(egui::vec2(ui.available_width(), frame_height), |ui| {
             egui::Frame::new()
-                .stroke(ui.visuals().widgets.noninteractive.bg_stroke)
-                .corner_radius(8.0)
+                .stroke(parent_stroke)
                 .inner_margin(8.0)
                 .show(ui, |ui| {
                     Flex::vertical()
@@ -50,19 +59,10 @@ impl PromptInput {
                         .h_full()
                         .gap(egui::vec2(0.0, 4.0))
                         .show(ui, |flex| {
-                            // Text input - use add_ui to get TextEditOutput for cursor control
                             flex.add_ui(
                                 item().grow(1.0).align_self_content(Align2::LEFT_TOP),
-                                |ui| {
-                                    TextEdit::multiline(&mut self.text_input)
-                                        .frame(false)
-                                        .desired_rows(1)
-                                        .desired_width(ui.available_width())
-                                        .hint_text("Ask anything!")
-                                        .show(ui)
-                                },
+                                |ui| self.show_text_input(text_input_id, ui),
                             );
-
                             flex.add_flex(
                                 item(),
                                 Flex::horizontal()
@@ -78,6 +78,16 @@ impl PromptInput {
                         });
                 });
         });
+    }
+
+    fn show_text_input(&mut self, id: Id, ui: &mut egui::Ui) {
+        TextEdit::multiline(&mut self.text_input)
+            .id(id)
+            .frame(false)
+            .desired_rows(1)
+            .desired_width(ui.available_width())
+            .hint_text("Ask anything!")
+            .show(ui);
     }
 
     fn show_model_combobox(&mut self, ui: &mut egui::Ui) {

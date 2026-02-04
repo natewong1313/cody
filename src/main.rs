@@ -1,13 +1,22 @@
-use egui::{Align, Layout, ViewportBuilder};
+use egui::ViewportBuilder;
 
-use crate::opencode::{kill_opencode_server, spawn_opencode_server};
+use crate::{
+    app::App,
+    opencode::{OpencodeApiClient, OpencodeProcess},
+};
+
+mod app;
 mod opencode;
 mod prompt_input;
 
-fn main() -> eframe::Result {
+const PORT: u32 = 6767;
+
+#[tokio::main]
+async fn main() -> eframe::Result {
     env_logger::init();
 
-    let mut opencode_proc = spawn_opencode_server().unwrap();
+    let process = OpencodeProcess::start(PORT).expect("Failed to start opencode server");
+    let api_client = OpencodeApiClient::new(PORT);
 
     let opts = eframe::NativeOptions {
         viewport: ViewportBuilder::default()
@@ -19,26 +28,9 @@ fn main() -> eframe::Result {
     let result = eframe::run_native(
         "opencode gui",
         opts,
-        Box::new(|_cc| Ok(Box::<MyApp>::default())),
+        Box::new(|_cc| Ok(Box::new(App::new(api_client)))),
     );
-    kill_opencode_server(&opencode_proc).unwrap();
-    opencode_proc.wait().unwrap();
+
+    process.stop();
     result
-}
-
-#[derive(Default)]
-struct MyApp {
-    show_confirmation_dialog: bool,
-    allowed_to_close: bool,
-    prompt_input: prompt_input::PromptInput,
-}
-
-impl eframe::App for MyApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
-                self.prompt_input.show(ui);
-            });
-        });
-    }
 }
