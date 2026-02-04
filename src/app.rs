@@ -1,7 +1,6 @@
-use crate::{
-    opencode::{OpencodeApiClient, OpencodeSession},
-    prompt_input::PromptInput,
-};
+use std::collections::HashMap;
+
+use crate::opencode::{OpencodeApiClient, OpencodeSession};
 use egui::CentralPanel;
 use egui_inbox::UiInbox;
 
@@ -9,16 +8,24 @@ use egui_inbox::UiInbox;
 pub enum Page {
     #[default]
     Sessions,
-    Session,
+    Session(String),
 }
+
+#[derive(Default)]
+struct PageStates {
+    session: HashMap<String, SessionPageState>,
+}
+
+#[derive(Default)]
+struct SessionPageState {}
 
 pub struct App {
     api_client: OpencodeApiClient,
-    prompt_input: PromptInput,
     current_page: Page,
-    sessions_page: SessionsPage,
-    session_page: SessionPage,
+    page_states: PageStates,
+
     session_inbox: UiInbox<Result<OpencodeSession, String>>,
+    current_sessions: HashMap<String, OpencodeSession>,
 }
 
 // Callbacks from pages that require operations at the app level
@@ -31,20 +38,19 @@ impl App {
     pub fn new(api_client: OpencodeApiClient) -> Self {
         Self {
             api_client,
-            prompt_input: PromptInput::default(),
             current_page: Page::default(),
-            sessions_page: SessionsPage::default(),
-            session_page: SessionPage::default(),
             session_inbox: UiInbox::new(),
+            page_states: PageStates::default(),
+            current_sessions: HashMap::new(),
         }
     }
 
     /// Conditionally route pages
     fn mount_router(&mut self, ctx: &egui::Context) -> Option<Action> {
         CentralPanel::default()
-            .show(ctx, |ui| match self.current_page {
-                Page::Sessions => self.sessions_page.show(ui),
-                Page::Session => self.session_page.show(ui),
+            .show(ctx, |ui| match &self.current_page {
+                Page::Sessions => self.render_sessions_page(ui),
+                Page::Session(id) => self.render_session_page(ui, id.to_string()),
             })
             .inner
     }
@@ -68,6 +74,24 @@ impl App {
             }
         }
     }
+
+    fn render_sessions_page(&self, ui: &mut egui::Ui) -> Option<Action> {
+        ui.label("sessions");
+        let btn = ui.button("New Session");
+        if btn.clicked() {
+            return Some(Action::CreateSession);
+        }
+
+        None
+    }
+
+    fn render_session_page(&mut self, ui: &mut egui::Ui, id: String) -> Option<Action> {
+        // let state = self.page_states.session.entry(id.clone()).or_default();
+        let session = self.current_sessions.get(&id).unwrap();
+        ui.label(format!("{}", session.id));
+
+        None
+    }
 }
 
 impl eframe::App for App {
@@ -77,7 +101,8 @@ impl eframe::App for App {
             match result {
                 Ok(session) => {
                     log::info!("created session: {:?}", session);
-                    self.current_page = Page::Session;
+                    self.current_page = Page::Session(session.id.clone());
+                    self.current_sessions.insert(session.id.clone(), session);
                 }
                 Err(e) => {
                     log::error!("Failed to create session: {}", e);
@@ -89,31 +114,5 @@ impl eframe::App for App {
         if let Some(action) = action {
             self.handle_action(action);
         }
-    }
-}
-
-#[derive(Default)]
-pub struct SessionsPage {}
-
-impl SessionsPage {
-    fn show(&mut self, ui: &mut egui::Ui) -> Option<Action> {
-        ui.label("sessions");
-        let btn = ui.button("New Session");
-        if btn.clicked() {
-            return Some(Action::CreateSession);
-        }
-
-        None
-    }
-}
-
-#[derive(Default)]
-pub struct SessionPage {}
-
-impl SessionPage {
-    fn show(&mut self, ui: &mut egui::Ui) -> Option<Action> {
-        ui.label("session");
-
-        None
     }
 }
