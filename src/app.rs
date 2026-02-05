@@ -1,64 +1,46 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    sync::mpsc::{Receiver, Sender, channel},
+};
 
-use crate::opencode::{OpencodeApiClient, OpencodeSession};
-use egui::CentralPanel;
+use crate::{
+    opencode::{OpencodeApiClient, OpencodeSession},
+    pages::{PageAction, PageContext, PageType, PagesRouter},
+};
+use egui::{Button, CentralPanel, TextEdit};
+use egui_flex::{Flex, item};
 use egui_inbox::UiInbox;
 
-#[derive(Default)]
-pub enum Page {
-    #[default]
-    Sessions,
-    Session(String),
-}
-
-#[derive(Default)]
-struct PageStates {
-    session: HashMap<String, SessionPageState>,
-}
-
-#[derive(Default)]
-struct SessionPageState {}
-
 pub struct App {
-    api_client: OpencodeApiClient,
-    current_page: Page,
-    page_states: PageStates,
+    pub api_client: OpencodeApiClient,
+    pages_router: PagesRouter,
+
+    pub action_sender: Sender<PageAction>,
+    action_reciever: Receiver<PageAction>,
 
     session_inbox: UiInbox<Result<OpencodeSession, String>>,
-    current_sessions: HashMap<String, OpencodeSession>,
-}
-
-// Callbacks from pages that require operations at the app level
-pub enum Action {
-    Navigate(Page),
-    CreateSession,
+    pub current_sessions: HashMap<String, OpencodeSession>,
 }
 
 impl App {
     pub fn new(api_client: OpencodeApiClient) -> Self {
+        let (action_sender, action_reciever) = channel();
         Self {
             api_client,
-            current_page: Page::default(),
+            pages_router: PagesRouter::new(),
+
+            action_sender,
+            action_reciever,
+
             session_inbox: UiInbox::new(),
-            page_states: PageStates::default(),
             current_sessions: HashMap::new(),
         }
     }
 
-    /// Conditionally route pages
-    fn mount_router(&mut self, ctx: &egui::Context) -> Option<Action> {
-        CentralPanel::default()
-            .show(ctx, |ui| match &self.current_page {
-                Page::Sessions => self.render_sessions_page(ui),
-                Page::Session(id) => self.render_session_page(ui, id.to_string()),
-            })
-            .inner
-    }
-
-    fn handle_action(&mut self, action: Action) {
+    fn handle_action(&mut self, action: PageAction) {
         match action {
-            Action::Navigate(page) => self.current_page = page,
-            Action::CreateSession => {
+            PageAction::Navigate(page) => self.pages_router.navigate(page),
+            PageAction::CreateSession => {
                 let sender = self.session_inbox.sender();
                 let client = self.api_client.clone();
                 tokio::spawn(async move {
@@ -74,24 +56,6 @@ impl App {
             }
         }
     }
-
-    fn render_sessions_page(&self, ui: &mut egui::Ui) -> Option<Action> {
-        ui.label("sessions");
-        let btn = ui.button("New Session");
-        if btn.clicked() {
-            return Some(Action::CreateSession);
-        }
-
-        None
-    }
-
-    fn render_session_page(&mut self, ui: &mut egui::Ui, id: String) -> Option<Action> {
-        // let state = self.page_states.session.entry(id.clone()).or_default();
-        let session = self.current_sessions.get(&id).unwrap();
-        ui.label(format!("{}", session.id));
-
-        None
-    }
 }
 
 impl eframe::App for App {
@@ -101,8 +65,9 @@ impl eframe::App for App {
             match result {
                 Ok(session) => {
                     log::info!("created session: {:?}", session);
-                    self.current_page = Page::Session(session.id.clone());
-                    self.current_sessions.insert(session.id.clone(), session);
+                    let session_id = session.id.clone();
+                    self.current_sessions.insert(session_id.clone(), session);
+                    self.pages_router.navigate(PageType::Session(session_id));
                 }
                 Err(e) => {
                     log::error!("Failed to create session: {}", e);
@@ -110,9 +75,17 @@ impl eframe::App for App {
             }
         }
 
-        let action = self.mount_router(ctx);
-        if let Some(action) = action {
+        while let Ok(action) = self.action_reciever.try_recv() {
             self.handle_action(action);
         }
+
+        CentralPanel::default().show(ctx, |ui| {
+            let mut page_ctx = PageContext {
+                api_client: &self.api_client,
+                action_sender: &self.action_sender,
+                current_sessions: &self.current_sessions,
+            };
+            self.pages_router.mount(ui, &mut page_ctx);
+        });
     }
 }
