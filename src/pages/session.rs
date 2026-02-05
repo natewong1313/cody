@@ -1,10 +1,16 @@
+use egui::TextEdit;
+
 pub struct SessionPage {
     session_id: String,
+    prompt_input: String,
 }
 
 impl SessionPage {
     pub fn new(session_id: String) -> Self {
-        Self { session_id }
+        Self {
+            session_id,
+            prompt_input: "".to_string(),
+        }
     }
 }
 
@@ -14,5 +20,6 @@ impl super::Page for SessionPage {
 
         ui.label("Session");
         ui.label(session.title.clone().unwrap_or("Hello".to_string()));
+        ui.add(TextEdit::multiline(&mut self.prompt_input));
     }
 }

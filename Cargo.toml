@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.100"
 dioxus-devtools = "0.7"
-eframe = "0.33.3"
+eframe = { version = "0.33.3", features = ["wgpu"] }
 egui = "0.33.3"
 subsecond = "0.7"
 egui-dropdown = "0.14.0"
