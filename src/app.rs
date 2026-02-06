@@ -7,7 +7,7 @@ use crate::{
     opencode::{OpencodeApiClient, OpencodeSession},
     pages::{PageAction, PageContext, PageType, PagesRouter},
 };
-use egui::{Button, CentralPanel, TextEdit};
+use egui::{Button, CentralPanel, Color32, Frame, TextEdit};
 use egui_flex::{Flex, item};
 use egui_inbox::UiInbox;
 
@@ -79,13 +79,15 @@ impl eframe::App for App {
             self.handle_action(action);
         }
 
-        CentralPanel::default().show(ctx, |ui| {
-            let mut page_ctx = PageContext {
-                api_client: &self.api_client,
-                action_sender: &self.action_sender,
-                current_sessions: &self.current_sessions,
-            };
-            self.pages_router.mount(ui, &mut page_ctx);
-        });
+        CentralPanel::default()
+            .frame(Frame::central_panel(&ctx.style()).fill(Color32::from_rgb(0, 0, 0)))
+            .show(ctx, |ui| {
+                let mut page_ctx = PageContext {
+                    api_client: &self.api_client,
+                    action_sender: &self.action_sender,
+                    current_sessions: &self.current_sessions,
+                };
+                self.pages_router.mount(ui, &mut page_ctx);
+            });
     }
 }
