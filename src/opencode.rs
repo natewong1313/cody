@@ -111,6 +111,315 @@ pub struct SendMessageRequest {
     pub parts: Vec<PartInput>,
 }
 
+// Message types from types.ts
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MessageTime {
+    pub created: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MessageTimeCompleted {
+    pub created: i64,
+    pub completed: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileDiff {
+    pub file: String,
+    pub before: String,
+    pub after: String,
+    pub additions: i32,
+    pub deletions: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MessageSummary {
+    pub title: Option<String>,
+    pub body: Option<String>,
+    pub diffs: Vec<FileDiff>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelInfo {
+    pub provider_id: String,
+    pub model_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MessagePath {
+    pub cwd: String,
+    pub root: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TokenInfo {
+    pub input: i32,
+    pub output: i32,
+    pub reasoning: i32,
+    pub cache: CacheInfo,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CacheInfo {
+    pub read: i32,
+    pub write: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderAuthError {
+    pub name: String,
+    pub data: ProviderAuthErrorData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderAuthErrorData {
+    pub provider_id: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UnknownError {
+    pub name: String,
+    pub data: UnknownErrorData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UnknownErrorData {
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiError {
+    pub name: String,
+    pub data: ApiErrorData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiErrorData {
+    pub message: String,
+    pub status_code: Option<i32>,
+    pub is_retryable: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "role")]
+pub enum Message {
+    #[serde(rename = "user")]
+    User(UserMessage),
+    #[serde(rename = "assistant")]
+    Assistant(AssistantMessage),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserMessage {
+    pub id: String,
+    pub session_id: String,
+    pub role: String,
+    pub time: MessageTime,
+    pub summary: Option<MessageSummary>,
+    pub agent: String,
+    pub model: ModelInfo,
+    pub system: Option<String>,
+    pub tools: Option<HashMap<String, bool>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssistantMessage {
+    pub id: String,
+    pub session_id: String,
+    pub role: String,
+    pub time: MessageTimeCompleted,
+    pub error: Option<MessageError>,
+    pub parent_id: String,
+    pub model_id: String,
+    pub provider_id: String,
+    pub mode: String,
+    pub path: MessagePath,
+    pub cost: f64,
+    pub tokens: TokenInfo,
+    pub finish: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", untagged)]
+pub enum MessageError {
+    ProviderAuth(ProviderAuthError),
+    Unknown(UnknownError),
+    Api(ApiError),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextPart {
+    pub id: String,
+    pub session_id: String,
+    pub message_id: String,
+    #[serde(rename = "type")]
+    pub part_type: String,
+    pub text: String,
+    pub synthetic: Option<bool>,
+    pub ignored: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReasoningPart {
+    pub id: String,
+    pub session_id: String,
+    pub message_id: String,
+    #[serde(rename = "type")]
+    pub part_type: String,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolStateCompleted {
+    pub status: String,
+    pub input: serde_json::Value,
+    pub output: String,
+    pub title: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolPart {
+    pub id: String,
+    pub session_id: String,
+    pub message_id: String,
+    #[serde(rename = "type")]
+    pub part_type: String,
+    pub call_id: String,
+    pub tool: String,
+    pub state: ToolState,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", untagged)]
+pub enum ToolState {
+    Pending(ToolStatePending),
+    Running(ToolStateRunning),
+    Completed(ToolStateCompleted),
+    Error(ToolStateError),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolStatePending {
+    pub status: String,
+    pub input: serde_json::Value,
+    pub raw: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolStateRunning {
+    pub status: String,
+    pub input: serde_json::Value,
+    pub title: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolStateError {
+    pub status: String,
+    pub input: serde_json::Value,
+    pub error: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "type")]
+pub enum Part {
+    #[serde(rename = "text")]
+    Text(TextPart),
+    #[serde(rename = "reasoning")]
+    Reasoning(ReasoningPart),
+    #[serde(rename = "tool")]
+    Tool(ToolPart),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MessageWithParts {
+    pub info: Message,
+    pub parts: Vec<Part>,
+}
+
+// Event types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GlobalEvent {
+    pub directory: String,
+    pub payload: EventPayload,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "type")]
+pub enum EventPayload {
+    #[serde(rename = "message.updated")]
+    MessageUpdated {
+        #[serde(rename = "properties")]
+        props: MessageUpdatedProps,
+    },
+    #[serde(rename = "message.part.updated")]
+    MessagePartUpdated {
+        #[serde(rename = "properties")]
+        props: MessagePartUpdatedProps,
+    },
+    #[serde(rename = "message.removed")]
+    MessageRemoved {
+        #[serde(rename = "properties")]
+        props: MessageRemovedProps,
+    },
+    #[serde(rename = "session.idle")]
+    SessionIdle {
+        #[serde(rename = "properties")]
+        props: SessionIdleProps,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MessageUpdatedProps {
+    pub info: Message,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MessagePartUpdatedProps {
+    pub part: Part,
+    pub delta: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MessageRemovedProps {
+    pub session_id: String,
+    pub message_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionIdleProps {
+    pub session_id: String,
+}
+
 impl OpencodeApiClient {
     pub fn new(port: u32) -> Self {
         Self {
@@ -169,7 +478,7 @@ impl OpencodeApiClient {
         session_id: &str,
         request: SendMessageRequest,
     ) -> Result<(), reqwest::Error> {
-        let json_body = serde_json::to_string_pretty(&request)
+        let _json_body = serde_json::to_string_pretty(&request)
             .unwrap_or_else(|_| "Failed to serialize".to_string());
 
         self.http_client
@@ -181,5 +490,19 @@ impl OpencodeApiClient {
             .send()
             .await?;
         Ok(())
+    }
+
+    pub async fn get_session_messages(
+        &self,
+        session_id: &str,
+    ) -> anyhow::Result<Vec<MessageWithParts>> {
+        let messages: Vec<MessageWithParts> = self
+            .http_client
+            .get(format!("{}/session/{}/message", self.server_url, session_id))
+            .send()
+            .await?
+            .json()
+            .await?;
+        Ok(messages)
     }
 }

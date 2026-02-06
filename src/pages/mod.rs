@@ -16,6 +16,7 @@ pub enum PageType {
 pub enum PageAction {
     Navigate(PageType),
     CreateSession,
+    SendMessage { session_id: String, message: String },
 }
 
 pub struct PageContext<'a> {

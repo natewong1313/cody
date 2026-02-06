@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    opencode::{OpencodeApiClient, OpencodeSession},
+    opencode::{OpencodeApiClient, OpencodeSession, PartInput, SendMessageRequest},
     pages::{PageAction, PageContext, PageType, PagesRouter},
 };
 use egui::{Button, CentralPanel, Color32, Frame, TextEdit};
@@ -50,6 +50,40 @@ impl App {
                         }
                         Err(e) => {
                             sender.send(Err(e.to_string())).ok();
+                        }
+                    }
+                });
+            }
+            PageAction::SendMessage {
+                session_id,
+                message,
+            } => {
+                let client = self.api_client.clone();
+                tokio::spawn(async move {
+                    let request = SendMessageRequest {
+                        message_id: None,
+                        model: None,
+                        agent: None,
+                        no_reply: None,
+                        system: None,
+                        tools: None,
+                        parts: vec![PartInput::Text {
+                            id: None,
+                            text: message,
+                            synthetic: None,
+                            ignored: None,
+                        }],
+                    };
+                    match client.send_message(&session_id, request).await {
+                        Ok(_) => {
+                            log::info!("Message sent to session {}", session_id);
+                        }
+                        Err(e) => {
+                            log::error!(
+                                "Failed to send message to session {}: {}",
+                                session_id,
+                                e
+                            );
                         }
                     }
                 });
