@@ -8,7 +8,6 @@ use std::sync::Arc;
 mod app;
 mod opencode;
 mod pages;
-mod prompt_input;
 
 const PORT: u32 = 6767;
 
