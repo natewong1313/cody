@@ -1,8 +1,9 @@
 use super::PageAction;
-use crate::opencode::{EventPayload, GlobalEvent, Message, MessageWithParts, Part};
-use egui::{Align2, Button, Color32, Frame, Layout, ScrollArea, TextEdit, vec2};
+use crate::opencode::{EventPayload, GlobalEvent, MessageWithParts, Part};
+use egui::{Align2, Button, Color32, Frame, TextEdit, vec2};
 use egui_flex::{Flex, item};
 use egui_inbox::UiInbox;
+use futures::StreamExt;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -27,7 +28,7 @@ pub struct SessionPage {
     message_event_inbox: UiInbox<MessageEventResult>,
     messages: Vec<MessageWithParts>,
     streaming: bool,
-    messages_loaded: bool,
+    first_render_occured: bool,
     streaming_text: HashMap<String, String>,
 }
 
@@ -39,177 +40,40 @@ impl SessionPage {
             message_event_inbox: UiInbox::new(),
             messages: Vec::new(),
             streaming: false,
-            messages_loaded: false,
+            first_render_occured: false,
             streaming_text: HashMap::new(),
         }
     }
 
-    fn fetch_messages(&self, ctx: &super::PageContext) {
-        let sender = self.message_event_inbox.sender();
-        let client = ctx.api_client.clone();
-        let session_id = self.session_id.clone();
-
-        tokio::spawn(async move {
-            match client.get_session_messages(&session_id).await {
-                Ok(messages) => {
-                    sender
-                        .send(MessageEventResult::MessagesLoaded(messages))
-                        .ok();
-                }
-                Err(e) => {
-                    sender.send(MessageEventResult::Error(e.to_string())).ok();
-                }
-            }
-        });
+    pub fn render(&mut self, ui: &mut egui::Ui, ctx: &mut super::PageContext) {
+        if !self.first_render_occured {
+            self.on_first_render(ctx);
+        }
+        self.process_events(ui);
+        Frame::new()
+            .inner_margin(8.0)
+            .corner_radius(10.0)
+            .fill(Color32::from_rgb(23, 23, 23))
+            .stroke(egui::Stroke::new(1.0, Color32::from_rgb(38, 38, 38)))
+            .show(ui, |ui| {
+                Flex::vertical()
+                    .w_full()
+                    .h_full()
+                    .gap(vec2(0.0, 4.0))
+                    .show(ui, |flex| {
+                        self.render_textedit(flex);
+                        self.render_action_bar(flex, ctx);
+                    })
+            });
     }
 
-    fn start_event_stream(&self, ctx: &super::PageContext) {
-        let sender = self.message_event_inbox.sender();
-        let client = ctx.api_client.clone();
-        let session_id = self.session_id.clone();
-
-        tokio::spawn(async move {
-            let mut stream = match client.get_event_stream().await {
-                Ok(stream) => stream,
-                Err(e) => {
-                    sender.send(MessageEventResult::Error(e.to_string())).ok();
-                    return;
-                }
-            };
-
-            use futures::StreamExt;
-
-            while let Some(event_result) = stream.next().await {
-                match event_result {
-                    Ok(event) => {
-                        if let Ok(global_event) = serde_json::from_str::<GlobalEvent>(&event.data) {
-                            match global_event.payload {
-                                EventPayload::MessageUpdated { props } => {
-                                    // Filter by session_id
-                                    let msg_session_id = match &props.info {
-                                        Message::User(u) => &u.session_id,
-                                        Message::Assistant(a) => &a.session_id,
-                                    };
-                                    if msg_session_id == &session_id {
-                                        // Create a MessageWithParts from the info
-                                        let msg_with_parts = MessageWithParts {
-                                            info: props.info,
-                                            parts: Vec::new(),
-                                        };
-                                        sender
-                                            .send(MessageEventResult::MessageUpdated(
-                                                msg_with_parts,
-                                            ))
-                                            .ok();
-                                    }
-                                }
-                                EventPayload::MessagePartUpdated { props } => {
-                                    // Filter by session_id from the part
-                                    let part_session_id = match &props.part {
-                                        Part::Text(t) => &t.session_id,
-                                        Part::Reasoning(r) => &r.session_id,
-                                        Part::Tool(t) => &t.session_id,
-                                    };
-                                    if part_session_id == &session_id {
-                                        let message_id = match &props.part {
-                                            Part::Text(t) => t.message_id.clone(),
-                                            Part::Reasoning(r) => r.message_id.clone(),
-                                            Part::Tool(t) => t.message_id.clone(),
-                                        };
-                                        sender
-                                            .send(MessageEventResult::MessagePartUpdated {
-                                                message_id,
-                                                part: props.part,
-                                                delta: props.delta,
-                                            })
-                                            .ok();
-                                    }
-                                }
-                                EventPayload::MessageRemoved { props } => {
-                                    if props.session_id == session_id {
-                                        sender
-                                            .send(MessageEventResult::MessageRemoved {
-                                                message_id: props.message_id,
-                                            })
-                                            .ok();
-                                    }
-                                }
-                                EventPayload::SessionIdle { props } => {
-                                    if props.session_id == session_id {
-                                        sender.send(MessageEventResult::SessionIdle).ok();
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        sender.send(MessageEventResult::Error(e.to_string())).ok();
-                    }
-                }
-            }
-        });
+    fn on_first_render(&mut self, ctx: &mut super::PageContext) {
+        self.first_render_occured = true;
+        self.fetch_messages(ctx);
+        self.start_event_stream(ctx);
     }
 
-    fn upsert_message(&mut self, msg: MessageWithParts) {
-        let id = match &msg.info {
-            Message::User(u) => &u.id,
-            Message::Assistant(a) => &a.id,
-        };
-
-        if let Some(existing) = self.messages.iter_mut().find(|m| match &m.info {
-            Message::User(u) => &u.id == id,
-            Message::Assistant(a) => &a.id == id,
-        }) {
-            *existing = msg;
-        } else {
-            self.messages.push(msg);
-        }
-    }
-
-    fn update_message_part(&mut self, message_id: String, _part: Part, delta: Option<String>) {
-        // For now, just accumulate streaming text
-        if let Some(delta_text) = delta {
-            self.streaming_text
-                .entry(message_id)
-                .and_modify(|text| text.push_str(&delta_text))
-                .or_insert(delta_text);
-        }
-    }
-
-    fn get_message_display_text(&self, msg: &MessageWithParts) -> String {
-        let mut text = String::new();
-
-        // Add parts text
-        for part in &msg.parts {
-            match part {
-                Part::Text(t) => text.push_str(&t.text),
-                _ => {}
-            }
-        }
-
-        // Add streaming text if any
-        let msg_id = match &msg.info {
-            Message::User(u) => &u.id,
-            Message::Assistant(a) => &a.id,
-        };
-        if let Some(streaming) = self.streaming_text.get(msg_id) {
-            text.push_str(streaming);
-        }
-
-        text
-    }
-}
-
-impl super::Page for SessionPage {
-    fn render(&mut self, ui: &mut egui::Ui, ctx: &mut super::PageContext) {
-        // Load messages on first render
-        if !self.messages_loaded {
-            self.messages_loaded = true;
-            self.fetch_messages(ctx);
-            self.start_event_stream(ctx);
-        }
-
-        // Process incoming events
+    fn process_events(&mut self, ui: &egui::Ui) {
         for event in self.message_event_inbox.read(ui.ctx()) {
             match event {
                 MessageEventResult::MessagesLoaded(messages) => {
@@ -232,10 +96,7 @@ impl super::Page for SessionPage {
                     }
                 }
                 MessageEventResult::MessageRemoved { message_id } => {
-                    self.messages.retain(|m| match &m.info {
-                        Message::User(u) => u.id != message_id,
-                        Message::Assistant(a) => a.id != message_id,
-                    });
+                    self.messages.retain(|m| m.id() != message_id);
                 }
                 MessageEventResult::SessionIdle => {
                     self.streaming = false;
@@ -245,125 +106,139 @@ impl super::Page for SessionPage {
                 }
             }
         }
+    }
 
-        // Main layout
-        ui.vertical(|ui| {
-            // Messages area
-            ui.with_layout(Layout::top_down(egui::Align::Min), |ui| {
-                let available_height = ui.available_height() - 100.0; // Reserve space for input
-                ScrollArea::vertical()
-                    .max_height(available_height)
-                    .show(ui, |ui| {
-                        for msg in &self.messages {
-                            let (_role, is_user) = match &msg.info {
-                                Message::User(_) => ("user", true),
-                                Message::Assistant(_) => ("assistant", false),
-                            };
+    fn render_textedit(&mut self, flex: &mut egui_flex::FlexInstance) {
+        flex.add(
+            item().grow(1.0).align_self_content(Align2::LEFT_TOP),
+            TextEdit::multiline(&mut self.prompt_input).frame(false),
+        );
+    }
 
-                            let text = self.get_message_display_text(msg);
-                            if text.is_empty() {
-                                continue;
+    fn render_action_bar(
+        &mut self,
+        flex: &mut egui_flex::FlexInstance,
+        ctx: &mut super::PageContext,
+    ) {
+        flex.add_flex(
+            item(),
+            Flex::horizontal()
+                .align_content(egui_flex::FlexAlignContent::Center)
+                .gap(vec2(8.0, 0.0)),
+            |flex| {
+                if self.streaming {
+                    flex.add(
+                        item(),
+                        egui::Label::new(egui::RichText::new("Thinking...").color(Color32::YELLOW)),
+                    );
+                }
+                let btn = flex.add(
+                    item(),
+                    Button::new(egui::RichText::new("Send").color(Color32::WHITE))
+                        .fill(Color32::from_rgb(217, 70, 239))
+                        .corner_radius(8.0)
+                        .min_size(vec2(80.0, 36.0)),
+                );
+                if btn.clicked() {
+                    self.on_send_btn_clicked(ctx);
+                }
+            },
+        );
+    }
+
+    fn on_send_btn_clicked(&mut self, ctx: &mut super::PageContext) {
+        if self.prompt_input.trim().is_empty() {
+            return;
+        }
+        let message = self.prompt_input.trim().to_string();
+        self.prompt_input.clear();
+        ctx.action_sender
+            .send(PageAction::SendMessage {
+                session_id: self.session_id.clone(),
+                message,
+            })
+            .ok();
+        self.streaming = true;
+    }
+
+    fn fetch_messages(&self, ctx: &super::PageContext) {
+        let sender = self.message_event_inbox.sender();
+        let client = ctx.api_client.clone();
+        let session_id = self.session_id.clone();
+
+        tokio::spawn(async move {
+            let result = client.get_session_messages(&session_id).await.map_or_else(
+                |err| MessageEventResult::Error(err.to_string()),
+                MessageEventResult::MessagesLoaded,
+            );
+            sender.send(result).unwrap();
+        });
+    }
+
+    fn start_event_stream(&self, ctx: &super::PageContext) {
+        let sender = self.message_event_inbox.sender();
+        let client = ctx.api_client.clone();
+        let session_id = self.session_id.clone();
+
+        tokio::spawn(async move {
+            let mut stream = match client.get_event_stream().await {
+                Ok(stream) => stream,
+                Err(e) => {
+                    sender.send(MessageEventResult::Error(e.to_string())).ok();
+                    return;
+                }
+            };
+
+            while let Some(event_result) = stream.next().await {
+                match event_result {
+                    Ok(event) => {
+                        if let Ok(global_event) = serde_json::from_str::<GlobalEvent>(&event.data) {
+                            if let Some(result) = map_event_to_result(&global_event, &session_id) {
+                                sender.send(result).ok();
                             }
-
-                            ui.with_layout(
-                                if is_user {
-                                    Layout::top_down(egui::Align::Max)
-                                } else {
-                                    Layout::top_down(egui::Align::Min)
-                                },
-                                |ui| {
-                                    let bg_color = if is_user {
-                                        Color32::from_rgb(217, 70, 239)
-                                    } else {
-                                        Color32::from_rgb(50, 50, 50)
-                                    };
-                                    let text_color = if is_user {
-                                        Color32::WHITE
-                                    } else {
-                                        Color32::LIGHT_GRAY
-                                    };
-
-                                    Frame::new()
-                                        .inner_margin(8.0)
-                                        .corner_radius(8.0)
-                                        .fill(bg_color)
-                                        .show(ui, |ui| {
-                                            ui.label(
-                                                egui::RichText::new(&text)
-                                                    .color(text_color)
-                                                    .size(14.0),
-                                            );
-                                        });
-                                },
-                            );
-                            ui.add_space(8.0);
                         }
-                    });
-            });
-
-            // Input area
-            ui.add_space(8.0);
-
-            let mut send_clicked = false;
-
-            Frame::new()
-                .inner_margin(8.0)
-                .corner_radius(10.0)
-                .fill(Color32::from_rgb(23, 23, 23))
-                .stroke(egui::Stroke::new(1.0, Color32::from_rgb(38, 38, 38)))
-                .show(ui, |ui| {
-                    Flex::vertical()
-                        .w_full()
-                        .h_full()
-                        .gap(vec2(0.0, 4.0))
-                        .show(ui, |flex| {
-                            flex.add(
-                                item().grow(1.0).align_self_content(Align2::LEFT_TOP),
-                                TextEdit::multiline(&mut self.prompt_input).frame(false),
-                            );
-                            flex.add_flex(
-                                item(),
-                                Flex::horizontal()
-                                    .align_content(egui_flex::FlexAlignContent::Center)
-                                    .gap(vec2(8.0, 0.0)),
-                                |flex| {
-                                    if self.streaming {
-                                        flex.add(
-                                            item(),
-                                            egui::Label::new(
-                                                egui::RichText::new("Thinking...")
-                                                    .color(Color32::YELLOW),
-                                            ),
-                                        );
-                                    }
-                                    let btn = flex.add(
-                                        item(),
-                                        Button::new(
-                                            egui::RichText::new("Send").color(Color32::WHITE),
-                                        )
-                                        .fill(Color32::from_rgb(217, 70, 239))
-                                        .corner_radius(8.0)
-                                        .min_size(vec2(80.0, 36.0)),
-                                    );
-                                    if btn.clicked() {
-                                        send_clicked = true;
-                                    }
-                                },
-                            );
-                        })
-                });
-
-            if send_clicked && !self.prompt_input.trim().is_empty() {
-                let message = self.prompt_input.trim().to_string();
-                self.prompt_input.clear();
-                ctx.action_sender
-                    .send(PageAction::SendMessage {
-                        session_id: self.session_id.clone(),
-                        message,
-                    })
-                    .ok();
-                self.streaming = true;
+                    }
+                    Err(e) => {
+                        sender.send(MessageEventResult::Error(e.to_string())).ok();
+                    }
+                }
             }
         });
+    }
+
+    fn upsert_message(&mut self, msg: MessageWithParts) {
+        let id = msg.id().to_string();
+        if let Some(existing) = self.messages.iter_mut().find(|m| m.id() == id) {
+            *existing = msg;
+        } else {
+            self.messages.push(msg);
+        }
+    }
+}
+
+fn map_event_to_result(event: &GlobalEvent, session_id: &str) -> Option<MessageEventResult> {
+    match &event.payload {
+        EventPayload::MessageUpdated { props } if props.info.session_id() == session_id => {
+            Some(MessageEventResult::MessageUpdated(MessageWithParts {
+                info: props.info.clone(),
+                parts: Vec::new(),
+            }))
+        }
+        EventPayload::MessagePartUpdated { props } if props.part.session_id() == session_id => {
+            Some(MessageEventResult::MessagePartUpdated {
+                message_id: props.part.message_id().to_string(),
+                part: props.part.clone(),
+                delta: props.delta.clone(),
+            })
+        }
+        EventPayload::MessageRemoved { props } if props.session_id == session_id => {
+            Some(MessageEventResult::MessageRemoved {
+                message_id: props.message_id.clone(),
+            })
+        }
+        EventPayload::SessionIdle { props } if props.session_id == session_id => {
+            Some(MessageEventResult::SessionIdle)
+        }
+        _ => None,
     }
 }

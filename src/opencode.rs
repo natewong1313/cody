@@ -224,6 +224,22 @@ pub enum Message {
     Assistant(AssistantMessage),
 }
 
+impl Message {
+    pub fn id(&self) -> &str {
+        match self {
+            Message::User(u) => &u.id,
+            Message::Assistant(a) => &a.id,
+        }
+    }
+
+    pub fn session_id(&self) -> &str {
+        match self {
+            Message::User(u) => &u.session_id,
+            Message::Assistant(a) => &a.session_id,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UserMessage {
@@ -354,11 +370,39 @@ pub enum Part {
     Tool(ToolPart),
 }
 
+impl Part {
+    pub fn session_id(&self) -> &str {
+        match self {
+            Part::Text(t) => &t.session_id,
+            Part::Reasoning(r) => &r.session_id,
+            Part::Tool(t) => &t.session_id,
+        }
+    }
+
+    pub fn message_id(&self) -> &str {
+        match self {
+            Part::Text(t) => &t.message_id,
+            Part::Reasoning(r) => &r.message_id,
+            Part::Tool(t) => &t.message_id,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MessageWithParts {
     pub info: Message,
     pub parts: Vec<Part>,
+}
+
+impl MessageWithParts {
+    pub fn id(&self) -> &str {
+        self.info.id()
+    }
+
+    pub fn session_id(&self) -> &str {
+        self.info.session_id()
+    }
 }
 
 // Event types

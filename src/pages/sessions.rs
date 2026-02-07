@@ -8,8 +8,8 @@ impl SessionsPage {
     }
 }
 
-impl super::Page for SessionsPage {
-    fn render(&mut self, ui: &mut egui::Ui, ctx: &mut super::PageContext) {
+impl SessionsPage {
+    pub fn render(&mut self, ui: &mut egui::Ui, ctx: &mut super::PageContext) {
         ui.label("Sessions");
         let btn = ui.button("New session");
         if btn.clicked() {

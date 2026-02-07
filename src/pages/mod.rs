@@ -25,10 +25,6 @@ pub struct PageContext<'a> {
     pub current_sessions: &'a HashMap<String, OpencodeSession>,
 }
 
-pub trait Page {
-    fn render(&mut self, ui: &mut egui::Ui, ctx: &mut PageContext);
-}
-
 pub struct PagesRouter {
     current_page: PageType,
     sessions_page: sessions::SessionsPage,
