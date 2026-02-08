@@ -1,4 +1,4 @@
-use crate::opencode::{OpencodeApiClient, OpencodeSession};
+use crate::opencode::{ModelSelection, OpencodeApiClient, OpencodeSession};
 use std::{
     collections::HashMap,
     sync::mpsc::{Receiver, Sender},
@@ -16,7 +16,11 @@ pub enum PageType {
 pub enum PageAction {
     Navigate(PageType),
     CreateSession,
-    SendMessage { session_id: String, message: String },
+    SendMessage {
+        session_id: String,
+        message: String,
+        model: Option<ModelSelection>,
+    },
 }
 
 pub struct PageContext<'a> {

@@ -51,6 +51,29 @@ pub struct ModelSelection {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderModelInfo {
+    pub id: String,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderInfo {
+    pub id: String,
+    pub name: String,
+    pub models: HashMap<String, ProviderModelInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderListResponse {
+    pub all: Vec<ProviderInfo>,
+    pub default: HashMap<String, String>,
+    pub connected: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum PartInput {
     Text {
@@ -548,5 +571,16 @@ impl OpencodeApiClient {
             .json()
             .await?;
         Ok(messages)
+    }
+
+    pub async fn get_providers(&self) -> anyhow::Result<ProviderListResponse> {
+        let response: ProviderListResponse = self
+            .http_client
+            .get(format!("{}/provider", self.server_url))
+            .send()
+            .await?
+            .json()
+            .await?;
+        Ok(response)
     }
 }

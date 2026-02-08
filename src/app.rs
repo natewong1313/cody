@@ -57,12 +57,13 @@ impl App {
             PageAction::SendMessage {
                 session_id,
                 message,
+                model,
             } => {
                 let client = self.api_client.clone();
                 tokio::spawn(async move {
                     let request = SendMessageRequest {
                         message_id: None,
-                        model: None,
+                        model,
                         agent: None,
                         no_reply: None,
                         system: None,
