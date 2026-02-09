@@ -5,6 +5,7 @@ use crate::{
 use egui::{FontData, FontDefinitions, FontFamily, ViewportBuilder};
 use std::sync::Arc;
 
+mod actions;
 mod app;
 mod components;
 mod opencode;

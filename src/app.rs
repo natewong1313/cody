@@ -1,14 +1,13 @@
 use std::{
     collections::HashMap,
-    sync::mpsc::{Receiver, Sender, channel},
+    sync::mpsc::{channel, Receiver, Sender},
 };
 
 use crate::{
-    opencode::{OpencodeApiClient, OpencodeSession, PartInput, SendMessageRequest},
+    actions::{handle_action, ActionContext},
+    opencode::{OpencodeApiClient, OpencodeSession},
     pages::{PageAction, PageContext, PageType, PagesRouter},
 };
-use egui::{Button, TextEdit};
-use egui_flex::{Flex, item};
 use egui_inbox::UiInbox;
 
 pub struct App {
@@ -36,61 +35,6 @@ impl App {
             current_sessions: HashMap::new(),
         }
     }
-
-    fn handle_action(&mut self, action: PageAction) {
-        match action {
-            PageAction::Navigate(page) => self.pages_router.navigate(page),
-            PageAction::CreateSession => {
-                let sender = self.session_inbox.sender();
-                let client = self.api_client.clone();
-                tokio::spawn(async move {
-                    match client.create_session().await {
-                        Ok(session) => {
-                            sender.send(Ok(session)).ok();
-                        }
-                        Err(e) => {
-                            sender.send(Err(e.to_string())).ok();
-                        }
-                    }
-                });
-            }
-            PageAction::SendMessage {
-                session_id,
-                message,
-                model,
-            } => {
-                let client = self.api_client.clone();
-                tokio::spawn(async move {
-                    let request = SendMessageRequest {
-                        message_id: None,
-                        model,
-                        agent: None,
-                        no_reply: None,
-                        system: None,
-                        tools: None,
-                        parts: vec![PartInput::Text {
-                            id: None,
-                            text: message,
-                            synthetic: None,
-                            ignored: None,
-                        }],
-                    };
-                    match client.send_message(&session_id, request).await {
-                        Ok(_) => {
-                            log::info!("Message sent to session {}", session_id);
-                        }
-                        Err(e) => {
-                            log::error!(
-                                "Failed to send message to session {}: {}",
-                                session_id,
-                                e
-                            );
-                        }
-                    }
-                });
-            }
-        }
-    }
 }
 
 impl eframe::App for App {
@@ -111,7 +55,12 @@ impl eframe::App for App {
         }
 
         while let Ok(action) = self.action_reciever.try_recv() {
-            self.handle_action(action);
+            let mut action_ctx = ActionContext {
+                pages_router: &mut self.pages_router,
+                api_client: &self.api_client,
+                session_inbox: &self.session_inbox,
+            };
+            handle_action(&mut action_ctx, action);
         }
 
         let mut page_ctx = PageContext {
