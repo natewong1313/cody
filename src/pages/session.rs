@@ -85,8 +85,8 @@ impl SessionPage {
         egui::TopBottomPanel::bottom("prompt_panel")
             .frame(egui::Frame::new().fill(egui::Color32::from_rgb(0, 0, 0)))
             .show_separator_line(false)
+            .resizable(false)
             .show(ctx, |ui| {
-                ui.set_min_height(100.0);
                 self.render_prompt_input(ui, page_ctx);
             });
     }
@@ -108,11 +108,9 @@ impl SessionPage {
             .fill(BG_900)
             .stroke(egui::Stroke::new(1.0, Color32::from_rgb(38, 38, 38)))
             .show(ui, |ui| {
-                ui.set_min_height(82.0);
                 Flex::vertical()
                     .w_full()
-                    .h_full()
-                    .gap(vec2(0.0, 4.0))
+                    .gap(vec2(0.0, 16.0))
                     .show(ui, |flex| {
                         self.render_inner_textedit(flex);
                         self.render_action_bar(flex, page_ctx);
@@ -121,12 +119,14 @@ impl SessionPage {
     }
 
     fn render_inner_textedit(&mut self, flex: &mut egui_flex::FlexInstance) {
-        // Text edit grows to fill available space, pushing action bar to bottom
+        let line_count = (self.prompt_input.matches('\n').count() + 1).max(1);
+
         flex.add(
-            item().grow(1.0).align_self_content(Align2::LEFT_TOP),
+            item().align_self_content(Align2::LEFT_TOP),
             TextEdit::multiline(&mut self.prompt_input)
+                .hint_text("Type anything")
                 .frame(false)
-                .desired_rows(1),
+                .desired_rows(line_count),
         );
     }
 
