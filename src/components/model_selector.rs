@@ -1,8 +1,9 @@
 use crate::theme::{BG_50, BG_500, BG_700, BG_800, BG_900, FUCHSIA_500, RADIUS_MD};
 use egui::{
-    Align, Color32, FontSelection, Frame, InnerResponse, Key, Popup, PopupCloseBehavior, RectAlign,
-    Response, RichText, ScrollArea, Style, TextEdit, text::LayoutJob, vec2,
+    Align, Button, Color32, FontSelection, Frame, InnerResponse, Key, Popup, PopupCloseBehavior,
+    RectAlign, Response, RichText, ScrollArea, Style, TextEdit, text::LayoutJob, vec2,
 };
+use egui_flex::{FlexInstance, item};
 
 #[derive(Debug, Clone)]
 pub struct ModelOption {
@@ -24,42 +25,6 @@ pub struct ModelSelectorState {
 
     popup_was_open: bool,
     scroll_to_focused: bool,
-}
-
-/// Handles formatting the model label so the model name is a diff color than the provider
-/// and adds a newline split
-/// TODO: probably dont need this as a shared function
-pub fn model_label(model: Option<&ModelOption>, color_overide: Option<Color32>) -> LayoutJob {
-    let mut layout_job = LayoutJob::default();
-    let style = Style::default();
-
-    let model_color = if let Some(color) = color_overide {
-        color
-    } else {
-        BG_50
-    };
-    let provider_color = if let Some(color) = color_overide {
-        color
-    } else {
-        BG_500
-    };
-
-    match model {
-        Some(selected_model) => {
-            RichText::new(format!("{}\n", selected_model.model_name))
-                .color(model_color)
-                .append_to(&mut layout_job, &style, FontSelection::Default, Align::LEFT);
-            RichText::new(&selected_model.provider_name)
-                .color(provider_color)
-                .append_to(&mut layout_job, &style, FontSelection::Default, Align::LEFT);
-        }
-        None => {
-            RichText::new("Select a model".to_string())
-                .color(BG_500)
-                .append_to(&mut layout_job, &style, FontSelection::Default, Align::LEFT);
-        }
-    }
-    layout_job
 }
 
 impl ModelSelectorState {
@@ -236,7 +201,7 @@ impl<'a> ModelSelector<'a> {
                         let response = self.render_model_item(ui, model, is_focused, is_selected);
 
                         if is_focused && self.state.scroll_to_focused {
-                            response.scroll_to_me(None);
+                            response.scroll_to_me(Some(egui::Align::Center));
                         }
 
                         if response.clicked() {
@@ -255,39 +220,40 @@ impl<'a> ModelSelector<'a> {
         is_focused: bool,
         is_selected: bool,
     ) -> Response {
-        ui.scope(|ui| {
-            let color_overide = if is_selected {
-                Some(Color32::WHITE)
-            } else {
-                None
-            };
-            let layout_job = model_label(Some(model), color_overide);
+        let mut layout_job = LayoutJob::default();
+        let style = Style::default();
+        RichText::new(format!("{}\n", model.model_name))
+            .color(BG_50)
+            .append_to(&mut layout_job, &style, FontSelection::Default, Align::LEFT);
+        RichText::new(&model.provider_name).color(BG_500).append_to(
+            &mut layout_job,
+            &style,
+            FontSelection::Default,
+            Align::LEFT,
+        );
 
-            let styles = ui.style_mut();
-            // Use pink background when selected
-            styles.visuals.widgets.inactive.weak_bg_fill = if is_selected {
-                FUCHSIA_500
-            } else if is_focused {
-                BG_700
-            } else {
-                BG_900
-            };
-            styles.visuals.widgets.hovered.weak_bg_fill =
-                if is_selected { FUCHSIA_500 } else { BG_700 };
-            styles.visuals.widgets.active.weak_bg_fill =
-                if is_selected { FUCHSIA_500 } else { BG_800 };
-            styles.visuals.selection.bg_fill = if is_selected { FUCHSIA_500 } else { BG_800 };
-            styles.spacing.button_padding = vec2(8.0, 4.0);
+        let styles = ui.style_mut();
+        // Use pink background when selected
+        styles.visuals.widgets.inactive.weak_bg_fill = if is_selected {
+            FUCHSIA_500
+        } else if is_focused {
+            BG_700
+        } else {
+            BG_900
+        };
+        styles.visuals.widgets.hovered.weak_bg_fill =
+            if is_selected { FUCHSIA_500 } else { BG_700 };
+        styles.visuals.widgets.active.weak_bg_fill = if is_selected { FUCHSIA_500 } else { BG_800 };
+        styles.visuals.selection.bg_fill = if is_selected { FUCHSIA_500 } else { BG_800 };
+        styles.spacing.button_padding = vec2(8.0, 4.0);
 
-            ui.add_sized(
-                [ui.available_width(), 0.0],
-                egui::Button::new(layout_job)
-                    .corner_radius(RADIUS_MD)
-                    .right_text("")
-                    .selected(is_selected),
-            )
-        })
-        .inner
+        ui.add_sized(
+            [ui.available_width(), 0.0],
+            egui::Button::new(layout_job)
+                .corner_radius(RADIUS_MD)
+                .right_text("")
+                .selected(is_selected),
+        )
     }
 
     /// Handles arrow navigation within the model selector

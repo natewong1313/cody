@@ -1,11 +1,13 @@
 use super::PageAction;
 use crate::{
-    components::model_selector::{ModelOption, ModelSelector, ModelSelectorState, model_label},
+    components::model_selector::{ModelOption, ModelSelector, ModelSelectorState},
     opencode::{EventPayload, GlobalEvent, MessageWithParts, ModelSelection, Part},
-    theme::{BG_700, BG_800, BG_900, FUCHSIA_500, RADIUS_MD, STROKE_WIDTH},
+    theme::{BG_500, BG_700, BG_800, BG_900, FUCHSIA_500, RADIUS_MD, STROKE_WIDTH},
 };
-use egui::{Align2, Button, Color32, Frame, RichText, Stroke, TextEdit, vec2};
-use egui_flex::{Flex, item};
+use egui::{
+    Align2, Button, Color32, Frame, Id, Response, RichText, Stroke, TextEdit, TextStyle, vec2,
+};
+use egui_flex::{Flex, FlexInstance, item};
 use egui_inbox::UiInbox;
 use futures::StreamExt;
 use std::collections::HashMap;
@@ -46,6 +48,8 @@ pub struct SessionPage {
     // Model selector
     model_inbox: UiInbox<ModelEventResult>,
     model_selector_state: ModelSelectorState,
+    // Animation for smooth height changes
+    animated_line_count: f32,
 }
 
 impl SessionPage {
@@ -60,6 +64,7 @@ impl SessionPage {
             streaming_text: HashMap::new(),
             model_inbox: UiInbox::new(),
             model_selector_state: ModelSelectorState::new(),
+            animated_line_count: 1.0,
         }
     }
 
@@ -81,6 +86,7 @@ impl SessionPage {
             .frame(egui::Frame::new().fill(egui::Color32::from_rgb(0, 0, 0)))
             .show_separator_line(false)
             .show(ctx, |ui| {
+                ui.set_min_height(100.0);
                 self.render_prompt_input(ui, page_ctx);
             });
     }
@@ -102,7 +108,7 @@ impl SessionPage {
             .fill(BG_900)
             .stroke(egui::Stroke::new(1.0, Color32::from_rgb(38, 38, 38)))
             .show(ui, |ui| {
-                ui.set_height(82.0);
+                ui.set_min_height(82.0);
                 Flex::vertical()
                     .w_full()
                     .h_full()
@@ -136,29 +142,9 @@ impl SessionPage {
                 .justify(egui_flex::FlexJustify::SpaceBetween)
                 .align_items(egui_flex::FlexAlign::Center),
             |flex| {
-                {
-                    let styles = flex.style_mut();
-                    styles.spacing.button_padding = vec2(8.0, 4.0);
+                let model_btn_response = self.render_model_selector_btn(flex);
+                ModelSelector::new(&mut self.model_selector_state).show(&model_btn_response);
 
-                    let model_btn_response = flex.add(
-                        item(),
-                        Button::new(model_label(
-                            self.model_selector_state.selected_model(),
-                            None,
-                        ))
-                        .corner_radius(RADIUS_MD)
-                        .fill(BG_800)
-                        .min_size(vec2(80.0, 36.0)),
-                    );
-
-                    ModelSelector::new(&mut self.model_selector_state).show(&model_btn_response);
-                }
-                // if self.streaming {
-                //     flex.add(
-                //         item(),
-                //         egui::Label::new(egui::RichText::new("Thinking...").color(Color32::YELLOW)),
-                //     );
-                // }
                 let btn = flex.add(
                     item(),
                     Button::new(egui::RichText::new("Send").color(Color32::WHITE))
@@ -171,6 +157,25 @@ impl SessionPage {
                 }
             },
         );
+    }
+
+    fn render_model_selector_btn(&mut self, flex: &mut FlexInstance) -> Response {
+        let btn_text = if let Some(model) = self.model_selector_state.selected_model() {
+            egui::RichText::new(format!("{} ({})", model.model_name, model.provider_name))
+                .color(Color32::WHITE)
+        } else {
+            egui::RichText::new("Select a model").color(BG_500)
+        };
+        let styles = flex.style_mut();
+        styles.spacing.button_padding = vec2(8.0, 4.0);
+
+        flex.add(
+            item().content_id(Id::new("model_selector_btn")),
+            Button::new(btn_text)
+                .corner_radius(RADIUS_MD)
+                .fill(BG_800)
+                .min_size(vec2(80.0, 36.0)),
+        )
     }
 
     /// On first page load, fetch messages and avail models
