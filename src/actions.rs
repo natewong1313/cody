@@ -1,5 +1,5 @@
 use crate::{
-    opencode::{OpencodeApiClient, OpencodeSession, PartInput, SendMessageRequest},
+    opencode::{OpencodeApiClient, OpencodeSession, OpencodePartInput, OpencodeSendMessageRequest},
     pages::{PageAction, PageType, PagesRouter},
 };
 use egui_inbox::UiInbox;
@@ -33,7 +33,7 @@ fn handle_create_session(
     let sender = session_inbox.sender();
     let client = api_client.clone();
     tokio::spawn(async move {
-        match client.create_session().await {
+        match client.create_session(None, None).await {
             Ok(session) => {
                 sender.send(Ok(session)).ok();
             }
@@ -52,21 +52,21 @@ fn handle_send_message(
 ) {
     let client = api_client.clone();
     tokio::spawn(async move {
-        let request = SendMessageRequest {
+        let request = OpencodeSendMessageRequest {
             message_id: None,
             model,
             agent: None,
             no_reply: None,
             system: None,
             tools: None,
-            parts: vec![PartInput::Text {
+            parts: vec![OpencodePartInput::Text {
                 id: None,
                 text: message,
                 synthetic: None,
                 ignored: None,
             }],
         };
-        match client.send_message(&session_id, request).await {
+        match client.send_message(&session_id, &request, None).await {
             Ok(_) => {
                 log::info!("Message sent to session {}", session_id);
             }

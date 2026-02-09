@@ -52,30 +52,30 @@ pub struct ModelSelection {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ProviderModelInfo {
+pub struct OpencodeProviderModelInfo {
     pub id: String,
     pub name: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ProviderInfo {
+pub struct OpencodeProviderInfo {
     pub id: String,
     pub name: String,
-    pub models: HashMap<String, ProviderModelInfo>,
+    pub models: HashMap<String, OpencodeProviderModelInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ProviderListResponse {
-    pub all: Vec<ProviderInfo>,
+pub struct OpencodeProviderListResponse {
+    pub all: Vec<OpencodeProviderInfo>,
     pub default: HashMap<String, String>,
     pub connected: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "type")]
-pub enum PartInput {
+pub enum OpencodePartInput {
     Text {
         #[serde(skip_serializing_if = "Option::is_none")]
         id: Option<String>,
@@ -85,7 +85,7 @@ pub enum PartInput {
         #[serde(skip_serializing_if = "Option::is_none")]
         ignored: Option<bool>,
     },
-    File {
+    OpencodeFile {
         #[serde(skip_serializing_if = "Option::is_none")]
         id: Option<String>,
         mime: String,
@@ -98,7 +98,7 @@ pub enum PartInput {
         id: Option<String>,
         name: String,
         #[serde(skip_serializing_if = "Option::is_none")]
-        source: Option<SourceRange>,
+        source: Option<OpencodeSourceRange>,
     },
     Subtask {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -110,7 +110,7 @@ pub enum PartInput {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SourceRange {
+pub struct OpencodeSourceRange {
     pub value: String,
     pub start: i32,
     pub end: i32,
@@ -118,7 +118,7 @@ pub struct SourceRange {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SendMessageRequest {
+pub struct OpencodeSendMessageRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -131,10 +131,21 @@ pub struct SendMessageRequest {
     pub system: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tools: Option<HashMap<String, bool>>,
-    pub parts: Vec<PartInput>,
+    pub parts: Vec<OpencodePartInput>,
 }
 
-// Message types from types.ts
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpencodeCreateSessionRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permission: Option<serde_json::Value>,
+}
+
+// OpencodeMessage types from types.ts
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MessageTime {
@@ -240,25 +251,25 @@ pub struct ApiErrorData {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "role")]
-pub enum Message {
+pub enum OpencodeMessage {
     #[serde(rename = "user")]
     User(UserMessage),
     #[serde(rename = "assistant")]
     Assistant(AssistantMessage),
 }
 
-impl Message {
+impl OpencodeMessage {
     pub fn id(&self) -> &str {
         match self {
-            Message::User(u) => &u.id,
-            Message::Assistant(a) => &a.id,
+            OpencodeMessage::User(u) => &u.id,
+            OpencodeMessage::Assistant(a) => &a.id,
         }
     }
 
     pub fn session_id(&self) -> &str {
         match self {
-            Message::User(u) => &u.session_id,
-            Message::Assistant(a) => &a.session_id,
+            OpencodeMessage::User(u) => &u.session_id,
+            OpencodeMessage::Assistant(a) => &a.session_id,
         }
     }
 }
@@ -284,7 +295,7 @@ pub struct AssistantMessage {
     pub session_id: String,
     pub role: String,
     pub time: MessageTimeCompleted,
-    pub error: Option<MessageError>,
+    pub error: Option<OpencodeMessageError>,
     pub parent_id: String,
     pub model_id: String,
     pub provider_id: String,
@@ -297,7 +308,7 @@ pub struct AssistantMessage {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", untagged)]
-pub enum MessageError {
+pub enum OpencodeMessageError {
     ProviderAuth(ProviderAuthError),
     Unknown(UnknownError),
     Api(ApiError),
@@ -305,7 +316,7 @@ pub enum MessageError {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct TextPart {
+pub struct OpencodeTextPart {
     pub id: String,
     pub session_id: String,
     pub message_id: String,
@@ -318,7 +329,7 @@ pub struct TextPart {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ReasoningPart {
+pub struct OpencodeReasoningPart {
     pub id: String,
     pub session_id: String,
     pub message_id: String,
@@ -329,7 +340,7 @@ pub struct ReasoningPart {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ToolStateCompleted {
+pub struct OpencodeToolStateCompleted {
     pub status: String,
     pub input: serde_json::Value,
     pub output: String,
@@ -338,7 +349,7 @@ pub struct ToolStateCompleted {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ToolPart {
+pub struct OpencodeToolPart {
     pub id: String,
     pub session_id: String,
     pub message_id: String,
@@ -346,21 +357,21 @@ pub struct ToolPart {
     pub part_type: String,
     pub call_id: String,
     pub tool: String,
-    pub state: ToolState,
+    pub state: OpencodeToolState,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", untagged)]
-pub enum ToolState {
-    Pending(ToolStatePending),
-    Running(ToolStateRunning),
-    Completed(ToolStateCompleted),
-    Error(ToolStateError),
+pub enum OpencodeToolState {
+    Pending(OpencodeToolStatePending),
+    Running(OpencodeToolStateRunning),
+    Completed(OpencodeToolStateCompleted),
+    Error(OpencodeToolStateError),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ToolStatePending {
+pub struct OpencodeToolStatePending {
     pub status: String,
     pub input: serde_json::Value,
     pub raw: String,
@@ -368,7 +379,7 @@ pub struct ToolStatePending {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ToolStateRunning {
+pub struct OpencodeToolStateRunning {
     pub status: String,
     pub input: serde_json::Value,
     pub title: Option<String>,
@@ -376,7 +387,7 @@ pub struct ToolStateRunning {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ToolStateError {
+pub struct OpencodeToolStateError {
     pub status: String,
     pub input: serde_json::Value,
     pub error: String,
@@ -384,41 +395,41 @@ pub struct ToolStateError {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "type")]
-pub enum Part {
+pub enum OpencodePart {
     #[serde(rename = "text")]
-    Text(TextPart),
+    Text(OpencodeTextPart),
     #[serde(rename = "reasoning")]
-    Reasoning(ReasoningPart),
+    Reasoning(OpencodeReasoningPart),
     #[serde(rename = "tool")]
-    Tool(ToolPart),
+    Tool(OpencodeToolPart),
 }
 
-impl Part {
+impl OpencodePart {
     pub fn session_id(&self) -> &str {
         match self {
-            Part::Text(t) => &t.session_id,
-            Part::Reasoning(r) => &r.session_id,
-            Part::Tool(t) => &t.session_id,
+            OpencodePart::Text(t) => &t.session_id,
+            OpencodePart::Reasoning(r) => &r.session_id,
+            OpencodePart::Tool(t) => &t.session_id,
         }
     }
 
     pub fn message_id(&self) -> &str {
         match self {
-            Part::Text(t) => &t.message_id,
-            Part::Reasoning(r) => &r.message_id,
-            Part::Tool(t) => &t.message_id,
+            OpencodePart::Text(t) => &t.message_id,
+            OpencodePart::Reasoning(r) => &r.message_id,
+            OpencodePart::Tool(t) => &t.message_id,
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct MessageWithParts {
-    pub info: Message,
-    pub parts: Vec<Part>,
+pub struct OpencodeMessageWithParts {
+    pub info: OpencodeMessage,
+    pub parts: Vec<OpencodePart>,
 }
 
-impl MessageWithParts {
+impl OpencodeMessageWithParts {
     pub fn id(&self) -> &str {
         self.info.id()
     }
@@ -431,59 +442,59 @@ impl MessageWithParts {
 // Event types
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GlobalEvent {
+pub struct OpencodeGlobalEvent {
     pub directory: String,
-    pub payload: EventPayload,
+    pub payload: OpencodeEventPayload,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "type")]
-pub enum EventPayload {
+pub enum OpencodeEventPayload {
     #[serde(rename = "message.updated")]
     MessageUpdated {
         #[serde(rename = "properties")]
-        props: MessageUpdatedProps,
+        props: OpencodeMessageUpdatedProps,
     },
     #[serde(rename = "message.part.updated")]
     MessagePartUpdated {
         #[serde(rename = "properties")]
-        props: MessagePartUpdatedProps,
+        props: OpencodeMessagePartUpdatedProps,
     },
     #[serde(rename = "message.removed")]
     MessageRemoved {
         #[serde(rename = "properties")]
-        props: MessageRemovedProps,
+        props: OpencodeMessageRemovedProps,
     },
     #[serde(rename = "session.idle")]
     SessionIdle {
         #[serde(rename = "properties")]
-        props: SessionIdleProps,
+        props: OpencodeSessionIdleProps,
     },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct MessageUpdatedProps {
-    pub info: Message,
+pub struct OpencodeMessageUpdatedProps {
+    pub info: OpencodeMessage,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct MessagePartUpdatedProps {
-    pub part: Part,
+pub struct OpencodeMessagePartUpdatedProps {
+    pub part: OpencodePart,
     pub delta: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct MessageRemovedProps {
+pub struct OpencodeMessageRemovedProps {
     pub session_id: String,
     pub message_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SessionIdleProps {
+pub struct OpencodeSessionIdleProps {
     pub session_id: String,
 }
 
@@ -506,15 +517,21 @@ impl OpencodeApiClient {
         Ok(sessions)
     }
 
-    pub async fn create_session(&self) -> anyhow::Result<OpencodeSession> {
-        let session: OpencodeSession = self
-            .http_client
-            .post(format!("{}/session", self.server_url))
-            .json(&serde_json::json!({}))
-            .send()
-            .await?
-            .json()
-            .await?;
+    pub async fn create_session(
+        &self,
+        request: Option<&OpencodeCreateSessionRequest>,
+        directory: Option<&str>,
+    ) -> anyhow::Result<OpencodeSession> {
+        let mut req = self.http_client.post(format!("{}/session", self.server_url));
+        
+        if let Some(dir) = directory {
+            req = req.query(&[("directory", dir)]);
+        }
+        if let Some(body) = request {
+            req = req.json(body);
+        }
+        
+        let session: OpencodeSession = req.send().await?.json().await?;
         Ok(session)
     }
 
@@ -543,44 +560,45 @@ impl OpencodeApiClient {
     pub async fn send_message(
         &self,
         session_id: &str,
-        request: SendMessageRequest,
-    ) -> Result<(), reqwest::Error> {
-        let _json_body = serde_json::to_string_pretty(&request)
-            .unwrap_or_else(|_| "Failed to serialize".to_string());
-
-        self.http_client
-            .post(format!(
-                "{}/session/{}/message",
-                self.server_url, session_id
-            ))
-            .json(&request)
-            .send()
-            .await?;
-        Ok(())
+        request: &OpencodeSendMessageRequest,
+        directory: Option<&str>,
+    ) -> anyhow::Result<OpencodeMessageWithParts> {
+        let mut req = self
+            .http_client
+            .post(format!("{}/session/{}/message", self.server_url, session_id))
+            .json(request);
+        if let Some(dir) = directory {
+            req = req.query(&[("directory", dir)]);
+        }
+        let response: OpencodeMessageWithParts = req.send().await?.json().await?;
+        Ok(response)
     }
 
     pub async fn get_session_messages(
         &self,
         session_id: &str,
-    ) -> anyhow::Result<Vec<MessageWithParts>> {
-        let messages: Vec<MessageWithParts> = self
+        limit: Option<i32>,
+        directory: Option<&str>,
+    ) -> anyhow::Result<Vec<OpencodeMessageWithParts>> {
+        let mut request = self
             .http_client
-            .get(format!("{}/session/{}/message", self.server_url, session_id))
-            .send()
-            .await?
-            .json()
-            .await?;
+            .get(format!("{}/session/{}/message", self.server_url, session_id));
+        if let Some(l) = limit {
+            request = request.query(&[("limit", l.to_string())]);
+        }
+        if let Some(dir) = directory {
+            request = request.query(&[("directory", dir)]);
+        }
+        let messages: Vec<OpencodeMessageWithParts> = request.send().await?.json().await?;
         Ok(messages)
     }
 
-    pub async fn get_providers(&self) -> anyhow::Result<ProviderListResponse> {
-        let response: ProviderListResponse = self
-            .http_client
-            .get(format!("{}/provider", self.server_url))
-            .send()
-            .await?
-            .json()
-            .await?;
+    pub async fn get_providers(&self, directory: Option<&str>) -> anyhow::Result<OpencodeProviderListResponse> {
+        let mut request = self.http_client.get(format!("{}/provider", self.server_url));
+        if let Some(dir) = directory {
+            request = request.query(&[("directory", dir)]);
+        }
+        let response: OpencodeProviderListResponse = request.send().await?.json().await?;
         Ok(response)
     }
 }

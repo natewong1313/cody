@@ -1,7 +1,7 @@
 use super::PageAction;
 use crate::{
     components::model_selector::{ModelOption, ModelSelector, ModelSelectorState},
-    opencode::{EventPayload, GlobalEvent, MessageWithParts, ModelSelection, Part},
+    opencode::{OpencodeEventPayload, OpencodeGlobalEvent, OpencodeMessageWithParts, ModelSelection, OpencodePart},
     theme::{BG_500, BG_700, BG_800, BG_900, FUCHSIA_500, RADIUS_MD, STROKE_WIDTH},
 };
 use egui::{
@@ -23,11 +23,11 @@ pub enum ModelEventResult {
 
 #[derive(Debug, Clone)]
 pub enum MessageEventResult {
-    MessagesLoaded(Vec<MessageWithParts>),
-    MessageUpdated(MessageWithParts),
+    MessagesLoaded(Vec<OpencodeMessageWithParts>),
+    MessageUpdated(OpencodeMessageWithParts),
     MessagePartUpdated {
         message_id: String,
-        part: Part,
+        part: OpencodePart,
         delta: Option<String>,
     },
     MessageRemoved {
@@ -41,7 +41,7 @@ pub struct SessionPage {
     session_id: String,
     prompt_input: String,
     message_event_inbox: UiInbox<MessageEventResult>,
-    messages: Vec<MessageWithParts>,
+    messages: Vec<OpencodeMessageWithParts>,
     streaming: bool,
     first_render_occured: bool,
     streaming_text: HashMap<String, String>,
@@ -95,7 +95,7 @@ impl SessionPage {
         // TODO: Render messages here
     }
 
-    fn render_prompt_input(&mut self, ui: &mut egui::Ui, page_ctx: &mut super::PageContext) {
+    pub fn render_prompt_input(&mut self, ui: &mut egui::Ui, page_ctx: &mut super::PageContext) {
         Frame::new()
             .inner_margin(8.0)
             .outer_margin(egui::Margin {
@@ -267,10 +267,13 @@ impl SessionPage {
         let session_id = self.session_id.clone();
 
         tokio::spawn(async move {
-            let result = client.get_session_messages(&session_id).await.map_or_else(
-                |err| MessageEventResult::Error(err.to_string()),
-                MessageEventResult::MessagesLoaded,
-            );
+            let result = client
+                .get_session_messages(&session_id, None, None)
+                .await
+                .map_or_else(
+                    |err| MessageEventResult::Error(err.to_string()),
+                    MessageEventResult::MessagesLoaded,
+                );
             sender.send(result).unwrap();
         });
     }
@@ -280,7 +283,7 @@ impl SessionPage {
         let client = ctx.api_client.clone();
 
         tokio::spawn(async move {
-            match client.get_providers().await {
+            match client.get_providers(None).await {
                 Ok(provider_response) => {
                     let connected: std::collections::HashSet<&str> = provider_response
                         .connected
@@ -354,7 +357,7 @@ impl SessionPage {
             while let Some(event_result) = stream.next().await {
                 match event_result {
                     Ok(event) => {
-                        if let Ok(global_event) = serde_json::from_str::<GlobalEvent>(&event.data) {
+                        if let Ok(global_event) = serde_json::from_str::<OpencodeGlobalEvent>(&event.data) {
                             if let Some(result) = map_event_to_result(&global_event, &session_id) {
                                 sender.send(result).ok();
                             }
@@ -368,7 +371,7 @@ impl SessionPage {
         });
     }
 
-    fn upsert_message(&mut self, msg: MessageWithParts) {
+    fn upsert_message(&mut self, msg: OpencodeMessageWithParts) {
         let id = msg.id().to_string();
         if let Some(existing) = self.messages.iter_mut().find(|m| m.id() == id) {
             *existing = msg;
@@ -378,27 +381,31 @@ impl SessionPage {
     }
 }
 
-fn map_event_to_result(event: &GlobalEvent, session_id: &str) -> Option<MessageEventResult> {
+fn map_event_to_result(event: &OpencodeGlobalEvent, session_id: &str) -> Option<MessageEventResult> {
     match &event.payload {
-        EventPayload::MessageUpdated { props } if props.info.session_id() == session_id => {
-            Some(MessageEventResult::MessageUpdated(MessageWithParts {
+        OpencodeEventPayload::MessageUpdated { props }
+            if props.info.session_id() == session_id =>
+        {
+            Some(MessageEventResult::MessageUpdated(OpencodeMessageWithParts {
                 info: props.info.clone(),
                 parts: Vec::new(),
             }))
         }
-        EventPayload::MessagePartUpdated { props } if props.part.session_id() == session_id => {
+        OpencodeEventPayload::MessagePartUpdated { props }
+            if props.part.session_id() == session_id =>
+        {
             Some(MessageEventResult::MessagePartUpdated {
                 message_id: props.part.message_id().to_string(),
                 part: props.part.clone(),
                 delta: props.delta.clone(),
             })
         }
-        EventPayload::MessageRemoved { props } if props.session_id == session_id => {
+        OpencodeEventPayload::MessageRemoved { props } if props.session_id == session_id => {
             Some(MessageEventResult::MessageRemoved {
                 message_id: props.message_id.clone(),
             })
         }
-        EventPayload::SessionIdle { props } if props.session_id == session_id => {
+        OpencodeEventPayload::SessionIdle { props } if props.session_id == session_id => {
             Some(MessageEventResult::SessionIdle)
         }
         _ => None,
