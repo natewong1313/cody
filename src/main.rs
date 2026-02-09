@@ -1,24 +1,40 @@
 use crate::{
     app::App,
+    backend::{HelloServer, World},
     opencode::{OpencodeApiClient, OpencodeProcess},
 };
 use egui::{FontData, FontDefinitions, FontFamily, ViewportBuilder};
+use futures::StreamExt;
 use std::sync::Arc;
+use tarpc::server::{self, Channel};
 
 mod actions;
 mod app;
+mod backend;
 mod components;
 mod opencode;
 mod pages;
 mod theme;
+mod ui_tests;
 
 const PORT: u32 = 6767;
 
 #[tokio::main]
 async fn main() -> eframe::Result {
     env_logger::init();
-
     dioxus_devtools::connect_subsecond();
+
+    let (client_transport, server_transport) = tarpc::transport::channel::unbounded();
+
+    let server = server::BaseChannel::with_defaults(server_transport);
+    tokio::spawn(
+        server
+            .execute(HelloServer.serve())
+            // Handle all requests concurrently.
+            .for_each(|response| async move {
+                tokio::spawn(response);
+            }),
+    );
 
     let process = OpencodeProcess::start(PORT).expect("Failed to start opencode server");
     let api_client = OpencodeApiClient::new(PORT);
