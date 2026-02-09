@@ -44,12 +44,12 @@ impl PagesRouter {
         }
     }
 
-    pub fn mount(&mut self, ui: &mut egui::Ui, ctx: &mut PageContext) {
+    pub fn mount(&mut self, ctx: &egui::Context, page_ctx: &mut PageContext) {
         match &self.current_page {
-            PageType::Sessions => self.sessions_page.render(ui, ctx),
+            PageType::Sessions => self.sessions_page.render(ctx, page_ctx),
             PageType::Session(session_id) => self
                 .get_session_page(session_id.to_string())
-                .render(ui, ctx),
+                .render(ctx, page_ctx),
         }
     }
 

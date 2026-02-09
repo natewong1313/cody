@@ -1,18 +1,14 @@
 use super::PageAction;
-use crate::opencode::{EventPayload, GlobalEvent, MessageWithParts, ModelSelection, Part};
-use egui::{Align2, Button, Color32, Frame, TextEdit, vec2};
-use egui_dropdown::DropDownBox;
+use crate::{
+    components::model_selector::{ModelOption, ModelSelector, ModelSelectorState, model_label},
+    opencode::{EventPayload, GlobalEvent, MessageWithParts, ModelSelection, Part},
+    theme::{BG_700, BG_800, BG_900, FUCHSIA_500, RADIUS_MD, STROKE_WIDTH},
+};
+use egui::{Align2, Button, Color32, Frame, RichText, Stroke, TextEdit, vec2};
 use egui_flex::{Flex, item};
 use egui_inbox::UiInbox;
 use futures::StreamExt;
 use std::collections::HashMap;
-
-#[derive(Debug, Clone)]
-pub struct ModelOption {
-    pub provider_id: String,
-    pub model_id: String,
-    pub label: String,
-}
 
 #[derive(Debug, Clone)]
 pub enum ModelEventResult {
@@ -47,11 +43,9 @@ pub struct SessionPage {
     streaming: bool,
     first_render_occured: bool,
     streaming_text: HashMap<String, String>,
-    // Model selector state
+    // Model selector
     model_inbox: UiInbox<ModelEventResult>,
-    available_models: Vec<ModelOption>,
-    selected_model_index: Option<usize>,
-    model_search_buf: String,
+    model_selector_state: ModelSelectorState,
 }
 
 impl SessionPage {
@@ -65,34 +59,122 @@ impl SessionPage {
             first_render_occured: false,
             streaming_text: HashMap::new(),
             model_inbox: UiInbox::new(),
-            available_models: Vec::new(),
-            selected_model_index: None,
-            model_search_buf: String::new(),
+            model_selector_state: ModelSelectorState::new(),
         }
     }
 
-    pub fn render(&mut self, ui: &mut egui::Ui, ctx: &mut super::PageContext) {
+    pub fn render(&mut self, ctx: &egui::Context, page_ctx: &mut super::PageContext) {
         if !self.first_render_occured {
-            self.on_first_render(ctx);
+            self.on_first_render(page_ctx);
         }
-        self.process_events(ui);
+        self.process_events(ctx);
+
+        // Central panel for messages
+        egui::CentralPanel::default()
+            .frame(egui::Frame::central_panel(&ctx.style()).fill(egui::Color32::from_rgb(0, 0, 0)))
+            .show(ctx, |ui| {
+                self.render_messages(ui);
+            });
+
+        // Bottom panel for prompt input
+        egui::TopBottomPanel::bottom("prompt_panel")
+            .frame(egui::Frame::new().fill(egui::Color32::from_rgb(0, 0, 0)))
+            .show_separator_line(false)
+            .show(ctx, |ui| {
+                self.render_prompt_input(ui, page_ctx);
+            });
+    }
+
+    fn render_messages(&mut self, ui: &mut egui::Ui) {
+        // TODO: Render messages here
+    }
+
+    fn render_prompt_input(&mut self, ui: &mut egui::Ui, page_ctx: &mut super::PageContext) {
         Frame::new()
             .inner_margin(8.0)
+            .outer_margin(egui::Margin {
+                left: 12,
+                right: 12,
+                top: 0,
+                bottom: 12,
+            })
             .corner_radius(10.0)
-            .fill(Color32::from_rgb(23, 23, 23))
+            .fill(BG_900)
             .stroke(egui::Stroke::new(1.0, Color32::from_rgb(38, 38, 38)))
             .show(ui, |ui| {
+                ui.set_height(82.0);
                 Flex::vertical()
                     .w_full()
                     .h_full()
                     .gap(vec2(0.0, 4.0))
                     .show(ui, |flex| {
-                        self.render_textedit(flex);
-                        self.render_action_bar(flex, ctx);
+                        self.render_inner_textedit(flex);
+                        self.render_action_bar(flex, page_ctx);
                     })
             });
     }
 
+    fn render_inner_textedit(&mut self, flex: &mut egui_flex::FlexInstance) {
+        // Text edit grows to fill available space, pushing action bar to bottom
+        flex.add(
+            item().grow(1.0).align_self_content(Align2::LEFT_TOP),
+            TextEdit::multiline(&mut self.prompt_input)
+                .frame(false)
+                .desired_rows(1),
+        );
+    }
+
+    fn render_action_bar(
+        &mut self,
+        flex: &mut egui_flex::FlexInstance,
+        ctx: &mut super::PageContext,
+    ) {
+        flex.add_flex(
+            item(),
+            Flex::horizontal()
+                .w_full()
+                .justify(egui_flex::FlexJustify::SpaceBetween)
+                .align_items(egui_flex::FlexAlign::Center),
+            |flex| {
+                {
+                    let styles = flex.style_mut();
+                    styles.spacing.button_padding = vec2(8.0, 4.0);
+
+                    let model_btn_response = flex.add(
+                        item(),
+                        Button::new(model_label(
+                            self.model_selector_state.selected_model(),
+                            None,
+                        ))
+                        .corner_radius(RADIUS_MD)
+                        .fill(BG_800)
+                        .min_size(vec2(80.0, 36.0)),
+                    );
+
+                    ModelSelector::new(&mut self.model_selector_state).show(&model_btn_response);
+                }
+                // if self.streaming {
+                //     flex.add(
+                //         item(),
+                //         egui::Label::new(egui::RichText::new("Thinking...").color(Color32::YELLOW)),
+                //     );
+                // }
+                let btn = flex.add(
+                    item(),
+                    Button::new(egui::RichText::new("Send").color(Color32::WHITE))
+                        .fill(FUCHSIA_500)
+                        .corner_radius(RADIUS_MD)
+                        .min_size(vec2(80.0, 36.0)),
+                );
+                if btn.clicked() {
+                    self.on_send_btn_clicked(ctx);
+                }
+            },
+        );
+    }
+
+    /// On first page load, fetch messages and avail models
+    /// TODO: we should fetch all models globally
     fn on_first_render(&mut self, ctx: &mut super::PageContext) {
         self.first_render_occured = true;
         self.fetch_messages(ctx);
@@ -100,21 +182,14 @@ impl SessionPage {
         self.start_event_stream(ctx);
     }
 
-    fn process_events(&mut self, ui: &egui::Ui) {
-        for event in self.model_inbox.read(ui.ctx()) {
+    fn process_events(&mut self, ctx: &egui::Context) {
+        for event in self.model_inbox.read(ctx) {
             match event {
                 ModelEventResult::ModelsLoaded {
                     models,
                     default_index,
                 } => {
-                    self.available_models = models;
-                    self.selected_model_index = default_index;
-                    // Set the search buffer to the default model's label
-                    if let Some(idx) = default_index {
-                        if let Some(model) = self.available_models.get(idx) {
-                            self.model_search_buf = model.label.clone();
-                        }
-                    }
+                    self.model_selector_state.set_models(models, default_index);
                 }
                 ModelEventResult::Error(e) => {
                     log::error!("Failed to fetch models: {}", e);
@@ -122,7 +197,7 @@ impl SessionPage {
             }
         }
 
-        for event in self.message_event_inbox.read(ui.ctx()) {
+        for event in self.message_event_inbox.read(ctx) {
             match event {
                 MessageEventResult::MessagesLoaded(messages) => {
                     self.messages = messages;
@@ -156,73 +231,6 @@ impl SessionPage {
         }
     }
 
-    fn render_textedit(&mut self, flex: &mut egui_flex::FlexInstance) {
-        flex.add(
-            item().grow(1.0).align_self_content(Align2::LEFT_TOP),
-            TextEdit::multiline(&mut self.prompt_input).frame(false),
-        );
-    }
-
-    fn render_action_bar(
-        &mut self,
-        flex: &mut egui_flex::FlexInstance,
-        ctx: &mut super::PageContext,
-    ) {
-        flex.add_flex(
-            item(),
-            Flex::horizontal()
-                .align_content(egui_flex::FlexAlignContent::Center)
-                .gap(vec2(8.0, 0.0)),
-            |flex| {
-                // Model selector dropdown
-                flex.add_ui(item(), |ui| {
-                    let labels: Vec<String> = self
-                        .available_models
-                        .iter()
-                        .map(|m| m.label.clone())
-                        .collect();
-
-                    let dropdown = DropDownBox::from_iter(
-                        labels.iter().map(|s| s.as_str()),
-                        "model_selector",
-                        &mut self.model_search_buf,
-                        |ui, text| ui.selectable_label(false, text),
-                    )
-                    .hint_text("Select model...")
-                    .filter_by_input(true)
-                    .select_on_focus(true)
-                    .desired_width(250.0)
-                    .max_height(300.0);
-
-                    if ui.add(dropdown).changed() {
-                        // Find the model matching the selected label
-                        self.selected_model_index = self
-                            .available_models
-                            .iter()
-                            .position(|m| m.label == self.model_search_buf);
-                    }
-                });
-
-                if self.streaming {
-                    flex.add(
-                        item(),
-                        egui::Label::new(egui::RichText::new("Thinking...").color(Color32::YELLOW)),
-                    );
-                }
-                let btn = flex.add(
-                    item(),
-                    Button::new(egui::RichText::new("Send").color(Color32::WHITE))
-                        .fill(Color32::from_rgb(217, 70, 239))
-                        .corner_radius(8.0)
-                        .min_size(vec2(80.0, 36.0)),
-                );
-                if btn.clicked() {
-                    self.on_send_btn_clicked(ctx);
-                }
-            },
-        );
-    }
-
     fn on_send_btn_clicked(&mut self, ctx: &mut super::PageContext) {
         if self.prompt_input.trim().is_empty() {
             return;
@@ -231,8 +239,8 @@ impl SessionPage {
         self.prompt_input.clear();
 
         let model = self
-            .selected_model_index
-            .and_then(|i| self.available_models.get(i))
+            .model_selector_state
+            .selected_model()
             .map(|m| ModelSelection {
                 provider_id: m.provider_id.clone(),
                 model_id: m.model_id.clone(),
@@ -283,7 +291,9 @@ impl SessionPage {
                         for model in provider.models.values() {
                             models.push(ModelOption {
                                 provider_id: provider.id.clone(),
+                                provider_name: provider.name.clone(),
                                 model_id: model.id.clone(),
+                                model_name: model.name.clone(),
                                 label: format!("{} / {}", provider.name, model.name),
                             });
                         }

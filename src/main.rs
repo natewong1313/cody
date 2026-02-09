@@ -6,8 +6,10 @@ use egui::{FontData, FontDefinitions, FontFamily, ViewportBuilder};
 use std::sync::Arc;
 
 mod app;
+mod components;
 mod opencode;
 mod pages;
+mod theme;
 
 const PORT: u32 = 6767;
 

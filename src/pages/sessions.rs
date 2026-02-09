@@ -9,12 +9,16 @@ impl SessionsPage {
 }
 
 impl SessionsPage {
-    pub fn render(&mut self, ui: &mut egui::Ui, ctx: &mut super::PageContext) {
-        ui.label("Sessions");
-        let btn = ui.button("New session");
-        if btn.clicked() {
-            ctx.action_sender.send(PageAction::CreateSession).ok();
-            println!("klsdj");
-        }
+    pub fn render(&mut self, ctx: &egui::Context, page_ctx: &mut super::PageContext) {
+        egui::CentralPanel::default()
+            .frame(egui::Frame::central_panel(&ctx.style()).fill(egui::Color32::from_rgb(0, 0, 0)))
+            .show(ctx, |ui| {
+                ui.label("Sessions");
+                let btn = ui.button("New session");
+                if btn.clicked() {
+                    page_ctx.action_sender.send(PageAction::CreateSession).ok();
+                    println!("klsdj");
+                }
+            });
     }
 }
