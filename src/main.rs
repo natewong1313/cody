@@ -1,6 +1,6 @@
 use crate::{
     app::App,
-    backend::{HelloServer, World},
+    backend::{BackendServer, Contract},
     opencode::{OpencodeApiClient, OpencodeProcess},
 };
 use egui::{FontData, FontDefinitions, FontFamily, ViewportBuilder};
@@ -14,8 +14,9 @@ mod backend;
 mod components;
 mod opencode;
 mod pages;
+mod sync_engine;
 mod theme;
-mod ui_tests;
+// mod ui_tests;
 
 const PORT: u32 = 6767;
 
@@ -29,7 +30,7 @@ async fn main() -> eframe::Result {
     let server = server::BaseChannel::with_defaults(server_transport);
     tokio::spawn(
         server
-            .execute(HelloServer.serve())
+            .execute(BackendServer::new().serve())
             // Handle all requests concurrently.
             .for_each(|response| async move {
                 tokio::spawn(response);

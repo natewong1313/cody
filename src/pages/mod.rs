@@ -3,6 +3,7 @@ use std::{
     collections::HashMap,
     sync::mpsc::{Receiver, Sender},
 };
+mod projects;
 mod session;
 mod sessions;
 
