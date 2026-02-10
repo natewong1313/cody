@@ -1,4 +1,7 @@
-use crate::opencode::{ModelSelection, OpencodeApiClient, OpencodeSession};
+use crate::{
+    opencode::{ModelSelection, OpencodeApiClient, OpencodeSession},
+    pages::{projects::ProjectsPage, session::SessionPage, sessions::SessionsPage},
+};
 use std::{
     collections::HashMap,
     sync::mpsc::{Receiver, Sender},
@@ -10,6 +13,7 @@ mod sessions;
 #[derive(Default)]
 pub enum PageType {
     #[default]
+    Projects,
     Sessions,
     Session(String),
 }
@@ -32,14 +36,16 @@ pub struct PageContext<'a> {
 
 pub struct PagesRouter {
     current_page: PageType,
-    sessions_page: sessions::SessionsPage,
-    session_pages: HashMap<String, session::SessionPage>,
+    projects_page: ProjectsPage,
+    sessions_page: SessionsPage,
+    session_pages: HashMap<String, SessionPage>,
 }
 
 impl PagesRouter {
     pub fn new() -> Self {
         Self {
             current_page: PageType::default(),
+            projects_page: ProjectsPage::new(),
             sessions_page: sessions::SessionsPage::new(),
             session_pages: HashMap::new(),
         }
@@ -47,6 +53,7 @@ impl PagesRouter {
 
     pub fn mount(&mut self, ctx: &egui::Context, page_ctx: &mut PageContext) {
         match &self.current_page {
+            PageType::Projects => self.projects_page.render(ctx, page_ctx),
             PageType::Sessions => self.sessions_page.render(ctx, page_ctx),
             PageType::Session(session_id) => self
                 .get_session_page(session_id.to_string())
