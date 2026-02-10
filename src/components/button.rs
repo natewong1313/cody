@@ -1,5 +1,7 @@
-use crate::theme::{BG_50, BG_700, BG_800, FUCHSIA_500, RADIUS_MD, STROKE_WIDTH};
-use egui::{vec2, Button, Response, RichText, Stroke, Ui, Vec2, Widget};
+use crate::theme::{
+    BG_50, BG_500, BG_700, BG_800, FUCHSIA_300, FUCHSIA_500, RADIUS_MD, STROKE_WIDTH,
+};
+use egui::{Button, Response, RichText, Stroke, StrokeKind, Ui, Vec2, Widget, vec2};
 use egui_flex::{FlexInstance, FlexItem, FlexWidget};
 
 #[derive(Default, Clone, Copy)]
@@ -56,9 +58,19 @@ impl<'a> StyledButton<'a> {
         let prev_padding = ui.spacing().button_padding;
         ui.spacing_mut().button_padding = self.size.padding();
 
-        let (fill, stroke, text_color) = match self.variant {
-            ButtonVariant::Primary => (FUCHSIA_500, Stroke::NONE, BG_50),
-            ButtonVariant::Secondary => (BG_800, Stroke::new(STROKE_WIDTH, BG_700), BG_50),
+        let (fill, stroke, focus_stroke, text_color) = match self.variant {
+            ButtonVariant::Primary => (
+                FUCHSIA_500,
+                Stroke::NONE,
+                Stroke::new(STROKE_WIDTH, FUCHSIA_300),
+                BG_50,
+            ),
+            ButtonVariant::Secondary => (
+                BG_800,
+                Stroke::new(STROKE_WIDTH, BG_700),
+                Stroke::new(STROKE_WIDTH, BG_50),
+                BG_50,
+            ),
         };
 
         let button = Button::new(RichText::new(self.text).color(text_color))
@@ -67,6 +79,12 @@ impl<'a> StyledButton<'a> {
             .corner_radius(RADIUS_MD);
 
         let response = ui.add(button);
+
+        if response.has_focus() {
+            let rect = response.rect;
+            ui.painter()
+                .rect_stroke(rect, RADIUS_MD, focus_stroke, StrokeKind::Outside);
+        }
 
         ui.spacing_mut().button_padding = prev_padding;
 
