@@ -88,30 +88,30 @@ impl ProjectsPage {
 
     fn render_modal_content(&mut self, ui: &mut Ui) {
         ui.set_width(400.0);
-        ui.spacing_mut().item_spacing.y = 12.0;
+        ui.spacing_mut().item_spacing.y = 6.0;
 
         // Hacks to style text edits
         let input_stroke = Stroke::new(STROKE_WIDTH, BG_700);
         let style = ui.style_mut();
+        style.visuals.extreme_bg_color = BG_800;
         for widget_state in [
             &mut style.visuals.widgets.inactive,
             &mut style.visuals.widgets.hovered,
             &mut style.visuals.widgets.active,
             &mut style.visuals.widgets.open,
         ] {
-            widget_state.bg_fill = BG_800;
             widget_state.bg_stroke = input_stroke;
             widget_state.corner_radius = egui::CornerRadius::same(RADIUS_MD as u8);
         }
 
         ui.heading(RichText::new("Create New Project").color(BG_50).strong());
-        ui.add_space(4.0);
+        ui.add_space(16.0);
 
         let mut form = Form::new().add_report(GardeReport::new(self.form_fields.validate()));
 
         self.render_form_fields(ui, &mut form);
 
-        ui.add_space(8.0);
+        ui.add_space(12.0);
 
         self.render_form_buttons(ui, form);
     }
@@ -128,7 +128,7 @@ impl ProjectsPage {
                     .margin(Margin::symmetric(10, 8)),
             );
 
-        ui.add_space(4.0);
+        ui.add_space(8.0);
 
         let dir_response = FormField::new(form, field_path!("directory"))
             .label("Directory")
