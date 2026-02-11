@@ -1,10 +1,9 @@
 use crate::components::button::{ButtonSize, ButtonVariant, StyledButton};
-use crate::theme::{
-    BG_50, BG_500, BG_700, BG_800, BG_900, BG_950, FUCHSIA_500, RADIUS_MD, STROKE_WIDTH,
-};
+use crate::components::text_input::StyledTextInput;
+use crate::theme::{BG_50, BG_500, BG_700, BG_800, BG_900, BG_950, RADIUS_MD, STROKE_WIDTH};
 use egui::{
-    Align, Button, CentralPanel, Color32, Frame, Id, Label, Layout, Margin, Modal, RichText,
-    ScrollArea, Stroke, TextEdit, Ui, vec2,
+    Align, Button, CentralPanel, Color32, Frame, Id, Label, Layout, Modal, RichText, ScrollArea,
+    Stroke, Ui, vec2,
 };
 use egui_flex::{Flex, FlexAlign, FlexJustify, item};
 use egui_form::garde::{GardeReport, field_path};
@@ -90,20 +89,6 @@ impl ProjectsPage {
         ui.set_width(400.0);
         ui.spacing_mut().item_spacing.y = 6.0;
 
-        // Hacks to style text edits
-        let input_stroke = Stroke::new(STROKE_WIDTH, BG_700);
-        let style = ui.style_mut();
-        style.visuals.extreme_bg_color = BG_800;
-        for widget_state in [
-            &mut style.visuals.widgets.inactive,
-            &mut style.visuals.widgets.hovered,
-            &mut style.visuals.widgets.active,
-            &mut style.visuals.widgets.open,
-        ] {
-            widget_state.bg_stroke = input_stroke;
-            widget_state.corner_radius = egui::CornerRadius::same(RADIUS_MD as u8);
-        }
-
         ui.heading(RichText::new("Create New Project").color(BG_50).strong());
         ui.add_space(16.0);
 
@@ -121,11 +106,7 @@ impl ProjectsPage {
             .label("Project Name")
             .ui(
                 ui,
-                TextEdit::singleline(&mut self.form_fields.name)
-                    .hint_text("Name of your project")
-                    .desired_width(f32::INFINITY)
-                    .text_color(BG_50)
-                    .margin(Margin::symmetric(10, 8)),
+                StyledTextInput::new(&mut self.form_fields.name).hint_text("Name of your project"),
             );
 
         ui.add_space(8.0);
@@ -134,11 +115,7 @@ impl ProjectsPage {
             .label("Directory")
             .ui(
                 ui,
-                TextEdit::singleline(&mut self.form_fields.directory)
-                    .hint_text("~/dev")
-                    .desired_width(f32::INFINITY)
-                    .text_color(BG_50)
-                    .margin(Margin::symmetric(10, 8)),
+                StyledTextInput::new(&mut self.form_fields.directory).hint_text("~/dev"),
             );
 
         if dir_response.changed() {

@@ -1,9 +1,9 @@
+use crate::components::text_input::{StyledTextInput, TextInputSize};
 use crate::theme::{BG_50, BG_500, BG_700, BG_800, BG_900, FUCHSIA_500, RADIUS_MD};
 use egui::{
-    Align, Button, Color32, FontSelection, Frame, InnerResponse, Key, Popup, PopupCloseBehavior,
-    RectAlign, Response, RichText, ScrollArea, Style, TextEdit, text::LayoutJob, vec2,
+    Align, FontSelection, Frame, InnerResponse, Key, Popup, PopupCloseBehavior, RectAlign,
+    Response, RichText, ScrollArea, Style, text::LayoutJob, vec2,
 };
-use egui_flex::{FlexInstance, item};
 
 #[derive(Debug, Clone)]
 pub struct ModelOption {
@@ -144,20 +144,10 @@ impl<'a> ModelSelector<'a> {
 
     fn render_search_bar(&mut self, ui: &mut egui::Ui) {
         let prev_search = self.state.search_text.clone();
-        let search_response = Frame::new()
-            .fill(BG_800)
-            .inner_margin(6.0)
-            .corner_radius(RADIUS_MD)
-            .stroke(egui::Stroke::new(1.0, BG_700))
-            .show(ui, |ui| {
-                ui.add(
-                    TextEdit::singleline(&mut self.state.search_text)
-                        .frame(false)
-                        .hint_text("Search models...")
-                        .desired_width(f32::INFINITY),
-                )
-            })
-            .inner;
+        let search_response = StyledTextInput::new(&mut self.state.search_text)
+            .hint_text("Search models...")
+            .size(TextInputSize::Sm)
+            .show(ui);
 
         if !self.state.popup_was_open {
             search_response.request_focus();
