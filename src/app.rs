@@ -1,17 +1,19 @@
 use std::{
     collections::HashMap,
-    sync::mpsc::{channel, Receiver, Sender},
+    sync::mpsc::{Receiver, Sender, channel},
 };
 
 use crate::{
-    actions::{handle_action, ActionContext},
+    actions::{ActionContext, handle_action},
     opencode::{OpencodeApiClient, OpencodeSession},
     pages::{PageAction, PageContext, PageType, PagesRouter},
+    sync_engine::SyncEngineClient,
 };
 use egui_inbox::UiInbox;
 
 pub struct App {
     pub api_client: OpencodeApiClient,
+    pub sync_engine: SyncEngineClient,
     pages_router: PagesRouter,
 
     pub action_sender: Sender<PageAction>,
@@ -22,10 +24,11 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(api_client: OpencodeApiClient) -> Self {
+    pub fn new(api_client: OpencodeApiClient, sync_engine: SyncEngineClient) -> Self {
         let (action_sender, action_reciever) = channel();
         Self {
             api_client,
+            sync_engine,
             pages_router: PagesRouter::new(),
 
             action_sender,
@@ -65,6 +68,7 @@ impl eframe::App for App {
 
         let mut page_ctx = PageContext {
             api_client: &self.api_client,
+            sync_engine: &self.sync_engine,
             action_sender: &self.action_sender,
             current_sessions: &self.current_sessions,
         };

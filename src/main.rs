@@ -2,6 +2,7 @@ use crate::{
     app::App,
     backend::{BackendServer, Contract},
     opencode::{OpencodeApiClient, OpencodeProcess},
+    sync_engine::SyncEngineClient,
 };
 use egui::{FontData, FontDefinitions, FontFamily, ViewportBuilder};
 use futures::StreamExt;
@@ -25,18 +26,6 @@ async fn main() -> eframe::Result {
     env_logger::init();
     dioxus_devtools::connect_subsecond();
 
-    let (client_transport, server_transport) = tarpc::transport::channel::unbounded();
-
-    let server = server::BaseChannel::with_defaults(server_transport);
-    tokio::spawn(
-        server
-            .execute(BackendServer::new().serve())
-            // Handle all requests concurrently.
-            .for_each(|response| async move {
-                tokio::spawn(response);
-            }),
-    );
-
     let process = OpencodeProcess::start(PORT).expect("Failed to start opencode server");
     let api_client = OpencodeApiClient::new(PORT);
 
@@ -52,6 +41,8 @@ async fn main() -> eframe::Result {
             "opencode gui",
             opts.clone(),
             Box::new(|cc| {
+                let sync_engine = SyncEngineClient::new();
+
                 // Load JetBrains Mono Nerd Font
                 let mut fonts = FontDefinitions::default();
 
@@ -115,7 +106,7 @@ async fn main() -> eframe::Result {
                 // Register handler to repaint UI when patches arrive
                 let ctx = cc.egui_ctx.clone();
                 subsecond::register_handler(Arc::new(move || ctx.request_repaint()));
-                Ok(Box::new(App::new(api_client.clone())))
+                Ok(Box::new(App::new(api_client.clone(), sync_engine)))
             }),
         )
     });

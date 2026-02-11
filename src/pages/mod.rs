@@ -1,6 +1,7 @@
 use crate::{
     opencode::{ModelSelection, OpencodeApiClient, OpencodeSession},
     pages::{projects::ProjectsPage, session::SessionPage, sessions::SessionsPage},
+    sync_engine::SyncEngineClient,
 };
 use std::{
     collections::HashMap,
@@ -30,6 +31,7 @@ pub enum PageAction {
 
 pub struct PageContext<'a> {
     pub api_client: &'a OpencodeApiClient,
+    pub sync_engine: &'a SyncEngineClient,
     pub action_sender: &'a Sender<PageAction>,
     pub current_sessions: &'a HashMap<String, OpencodeSession>,
 }

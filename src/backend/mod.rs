@@ -1,24 +1,22 @@
-use std::sync::{Arc, Mutex};
-
-use futures::prelude::*;
+use egui_inbox::{UiInbox, UiInboxSender};
 use rusqlite::Connection;
 use rusqlite_migration::{M, Migrations};
-use tarpc::{
-    client,
-    context::Context,
-    server::{self, Channel},
-};
+use std::sync::{Arc, Mutex};
+use tarpc::context::Context;
 use uuid::Uuid;
 
 mod harness;
 mod opencode_client;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Project {
-    id: Uuid,
-    name: String,
-    dir: String,
+    pub id: Uuid,
+    pub name: String,
+    pub dir: String,
 }
+pub type ProjectsInbox = UiInbox<Vec<Project>>;
+type ProjectsSender = UiInboxSender<Vec<Project>>;
+
 const MIGRATIONS_SLICE: &[M<'_>] = &[
     M::up(
         "CREATE TABLE projects (
@@ -36,13 +34,13 @@ const MIGRATIONS: Migrations<'_> = Migrations::from_slice(MIGRATIONS_SLICE);
 #[derive(Clone)]
 pub struct BackendServer {
     db_conn: Arc<Mutex<Connection>>,
+    // TODO: if we eventually have a lot of data updates, we could build our own batching layer on
+    // top of channels instead of inboxes so the gui doesn't repaint as much
+    projects_sender: ProjectsSender,
 }
 
 impl BackendServer {
-    pub fn new() -> Self {
-        // TODO: i think its fine to panic here since it makes the api less hell, but should re explore this
-        // TODO: dont use in memory, figure out where the path should live (somewhere in
-        // appdata/user data land)
+    pub fn new(projects_sender: ProjectsSender) -> Self {
         let mut db_conn = Connection::open_in_memory().unwrap();
         db_conn
             .pragma_update_and_check(None, "journal_mode", &"WAL", |_| Ok(()))
@@ -51,10 +49,33 @@ impl BackendServer {
 
         Self {
             db_conn: Arc::new(Mutex::new(db_conn)),
+            projects_sender,
         }
     }
 }
 
+impl BackendServer {
+    fn emit_projects_update(&self, db_conn: &Connection) {
+        let projects = self.query_all_projects(&db_conn).unwrap();
+        self.projects_sender.send(projects).unwrap()
+    }
+
+    fn query_all_projects(&self, db_conn: &Connection) -> anyhow::Result<Vec<Project>> {
+        let mut stmt = db_conn.prepare("SELECT id, name, dir FROM projects")?;
+        let projects = stmt
+            .query_map([], |row| {
+                Ok(Project {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    dir: row.get(2)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(projects)
+    }
+}
+
+// todo: rename to mutations or something
 #[tarpc::service]
 pub trait Contract {
     async fn create_project(project: Project) -> anyhow::Result<()>;
@@ -72,6 +93,9 @@ impl Contract for BackendServer {
             "INSERT INTO projects (id, name, dir) VALUES (?1, ?2, ?3)",
             (&project.id, &project.name, &project.dir),
         )?;
+
+        self.emit_projects_update(&db_conn);
+
         Ok(())
     }
 
@@ -81,17 +105,6 @@ impl Contract for BackendServer {
             .lock()
             .map_err(|e| anyhow::anyhow!("db_conn mutex poisoned {}", e))?;
 
-        let mut stmt = db_conn.prepare("SELECT * FROM projects")?;
-        let projects = stmt
-            .query_map([], |row| {
-                Ok(Project {
-                    id: row.get(0)?,
-                    name: row.get(1)?,
-                    dir: row.get(2)?,
-                })
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
-
-        Ok(projects)
+        self.query_all_projects(&db_conn)
     }
 }

@@ -29,3 +29,4 @@ uuid = { version = "1.20.0", features = ["v4"] }
 rusqlite_migration = "2.4.1"
 egui_form = { version = "0.7.0", features = ["validator_garde"] }
 garde = { version = "0.22", features = ["derive"] }
+crossbeam-channel = "0.5.15"
