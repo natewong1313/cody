@@ -101,43 +101,46 @@ impl<'a> DirectoryPicker<'a> {
             .data_mut(|d| d.get_temp(search_text_id))
             .unwrap_or_else(|| search_text.clone());
 
-        let response = ui.horizontal(|ui| {
-            let available = ui.available_width();
-            let btn_width = 36.0;
-            let spacing = ui.spacing().item_spacing.x;
-            let input_width = self
-                .width
-                .unwrap_or_else(|| (available - btn_width - spacing).max(100.0));
+        // Isolate the horizontal layout to prevent it from affecting parent form layouts
+        let response = ui.vertical(|ui| {
+            ui.horizontal(|ui| {
+                let available = ui.available_width();
+                let btn_width = 36.0;
+                let spacing = ui.spacing().item_spacing.x;
+                let input_width = self
+                    .width
+                    .unwrap_or_else(|| (available - btn_width - spacing).max(100.0));
 
-            let mut input = StyledTextInput::new(&mut current_search);
-            if let Some(ref hint) = self.hint_text {
-                input = input.hint_text(hint);
-            }
-            input = input.desired_width(input_width);
-
-            let text_response = input.show(ui);
-
-            let btn_height = text_response.frame_height();
-            let icon_btn = StyledButton::new("")
-                .size(ButtonSize::Sm)
-                .variant(ButtonVariant::Secondary)
-                .icon(regular::FOLDER_OPEN)
-                .explicit_size(vec2(btn_width, btn_height))
-                .show(ui);
-
-            if icon_btn.clicked() {
-                browse_clicked = true;
-                if let Some(folder) = rfd::FileDialog::new().pick_folder() {
-                    let path_str = folder.display().to_string();
-                    current_search = path_str.clone();
-                    *self.path = path_str;
-                    suggestions.clear();
-                    focused_index = None;
-                    changed = true;
+                let mut input = StyledTextInput::new(&mut current_search);
+                if let Some(ref hint) = self.hint_text {
+                    input = input.hint_text(hint);
                 }
-            }
+                input = input.desired_width(input_width);
 
-            text_response
+                let text_response = input.show(ui);
+
+                let btn_height = text_response.frame_height();
+                let icon_btn = StyledButton::new("")
+                    .size(ButtonSize::Sm)
+                    .variant(ButtonVariant::Secondary)
+                    .icon(regular::FOLDER_OPEN)
+                    .explicit_size(vec2(btn_width, btn_height))
+                    .show(ui);
+
+                if icon_btn.clicked() {
+                    browse_clicked = true;
+                    if let Some(folder) = rfd::FileDialog::new().pick_folder() {
+                        let path_str = folder.display().to_string();
+                        current_search = path_str.clone();
+                        *self.path = path_str;
+                        suggestions.clear();
+                        focused_index = None;
+                        changed = true;
+                    }
+                }
+
+                text_response
+            })
         });
 
         // Store the updated search text back to temp storage
@@ -166,7 +169,7 @@ impl<'a> DirectoryPicker<'a> {
 
         let show_popup = !current_search.is_empty()
             && !suggestions.is_empty()
-            && response.inner.inner.has_focus();
+            && response.inner.inner.inner.has_focus();
 
         if show_popup {
             let popup_id = self.id.with("popup");
@@ -208,7 +211,7 @@ impl<'a> DirectoryPicker<'a> {
                 focused_index = None;
             }
 
-            let anchor_rect = response.inner.frame_rect;
+            let anchor_rect = response.inner.inner.frame_rect;
             let popup_pos = anchor_rect.left_bottom() + vec2(0.0, 4.0);
 
             Area::new(popup_id)
@@ -283,7 +286,7 @@ impl<'a> DirectoryPicker<'a> {
         });
 
         DirectoryPickerResponse {
-            inner: response.inner.inner,
+            inner: response.inner.inner.inner,
             path: self.path.clone(),
             changed,
             browse_clicked,

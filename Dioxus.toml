@@ -1,0 +1,35 @@
+# Dioxus configuration file for opencode gui
+# https://dioxuslabs.com/learn/0.7/guides/tools/configure/
+
+[application]
+# Application name
+name = "cody"
+
+# Default crate to build (useful for workspaces)
+# sub_package = "cody"
+
+# Directory with static assets to bundle
+# asset_dir = "assets"
+
+[application.tools]
+# Enable hot-reloading for this target
+default_feature = "local"
+
+[bundle]
+# Application identifier
+identifier = "com.opencode.cody"
+
+# Bundle icon
+icon = ["assets/icon.png"]
+
+# macOS bundle settings
+[apple]
+bundle_identifier = "com.opencode.cody"
+
+# Windows bundle settings
+[windows]
+# Windows-specific bundle configuration
+
+# Linux bundle settings
+[linux]
+# Linux-specific bundle configuration

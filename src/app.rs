@@ -1,15 +1,18 @@
 use std::{
     collections::HashMap,
-    sync::mpsc::{Receiver, Sender, channel},
+    sync::mpsc::{channel, Receiver, Sender},
 };
 
 use crate::{
-    actions::{ActionContext, handle_action},
+    actions::{handle_action, ActionContext},
     opencode::{OpencodeApiClient, OpencodeSession},
     pages::{PageAction, PageContext, PageType, PagesRouter},
     sync_engine::SyncEngineClient,
 };
 use egui_inbox::UiInbox;
+
+#[cfg(feature = "local")]
+use subsecond;
 
 pub struct App {
     pub api_client: OpencodeApiClient,
@@ -72,6 +75,15 @@ impl eframe::App for App {
             action_sender: &self.action_sender,
             current_sessions: &self.current_sessions,
         };
+
+        // Wrap rendering in subsecond::call() for hot-reloading support
+        // This allows changes in pages/ to be hot-patched without restart
+        #[cfg(feature = "local")]
+        subsecond::call(|| {
+            self.pages_router.mount(ctx, &mut page_ctx);
+        });
+
+        #[cfg(not(feature = "local"))]
         self.pages_router.mount(ctx, &mut page_ctx);
     }
 }
