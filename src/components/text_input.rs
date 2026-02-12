@@ -1,5 +1,5 @@
 use crate::theme::{BG_50, BG_700, BG_800, RADIUS_MD, STROKE_WIDTH};
-use egui::{Frame, Margin, Response, TextEdit, Ui, Widget};
+use egui::{Frame, Margin, Response, Stroke, TextEdit, Ui, Widget};
 
 #[derive(Default, Clone, Copy)]
 pub enum TextInputSize {
@@ -51,14 +51,14 @@ impl<'a> StyledTextInput<'a> {
         self
     }
 
-    pub fn show(self, ui: &mut Ui) -> Response {
+    pub fn show(self, ui: &mut Ui) -> StyledTextInputResponse {
         let margin = self.size.margin();
 
-        Frame::new()
+        let inner_response = Frame::new()
             .fill(BG_800)
             .inner_margin(margin)
             .corner_radius(RADIUS_MD)
-            .stroke(egui::Stroke::new(STROKE_WIDTH, BG_700))
+            .stroke(Stroke::new(STROKE_WIDTH, BG_700))
             .show(ui, |ui| {
                 ui.add(
                     TextEdit::singleline(self.text)
@@ -67,13 +67,28 @@ impl<'a> StyledTextInput<'a> {
                         .desired_width(self.desired_width)
                         .text_color(BG_50),
                 )
-            })
-            .inner
+            });
+
+        StyledTextInputResponse {
+            inner: inner_response.inner,
+            frame_rect: inner_response.response.rect,
+        }
+    }
+}
+
+pub struct StyledTextInputResponse {
+    pub inner: Response,
+    pub frame_rect: egui::Rect,
+}
+
+impl StyledTextInputResponse {
+    pub fn frame_height(&self) -> f32 {
+        self.frame_rect.height()
     }
 }
 
 impl<'a> Widget for StyledTextInput<'a> {
     fn ui(self, ui: &mut Ui) -> Response {
-        self.show(ui)
+        self.show(ui).inner
     }
 }

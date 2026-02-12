@@ -1,9 +1,10 @@
 use crate::components::text_input::{StyledTextInput, TextInputSize};
 use crate::theme::{BG_50, BG_500, BG_700, BG_800, BG_900, FUCHSIA_500, RADIUS_MD};
 use egui::{
-    Align, FontSelection, Frame, InnerResponse, Key, Popup, PopupCloseBehavior, RectAlign,
-    Response, RichText, ScrollArea, Style, text::LayoutJob, vec2,
+    text::LayoutJob, vec2, Align, FontSelection, Frame, InnerResponse, Key, Popup,
+    PopupCloseBehavior, RectAlign, Response, RichText, ScrollArea, Style,
 };
+use egui::{Button, Label, Modifiers, Sense, Ui};
 
 #[derive(Debug, Clone)]
 pub struct ModelOption {
@@ -142,7 +143,7 @@ impl<'a> ModelSelector<'a> {
         result
     }
 
-    fn render_search_bar(&mut self, ui: &mut egui::Ui) {
+    fn render_search_bar(&mut self, ui: &mut Ui) {
         let prev_search = self.state.search_text.clone();
         let search_response = StyledTextInput::new(&mut self.state.search_text)
             .hint_text("Search models...")
@@ -150,7 +151,7 @@ impl<'a> ModelSelector<'a> {
             .show(ui);
 
         if !self.state.popup_was_open {
-            search_response.request_focus();
+            search_response.inner.request_focus();
         }
 
         // Reset focused index when search text changes
@@ -164,17 +165,15 @@ impl<'a> ModelSelector<'a> {
         }
     }
 
-    fn render_model_list(&mut self, ui: &mut egui::Ui) {
+    fn render_model_list(&mut self, ui: &mut Ui) {
         let item_height: f32 = 40.0;
         let list_height: f32 = (item_height * 4.0).min(300.0);
         let filtered_count = self.state.filtered_models.len();
 
         if filtered_count == 0 {
-            let (rect, _) = ui.allocate_exact_size(
-                vec2(ui.available_width(), list_height),
-                egui::Sense::hover(),
-            );
-            ui.put(rect, egui::Label::new("No matching models"));
+            let (rect, _) =
+                ui.allocate_exact_size(vec2(ui.available_width(), list_height), Sense::hover());
+            ui.put(rect, Label::new("No matching models"));
         } else {
             ScrollArea::vertical()
                 .min_scrolled_height(list_height)
@@ -191,7 +190,7 @@ impl<'a> ModelSelector<'a> {
                         let response = self.render_model_item(ui, model, is_focused, is_selected);
 
                         if is_focused && self.state.scroll_to_focused {
-                            response.scroll_to_me(Some(egui::Align::Center));
+                            response.scroll_to_me(Some(Align::Center));
                         }
 
                         if response.clicked() {
@@ -205,7 +204,7 @@ impl<'a> ModelSelector<'a> {
 
     fn render_model_item(
         &self,
-        ui: &mut egui::Ui,
+        ui: &mut Ui,
         model: &ModelOption,
         is_focused: bool,
         is_selected: bool,
@@ -239,7 +238,7 @@ impl<'a> ModelSelector<'a> {
 
         ui.add_sized(
             [ui.available_width(), 0.0],
-            egui::Button::new(layout_job)
+            Button::new(layout_job)
                 .corner_radius(RADIUS_MD)
                 .right_text("")
                 .selected(is_selected),
@@ -247,21 +246,21 @@ impl<'a> ModelSelector<'a> {
     }
 
     /// Handles arrow navigation within the model selector
-    fn setup_arrow_listeners(&mut self, ui: &mut egui::Ui) {
+    fn setup_arrow_listeners(&mut self, ui: &mut Ui) {
         let filtered_count = self.state.filtered_models.len();
 
         // Consume arrow/enter/escape keys before the text edit can eat them
-        if ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, Key::ArrowDown)) {
+        if ui.input_mut(|i| i.consume_key(Modifiers::NONE, Key::ArrowDown)) {
             let current = self.state.focused_index.unwrap_or(0);
             self.state.focused_index = Some((current + 1).min(filtered_count.saturating_sub(1)));
             self.state.scroll_to_focused = true;
         }
-        if ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, Key::ArrowUp)) {
+        if ui.input_mut(|i| i.consume_key(Modifiers::NONE, Key::ArrowUp)) {
             let current = self.state.focused_index.unwrap_or(0);
             self.state.focused_index = Some(current.saturating_sub(1));
             self.state.scroll_to_focused = true;
         }
-        if ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, Key::Enter)) {
+        if ui.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Enter)) {
             if let Some(focused_idx) = self.state.focused_index {
                 if let Some(&(real_idx, _)) = self.state.filtered_models.get(focused_idx) {
                     self.state.selected_model_index = Some(real_idx);
@@ -269,7 +268,7 @@ impl<'a> ModelSelector<'a> {
                 }
             }
         }
-        if ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, Key::Escape)) {
+        if ui.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Escape)) {
             ui.close();
         }
     }

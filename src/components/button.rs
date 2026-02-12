@@ -2,8 +2,8 @@ use crate::theme::{
     BG_50, BG_500, BG_700, BG_800, FUCHSIA_300, FUCHSIA_500, FUCHSIA_700, RADIUS_MD, STROKE_WIDTH,
 };
 use egui::{
-    text::LayoutJob, vec2, Button, FontFamily, FontId, Response, RichText, Stroke, StrokeKind, Ui,
-    Vec2, Widget,
+    text::LayoutJob, vec2, Align, Button, FontFamily, FontId, Response, RichText, Stroke,
+    StrokeKind, TextFormat, TextStyle, Ui, Vec2, Widget,
 };
 use egui_flex::{FlexInstance, FlexItem, FlexWidget};
 
@@ -37,6 +37,7 @@ pub struct StyledButton<'a> {
     size: ButtonSize,
     variant: ButtonVariant,
     icon: Option<&'a str>,
+    explicit_size: Option<Vec2>,
 }
 
 impl<'a> StyledButton<'a> {
@@ -46,7 +47,13 @@ impl<'a> StyledButton<'a> {
             size: ButtonSize::default(),
             variant: ButtonVariant::default(),
             icon: None,
+            explicit_size: None,
         }
+    }
+
+    pub fn explicit_size(mut self, size: Vec2) -> Self {
+        self.explicit_size = Some(size);
+        self
     }
 
     pub fn size(mut self, size: ButtonSize) -> Self {
@@ -83,28 +90,37 @@ impl<'a> StyledButton<'a> {
             ),
         };
 
-        let font_size = ui.style().text_styles[&egui::TextStyle::Button].size;
+        let font_size = ui.style().text_styles[&TextStyle::Button].size;
 
         let button = match self.icon {
+            Some(icon) if self.text.is_empty() => {
+                // Icon only - center it
+                Button::new(
+                    RichText::new(icon)
+                        .family(FontFamily::Name("phosphor".into()))
+                        .color(text_color)
+                        .size(font_size),
+                )
+            }
             Some(icon) => {
                 let mut job = LayoutJob::default();
                 job.append(
                     icon,
                     0.0,
-                    egui::TextFormat {
+                    TextFormat {
                         font_id: FontId::new(font_size, FontFamily::Name("phosphor".into())),
                         color: text_color,
-                        valign: egui::Align::Center,
+                        valign: Align::Center,
                         ..Default::default()
                     },
                 );
                 job.append(
                     &format!(" {}", self.text),
                     0.0,
-                    egui::TextFormat {
+                    TextFormat {
                         font_id: FontId::new(font_size, FontFamily::Proportional),
                         color: text_color,
-                        valign: egui::Align::Center,
+                        valign: Align::Center,
                         ..Default::default()
                     },
                 );
@@ -116,7 +132,11 @@ impl<'a> StyledButton<'a> {
         .stroke(stroke)
         .corner_radius(RADIUS_MD);
 
-        let response = ui.add(button);
+        let response = if let Some(size) = self.explicit_size {
+            ui.add_sized(size, button)
+        } else {
+            ui.add(button)
+        };
 
         if response.hovered() {
             let rect = response.rect;
