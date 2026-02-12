@@ -42,8 +42,8 @@ impl SyncEngineClient {
         }
     }
 
-    pub fn listen_projects(&self, ui: &Ui) -> impl Iterator<Item = Vec<Project>> {
-        return self.projects_inbox.read(ui);
+    pub fn listen_projects(&self, ui: &Ui) -> Option<Vec<Project>> {
+        return self.projects_inbox.read(ui).last();
     }
 
     pub fn create_project(&self, project: Project) {
@@ -55,4 +55,13 @@ impl SyncEngineClient {
                 .unwrap()
         });
     }
+}
+
+#[macro_export]
+macro_rules! listen {
+    ($self:ident, $ui:expr, $listener:expr, $field:ident) => {
+        if let Some(updated) = $listener($ui) {
+            $self.$field = updated;
+        }
+    };
 }
