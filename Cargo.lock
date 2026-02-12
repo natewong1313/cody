@@ -746,6 +746,7 @@ dependencies = [
  "eframe",
  "egui",
  "egui-dropdown",
+ "egui-phosphor",
  "egui_flex",
  "egui_form",
  "egui_inbox",
@@ -1171,6 +1172,15 @@ name = "egui-dropdown"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f54788eb590054d530fad4faf5249246168f8f2d1b249e05ed2e534aba28b74d"
+dependencies = [
+ "egui",
+]
+
+[[package]]
+name = "egui-phosphor"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3b2838620355debaeb7fa3cc331a1d8ab77e6387d40e65686fa468c229dbf63"
 dependencies = [
  "egui",
 ]

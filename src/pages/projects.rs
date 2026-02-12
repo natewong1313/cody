@@ -6,6 +6,7 @@ use egui::{Align, CentralPanel, Frame, Id, Label, Layout, Modal, RichText, Ui, v
 use egui_flex::{Flex, FlexAlign, FlexJustify, item};
 use egui_form::garde::{GardeReport, field_path};
 use egui_form::{Form, FormField};
+use egui_phosphor::regular;
 use garde::Validate;
 use uuid::Uuid;
 
@@ -13,17 +14,14 @@ use uuid::Uuid;
 struct ProjectFormFields {
     #[garde(length(min = 1))]
     name: String,
-    // #[garde(length(min = 1))]
-    // directory: String,
 }
 
 pub struct ProjectsPage {
     projects: Vec<Project>,
     modal_open: bool,
+    // Hack to clear the modal inputs
     modal_id: u32,
     form_fields: ProjectFormFields,
-    directory_suggestions: Vec<String>,
-    show_suggestions: bool,
 }
 
 impl ProjectsPage {
@@ -33,8 +31,6 @@ impl ProjectsPage {
             modal_open: false,
             modal_id: 0,
             form_fields: ProjectFormFields::default(),
-            directory_suggestions: Vec::new(),
-            show_suggestions: false,
         }
     }
 
@@ -44,6 +40,7 @@ impl ProjectsPage {
             .show(ctx, |ui| {
                 for updated_projects in page_ctx.sync_engine.listen_projects(ui) {
                     self.projects = updated_projects;
+                    println!("projects updated");
                 }
                 self.render_no_projects_screen(ui);
             });
@@ -113,18 +110,6 @@ impl ProjectsPage {
             );
 
         ui.add_space(8.0);
-
-        // let dir_response = FormField::new(form, field_path!("directory"))
-        //     .label("Directory")
-        //     .ui(
-        //         ui,
-        //         StyledTextInput::new(&mut self.form_fields.directory).hint_text("~/dev"),
-        //     );
-        //
-        // if dir_response.changed() {
-        //     self.update_directory_suggestions();
-        //     self.show_suggestions = true;
-        // }
     }
 
     fn render_form_buttons(
@@ -135,7 +120,10 @@ impl ProjectsPage {
     ) {
         ui.horizontal(|ui| {
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                let create_response = StyledButton::new("Create").size(ButtonSize::Sm).show(ui);
+                let create_response = StyledButton::new("Create")
+                    .size(ButtonSize::Sm)
+                    .icon(regular::PLUS)
+                    .show(ui);
 
                 if let Some(Ok(())) = form.handle_submit(&create_response, ui) {
                     println!("Creating project: '{}'", self.form_fields.name);
@@ -165,57 +153,5 @@ impl ProjectsPage {
         self.modal_open = false;
         self.modal_id += 1;
         self.form_fields = ProjectFormFields::default();
-        self.directory_suggestions.clear();
-        self.show_suggestions = false;
     }
-
-    // fn update_directory_suggestions(&mut self) {
-    //     self.directory_suggestions.clear();
-    //
-    //     let input = &self.form_fields.directory;
-    //     if input.is_empty() {
-    //         return;
-    //     }
-    //
-    //     let path = Path::new(input);
-    //
-    //     // Determine the parent directory to read and the prefix to filter by
-    //     let (dir_to_read, prefix) = if input.ends_with('/') || input.ends_with('\\') {
-    //         (path.to_path_buf(), String::new())
-    //     } else if path.parent().is_some() && path.parent().unwrap().exists() {
-    //         let parent = path.parent().unwrap().to_path_buf();
-    //         let file_name = path
-    //             .file_name()
-    //             .map(|f| f.to_string_lossy().to_string())
-    //             .unwrap_or_default();
-    //         (parent, file_name)
-    //     } else {
-    //         return;
-    //     };
-    //
-    //     if let Ok(entries) = std::fs::read_dir(&dir_to_read) {
-    //         let mut suggestions: Vec<String> = entries
-    //             .filter_map(|entry| {
-    //                 let entry = entry.ok()?;
-    //                 let metadata = entry.metadata().ok()?;
-    //                 if !metadata.is_dir() {
-    //                     return None;
-    //                 }
-    //                 let name = entry.file_name().to_string_lossy().to_string();
-    //                 if name.starts_with('.') {
-    //                     return None;
-    //                 }
-    //                 if !prefix.is_empty()
-    //                     && !name.to_lowercase().starts_with(&prefix.to_lowercase())
-    //                 {
-    //                     return None;
-    //                 }
-    //                 Some(entry.path().to_string_lossy().to_string())
-    //             })
-    //             .collect();
-    //         suggestions.sort();
-    //         suggestions.truncate(10);
-    //         self.directory_suggestions = suggestions;
-    //     }
-    // }
 }

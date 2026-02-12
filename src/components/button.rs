@@ -1,7 +1,10 @@
 use crate::theme::{
-    BG_50, BG_500, BG_700, BG_800, FUCHSIA_300, FUCHSIA_500, RADIUS_MD, STROKE_WIDTH,
+    BG_50, BG_500, BG_700, BG_800, FUCHSIA_300, FUCHSIA_500, FUCHSIA_700, RADIUS_MD, STROKE_WIDTH,
 };
-use egui::{Button, Response, RichText, Stroke, StrokeKind, Ui, Vec2, Widget, vec2};
+use egui::{
+    text::LayoutJob, vec2, Button, FontFamily, FontId, Response, RichText, Stroke, StrokeKind, Ui,
+    Vec2, Widget,
+};
 use egui_flex::{FlexInstance, FlexItem, FlexWidget};
 
 #[derive(Default, Clone, Copy)]
@@ -33,6 +36,7 @@ pub struct StyledButton<'a> {
     text: &'a str,
     size: ButtonSize,
     variant: ButtonVariant,
+    icon: Option<&'a str>,
 }
 
 impl<'a> StyledButton<'a> {
@@ -41,6 +45,7 @@ impl<'a> StyledButton<'a> {
             text,
             size: ButtonSize::default(),
             variant: ButtonVariant::default(),
+            icon: None,
         }
     }
 
@@ -54,36 +59,69 @@ impl<'a> StyledButton<'a> {
         self
     }
 
+    pub fn icon(mut self, icon: &'a str) -> Self {
+        self.icon = Some(icon);
+        self
+    }
+
     pub fn show(self, ui: &mut Ui) -> Response {
         let prev_padding = ui.spacing().button_padding;
         ui.spacing_mut().button_padding = self.size.padding();
 
-        let (fill, stroke, focus_stroke, text_color) = match self.variant {
+        let (fill, stroke, hover_stroke, text_color) = match self.variant {
             ButtonVariant::Primary => (
                 FUCHSIA_500,
                 Stroke::NONE,
-                Stroke::new(STROKE_WIDTH, FUCHSIA_300),
+                Stroke::new(STROKE_WIDTH, FUCHSIA_700),
                 BG_50,
             ),
             ButtonVariant::Secondary => (
                 BG_800,
                 Stroke::new(STROKE_WIDTH, BG_700),
-                Stroke::new(STROKE_WIDTH, BG_50),
+                Stroke::new(STROKE_WIDTH, BG_500),
                 BG_50,
             ),
         };
 
-        let button = Button::new(RichText::new(self.text).color(text_color))
-            .fill(fill)
-            .stroke(stroke)
-            .corner_radius(RADIUS_MD);
+        let font_size = ui.style().text_styles[&egui::TextStyle::Button].size;
+
+        let button = match self.icon {
+            Some(icon) => {
+                let mut job = LayoutJob::default();
+                job.append(
+                    icon,
+                    0.0,
+                    egui::TextFormat {
+                        font_id: FontId::new(font_size, FontFamily::Name("phosphor".into())),
+                        color: text_color,
+                        valign: egui::Align::Center,
+                        ..Default::default()
+                    },
+                );
+                job.append(
+                    &format!(" {}", self.text),
+                    0.0,
+                    egui::TextFormat {
+                        font_id: FontId::new(font_size, FontFamily::Proportional),
+                        color: text_color,
+                        valign: egui::Align::Center,
+                        ..Default::default()
+                    },
+                );
+                Button::new(job)
+            }
+            None => Button::new(RichText::new(self.text).color(text_color)),
+        }
+        .fill(fill)
+        .stroke(stroke)
+        .corner_radius(RADIUS_MD);
 
         let response = ui.add(button);
 
-        if response.has_focus() {
+        if response.hovered() {
             let rect = response.rect;
             ui.painter()
-                .rect_stroke(rect, RADIUS_MD, focus_stroke, StrokeKind::Outside);
+                .rect_stroke(rect, RADIUS_MD, hover_stroke, StrokeKind::Outside);
         }
 
         ui.spacing_mut().button_padding = prev_padding;

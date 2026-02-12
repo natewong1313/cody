@@ -89,7 +89,7 @@ async fn main() -> eframe::Result {
                     .into(),
                 );
 
-                // Set JetBrains Mono as the primary font for both families
+                // Set JetBrains Mono as the primary text font
                 fonts
                     .families
                     .entry(FontFamily::Proportional)
@@ -100,6 +100,18 @@ async fn main() -> eframe::Result {
                     .entry(FontFamily::Monospace)
                     .or_default()
                     .insert(0, "JetBrainsMono-Regular".to_owned());
+
+                // Register Phosphor icons as a dedicated font family so icons
+                // aren't shadowed by Nerd Font PUA glyphs in the same range
+                fonts.font_data.insert(
+                    "phosphor".into(),
+                    egui_phosphor::Variant::Regular.font_data().into(),
+                );
+                fonts
+                    .families
+                    .entry(FontFamily::Name("phosphor".into()))
+                    .or_default()
+                    .push("phosphor".into());
 
                 cc.egui_ctx.set_fonts(fonts);
 

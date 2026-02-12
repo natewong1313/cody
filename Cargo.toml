@@ -30,3 +30,4 @@ rusqlite_migration = "2.4.1"
 egui_form = { version = "0.7.0", features = ["validator_garde"] }
 garde = { version = "0.22", features = ["derive"] }
 crossbeam-channel = "0.5.15"
+egui-phosphor = "0.11.0"
