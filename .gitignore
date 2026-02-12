@@ -2,3 +2,4 @@
 .DS_Store
 /egui
 /src/ui_tests
+/tests/snapshots
