@@ -11,6 +11,10 @@ use egui_flex::{Flex, FlexAlign, FlexJustify, item};
 use egui_form::garde::{GardeReport, field_path};
 use egui_form::{Form, FormField};
 use egui_phosphor::regular;
+use egui_taffy::bg::simple::{TuiBackground, TuiBuilderLogicWithBackground};
+use egui_taffy::taffy;
+use egui_taffy::taffy::prelude::*;
+use egui_taffy::{TuiBuilderLogic, tid, tui};
 use garde::Validate;
 use uuid::Uuid;
 
@@ -88,7 +92,56 @@ impl ProjectsPage {
     }
 
     fn render_projects(&mut self, ui: &mut Ui) {
-        Flex::vertical().w_full().show(ui, |flex| {});
+        let placeholder_projects = [
+            ("Cody", "~/dev/cody"),
+            ("Website Redesign", "~/projects/website-redesign"),
+            ("API Server", "~/dev/api-server"),
+            ("Mobile App", "~/projects/mobile-app"),
+            ("Data Pipeline", "~/dev/data-pipeline"),
+            ("Design System", "~/projects/design-system"),
+        ];
+
+        // let max_width = 960.0;
+        // let available_width = ui.available_width();
+        // let h_margin = ((available_width - max_width) / 2.0).max(0.0);
+
+        tui(ui, ui.id().with("projects_grid"))
+            .reserve_available_width() // Reserve full space of this window for layout
+            .style(taffy::Style {
+                display: taffy::Display::Grid,
+                size: taffy::Size {
+                    width: percent(1.0),
+                    height: auto(),
+                },
+                grid_template_columns: vec![fr(1.0), fr(1.0), fr(1.0)],
+                grid_auto_rows: vec![min_content()],
+                gap: taffy::style_helpers::length(16.),
+                padding: taffy::style_helpers::length(16.),
+                ..Default::default()
+            })
+            .show(|tui| {
+                for (i, (name, dir)) in placeholder_projects.iter().enumerate() {
+                    tui.id(tid(i))
+                        .style(taffy::Style {
+                            flex_direction: taffy::FlexDirection::Column,
+                            align_items: Some(taffy::AlignItems::Stretch),
+                            padding: length(16.0),
+                            border: length(STROKE_WIDTH),
+                            ..Default::default()
+                        })
+                        .bg_add(
+                            TuiBackground::new()
+                                .with_background_color(BG_900)
+                                .with_border_color(BG_700)
+                                .with_border_width(STROKE_WIDTH)
+                                .with_corner_radius(RADIUS_MD),
+                            |tui| {
+                                tui.heading(RichText::new(*name).color(BG_50).strong().size(16.0));
+                                tui.label(RichText::new(*dir).color(BG_500).size(12.0));
+                            },
+                        );
+                }
+            });
     }
 
     fn render_modal(&mut self, ctx: &egui::Context, page_ctx: &mut super::PageContext) {
