@@ -1,20 +1,18 @@
 use crate::backend::Project;
 use crate::components::button::{ButtonSize, ButtonVariant, StyledButton};
 use crate::components::directory_picker::DirectoryPicker;
+use crate::components::project_card::ProjectCard;
 use crate::components::text_input::StyledTextInput;
 use crate::listen;
 use crate::theme::{BG_50, BG_500, BG_700, BG_900, BG_950, RADIUS_MD, STROKE_WIDTH};
-use egui::{
-    Align, CentralPanel, FontFamily, Frame, Id, Label, Layout, Modal, RichText, Stroke, Ui, vec2,
-};
-use egui_flex::{Flex, FlexAlign, FlexJustify, item};
-use egui_form::garde::{GardeReport, field_path};
+use egui::{vec2, Align, CentralPanel, Frame, Id, Label, Layout, Modal, RichText, Stroke, Ui};
+use egui_flex::{item, Flex, FlexAlign, FlexJustify};
+use egui_form::garde::{field_path, GardeReport};
 use egui_form::{Form, FormField};
 use egui_phosphor::regular;
-use egui_taffy::bg::simple::{TuiBackground, TuiBuilderLogicWithBackground};
 use egui_taffy::taffy;
 use egui_taffy::taffy::prelude::*;
-use egui_taffy::{TuiBuilderLogic, tid, tui};
+use egui_taffy::tui;
 use garde::Validate;
 use uuid::Uuid;
 
@@ -121,25 +119,7 @@ impl ProjectsPage {
             })
             .show(|tui| {
                 for (i, (name, dir)) in placeholder_projects.iter().enumerate() {
-                    tui.id(tid(i))
-                        .style(taffy::Style {
-                            flex_direction: taffy::FlexDirection::Column,
-                            align_items: Some(taffy::AlignItems::Stretch),
-                            padding: length(16.0),
-                            border: length(STROKE_WIDTH),
-                            ..Default::default()
-                        })
-                        .bg_add(
-                            TuiBackground::new()
-                                .with_background_color(BG_900)
-                                .with_border_color(BG_700)
-                                .with_border_width(STROKE_WIDTH)
-                                .with_corner_radius(RADIUS_MD),
-                            |tui| {
-                                tui.heading(RichText::new(*name).color(BG_50).strong().size(16.0));
-                                tui.label(RichText::new(*dir).color(BG_500).size(12.0));
-                            },
-                        );
+                    ProjectCard::new(name, dir, i).show(tui);
                 }
             });
     }
