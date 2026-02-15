@@ -3,7 +3,7 @@ use egui::RichText;
 use egui_taffy::bg::simple::{TuiBackground, TuiBuilderLogicWithBackground};
 use egui_taffy::taffy;
 use egui_taffy::taffy::prelude::*;
-use egui_taffy::{Tui, TuiBuilderLogic, tid};
+use egui_taffy::{tid, Tui, TuiBuilderLogic};
 
 pub struct ProjectCard<'a> {
     name: &'a str,
@@ -68,8 +68,10 @@ impl<'a> ProjectCard<'a> {
                             },
                         );
 
-                    tui.heading(RichText::new(self.name).color(BG_50).strong().size(16.0));
-                    tui.label(RichText::new(self.dir).color(BG_500).size(12.0));
+                    tui.wrap_mode(egui::TextWrapMode::Truncate)
+                        .heading(RichText::new(self.name).color(BG_50).strong().size(16.0));
+                    tui.wrap_mode(egui::TextWrapMode::Truncate)
+                        .label(RichText::new(self.dir).color(BG_500).size(12.0));
                 },
             );
     }
