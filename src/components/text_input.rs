@@ -71,6 +71,7 @@ impl<'a> StyledTextInput<'a> {
             .stroke(Stroke::new(STROKE_WIDTH, BG_700))
             .show(ui, |ui| {
                 ui.set_height(0.0); // Prevent vertical expansion
+                ui.set_min_width(ui.available_width()); // Fill horizontal space
                 ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                     ui.spacing_mut().item_spacing.x = 6.0;
 

@@ -1,17 +1,17 @@
 use crate::backend::Project;
 use crate::components::button::{ButtonSize, ButtonVariant, StyledButton};
-use crate::components::directory_picker::DirectoryPicker;
+use crate::components::dir_button::DirButton;
 use crate::components::project_card::ProjectCard;
 use crate::components::text_input::StyledTextInput;
 use crate::listen;
 use crate::theme::{BG_50, BG_500, BG_700, BG_900, BG_950, RADIUS_MD, STROKE_WIDTH};
 use egui::{
-    Align, Button, CentralPanel, Frame, Grid, Id, Label, Layout, Margin, Modal, RichText, Stroke,
-    Ui, vec2,
+    vec2, Align, CentralPanel, Frame, Grid, Id, Label, Layout, Margin, Modal, RichText, Stroke, Ui,
 };
-use egui_flex::{Flex, FlexAlign, FlexJustify, item};
-use egui_form::garde::{GardeReport, field_path};
+use egui_flex::{item, Flex, FlexAlign, FlexJustify};
+use egui_form::garde::{field_path, GardeReport};
 use egui_form::{Form, FormField};
+use egui_inbox::UiInbox;
 use egui_phosphor::regular;
 use garde::Validate;
 use uuid::Uuid;
@@ -29,6 +29,7 @@ pub struct ProjectsPage {
     modal_open: bool,
     modal_id: u32,
     form_fields: ProjectFormFields,
+    dir_inbox: UiInbox<String>,
 }
 
 impl ProjectsPage {
@@ -38,6 +39,7 @@ impl ProjectsPage {
             modal_open: false,
             modal_id: 0,
             form_fields: ProjectFormFields::default(),
+            dir_inbox: UiInbox::new(),
         }
     }
 
@@ -161,7 +163,7 @@ impl ProjectsPage {
             .show(ctx, |ui| {
                 ui.set_width(400.0);
                 // Need this for input label spacing
-                ui.spacing_mut().item_spacing.y = 6.0;
+                // ui.spacing_mut().item_spacing.y = 6.0;
 
                 ui.heading(RichText::new("Create New Project").color(BG_50).strong());
                 ui.add_space(16.0);
@@ -169,22 +171,20 @@ impl ProjectsPage {
                 let mut form =
                     Form::new().add_report(GardeReport::new(self.form_fields.validate()));
 
+                if let Some(dir) = self.dir_inbox.read(ui).last() {
+                    self.form_fields.dir = dir;
+                }
+
+                FormField::new(&mut form, field_path!("dir"))
+                    .label("Directory")
+                    .ui(ui, DirButton::new(&self.form_fields.dir, &self.dir_inbox));
+
                 FormField::new(&mut form, field_path!("name"))
-                    .label("Project Name")
+                    .label("Project name")
                     .ui(
                         ui,
                         StyledTextInput::new(&mut self.form_fields.name)
-                            .hint_text("Name of your project")
-                            .desired_width(ui.available_width()),
-                    );
-                //
-                FormField::new(&mut form, field_path!("dir"))
-                    .label("Project Directory")
-                    .ui(
-                        ui,
-                        DirectoryPicker::new(&mut self.form_fields.dir)
-                            .hint_text("Search for a folder...")
-                            .id(Id::new("project_dir_picker").with(self.modal_id)),
+                            .hint_text("Enter a name for your project"),
                     );
 
                 self.render_form_buttons(ui, form, page_ctx);
