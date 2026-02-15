@@ -6,7 +6,8 @@ use crate::components::text_input::StyledTextInput;
 use crate::listen;
 use crate::theme::{BG_50, BG_500, BG_700, BG_900, BG_950, RADIUS_MD, STROKE_WIDTH};
 use egui::{
-    Align, CentralPanel, Frame, Grid, Id, Label, Layout, Modal, RichText, Stroke, Ui, vec2,
+    Align, Button, CentralPanel, Frame, Grid, Id, Label, Layout, Margin, Modal, RichText, Stroke,
+    Ui, vec2,
 };
 use egui_flex::{Flex, FlexAlign, FlexJustify, item};
 use egui_form::garde::{GardeReport, field_path};
@@ -42,15 +43,15 @@ impl ProjectsPage {
 
     pub fn render(&mut self, ctx: &egui::Context, page_ctx: &mut super::PageContext) {
         CentralPanel::default()
-            .frame(Frame::central_panel(&ctx.style()).fill(BG_950))
+            .frame(
+                Frame::central_panel(&ctx.style())
+                    .fill(BG_950)
+                    .inner_margin(0.0),
+            )
             .show(ctx, |ui| {
                 self.setup_listeners(ui, page_ctx);
 
-                // if self.projects.len() == 0 {
-                //     self.render_no_projects_screen(ui);
-                // } else {
                 self.render_projects(ui);
-                // }
             });
 
         if self.modal_open {
@@ -89,6 +90,36 @@ impl ProjectsPage {
     }
 
     fn render_projects(&mut self, ui: &mut Ui) {
+        const GRID_MAX_WIDTH: f32 = 700.0;
+        const GRID_PADDING: f32 = 16.0;
+
+        ui.with_layout(Layout::top_down(Align::Center), |ui| {
+            let grid_width = ui.available_width().min(GRID_MAX_WIDTH);
+            ui.set_max_width(grid_width);
+
+            Frame::new().inner_margin(GRID_PADDING).show(ui, |ui| {
+                Frame::new()
+                    .outer_margin(Margin {
+                        bottom: 16,
+                        ..Default::default()
+                    })
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            if StyledButton::new("Create Project")
+                                .variant(ButtonVariant::Primary)
+                                .show(ui)
+                                .clicked()
+                            {
+                                self.modal_open = true;
+                            }
+                        });
+                    });
+                self.render_projects_grid(ui);
+            });
+        });
+    }
+
+    fn render_projects_grid(&mut self, ui: &mut Ui) {
         let placeholder_projects = [
             ("Cody", "~/dev/cody"),
             ("Website Redesign", "~/projects/website-redesign"),
@@ -97,40 +128,25 @@ impl ProjectsPage {
             ("Data Pipeline", "~/dev/data-pipeline"),
             ("Design System", "~/projects/design-system"),
         ];
-
-        const GRID_MAX_WIDTH: f32 = 700.0;
         const GRID_COLUMNS: usize = 3;
         const GRID_GAP: f32 = 16.0;
-        const GRID_PADDING: f32 = 16.0;
+        let total_gap = GRID_GAP * (GRID_COLUMNS as f32 - 1.0);
+        let card_width = ((ui.available_width() - total_gap) / GRID_COLUMNS as f32).max(0.0);
 
-        ui.with_layout(Layout::top_down(Align::Center), |ui| {
-            let grid_width = ui.available_width().min(GRID_MAX_WIDTH);
-            ui.set_max_width(grid_width);
+        Grid::new("projects_grid")
+            .num_columns(GRID_COLUMNS)
+            .spacing(vec2(GRID_GAP, GRID_GAP))
+            .min_col_width(card_width)
+            .max_col_width(card_width)
+            .show(ui, |ui| {
+                for (i, (name, dir)) in placeholder_projects.iter().enumerate() {
+                    ProjectCard::new(name, dir, i).show(ui);
 
-            Frame::new().inner_margin(GRID_PADDING).show(ui, |ui| {
-                let total_gap = GRID_GAP * (GRID_COLUMNS as f32 - 1.0);
-                let card_width =
-                    ((ui.available_width() - total_gap) / GRID_COLUMNS as f32).max(0.0);
-
-                Grid::new("projects_grid")
-                    .num_columns(GRID_COLUMNS)
-                    .spacing(vec2(GRID_GAP, GRID_GAP))
-                    .min_col_width(card_width)
-                    .max_col_width(card_width)
-                    .show(ui, |ui| {
-                        for (i, (name, dir)) in placeholder_projects.iter().enumerate() {
-                            ui.allocate_ui(vec2(card_width, 0.0), |ui| {
-                                ui.set_width(card_width);
-                                ProjectCard::new(name, dir, i).show(ui);
-                            });
-
-                            if (i + 1) % GRID_COLUMNS == 0 {
-                                ui.end_row();
-                            }
-                        }
-                    });
+                    if (i + 1) % GRID_COLUMNS == 0 {
+                        ui.end_row();
+                    }
+                }
             });
-        });
     }
 
     fn render_modal(&mut self, ctx: &egui::Context, page_ctx: &mut super::PageContext) {
@@ -158,9 +174,10 @@ impl ProjectsPage {
                     .ui(
                         ui,
                         StyledTextInput::new(&mut self.form_fields.name)
-                            .hint_text("Name of your project"),
+                            .hint_text("Name of your project")
+                            .desired_width(ui.available_width()),
                     );
-
+                //
                 FormField::new(&mut form, field_path!("dir"))
                     .label("Project Directory")
                     .ui(

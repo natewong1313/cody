@@ -1,7 +1,7 @@
 use crate::theme::{BG_50, BG_500, BG_700, BG_800, RADIUS_MD, STROKE_WIDTH};
 use egui::{
-    Align, FontFamily, FontId, Frame, Layout, Margin, Response, Stroke, TextEdit, TextFormat,
-    TextStyle, Ui, Widget, text::LayoutJob,
+    text::LayoutJob, Align, FontFamily, FontId, Frame, Layout, Margin, Response, Stroke, TextEdit,
+    TextFormat, TextStyle, Ui, Widget,
 };
 
 #[derive(Default, Clone, Copy)]
@@ -70,6 +70,7 @@ impl<'a> StyledTextInput<'a> {
             .corner_radius(RADIUS_MD)
             .stroke(Stroke::new(STROKE_WIDTH, BG_700))
             .show(ui, |ui| {
+                ui.set_height(0.0); // Prevent vertical expansion
                 ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                     ui.spacing_mut().item_spacing.x = 6.0;
 

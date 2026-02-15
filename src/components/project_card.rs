@@ -1,5 +1,5 @@
 use crate::theme::{BG_50, BG_500, BG_700, BG_900, FUCHSIA_500, RADIUS_MD, STROKE_WIDTH};
-use egui::{vec2, Align, Frame, Label, Layout, RichText, Stroke, TextWrapMode, Ui};
+use egui::{Frame, Label, RichText, Stroke, TextWrapMode, Ui};
 
 pub struct ProjectCard<'a> {
     name: &'a str,
@@ -21,7 +21,7 @@ impl<'a> ProjectCard<'a> {
                 .inner_margin(16.0)
                 .show(ui, |ui| {
                     ui.set_width(ui.available_width());
-                    ui.with_layout(Layout::top_down(Align::Min), |ui| {
+                    ui.vertical(|ui| {
                         let first_letter = self
                             .name
                             .chars()
@@ -30,22 +30,21 @@ impl<'a> ProjectCard<'a> {
                             .to_uppercase()
                             .to_string();
 
-                        ui.allocate_ui(vec2(36.0, 36.0), |ui| {
-                            Frame::new()
-                                .fill(FUCHSIA_500)
-                                .corner_radius(RADIUS_MD)
-                                .show(ui, |ui| {
-                                    ui.set_min_size(vec2(36.0, 36.0));
-                                    ui.centered_and_justified(|ui| {
-                                        ui.label(
-                                            RichText::new(first_letter)
-                                                .color(BG_50)
-                                                .strong()
-                                                .size(16.0),
-                                        );
-                                    });
+                        Frame::new()
+                            .fill(FUCHSIA_500)
+                            .corner_radius(RADIUS_MD)
+                            .show(ui, |ui| {
+                                ui.set_width(36.0);
+                                ui.set_height(36.0);
+                                ui.centered_and_justified(|ui| {
+                                    ui.label(
+                                        RichText::new(first_letter)
+                                            .color(BG_50)
+                                            .strong()
+                                            .size(16.0),
+                                    );
                                 });
-                        });
+                            });
 
                         ui.add_space(8.0);
 
