@@ -1,5 +1,8 @@
-use crate::theme::{BG_50, BG_700, BG_800, RADIUS_MD, STROKE_WIDTH};
-use egui::{Frame, Margin, Response, Stroke, TextEdit, Ui, Widget};
+use crate::theme::{BG_50, BG_500, BG_700, BG_800, RADIUS_MD, STROKE_WIDTH};
+use egui::{
+    Align, FontFamily, FontId, Frame, Layout, Margin, Response, Stroke, TextEdit, TextFormat,
+    TextStyle, Ui, Widget, text::LayoutJob,
+};
 
 #[derive(Default, Clone, Copy)]
 pub enum TextInputSize {
@@ -24,6 +27,7 @@ pub struct StyledTextInput<'a> {
     hint_text: String,
     desired_width: f32,
     size: TextInputSize,
+    leading_icon: Option<&'a str>,
 }
 
 impl<'a> StyledTextInput<'a> {
@@ -33,6 +37,7 @@ impl<'a> StyledTextInput<'a> {
             hint_text: String::new(),
             desired_width: f32::INFINITY,
             size: TextInputSize::default(),
+            leading_icon: None,
         }
     }
 
@@ -51,6 +56,11 @@ impl<'a> StyledTextInput<'a> {
         self
     }
 
+    pub fn leading_icon(mut self, icon: &'a str) -> Self {
+        self.leading_icon = Some(icon);
+        self
+    }
+
     pub fn show(self, ui: &mut Ui) -> StyledTextInputResponse {
         let margin = self.size.margin();
 
@@ -60,13 +70,37 @@ impl<'a> StyledTextInput<'a> {
             .corner_radius(RADIUS_MD)
             .stroke(Stroke::new(STROKE_WIDTH, BG_700))
             .show(ui, |ui| {
-                ui.add(
-                    TextEdit::singleline(self.text)
-                        .frame(false)
-                        .hint_text(self.hint_text)
-                        .desired_width(self.desired_width)
-                        .text_color(BG_50),
-                )
+                ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+                    ui.spacing_mut().item_spacing.x = 6.0;
+
+                    if let Some(icon) = self.leading_icon {
+                        let font_size = ui.style().text_styles[&TextStyle::Body].size;
+                        let mut job = LayoutJob::default();
+                        job.append(
+                            icon,
+                            0.0,
+                            TextFormat {
+                                font_id: FontId::new(
+                                    font_size,
+                                    FontFamily::Name("phosphor".into()),
+                                ),
+                                color: BG_500,
+                                valign: Align::Center,
+                                ..Default::default()
+                            },
+                        );
+                        ui.label(job);
+                    }
+
+                    ui.add(
+                        TextEdit::singleline(self.text)
+                            .frame(false)
+                            .hint_text(self.hint_text)
+                            .desired_width(self.desired_width)
+                            .text_color(BG_50),
+                    )
+                })
+                .inner
             });
 
         StyledTextInputResponse {
