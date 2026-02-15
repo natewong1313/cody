@@ -5,11 +5,12 @@ use crate::components::project_card::ProjectCard;
 use crate::components::text_input::StyledTextInput;
 use crate::listen;
 use crate::theme::{BG_50, BG_500, BG_700, BG_900, BG_950, RADIUS_MD, STROKE_WIDTH};
-use egui::{vec2, Align, CentralPanel, Frame, Id, Label, Layout, Modal, RichText, Stroke, Ui};
-use egui_flex::{item, Flex, FlexAlign, FlexJustify};
-use egui_form::garde::{field_path, GardeReport};
+use egui::{Align, CentralPanel, Frame, Id, Label, Layout, Modal, RichText, Stroke, Ui, vec2};
+use egui_flex::{Flex, FlexAlign, FlexJustify, item};
+use egui_form::garde::{GardeReport, field_path};
 use egui_form::{Form, FormField};
 use egui_phosphor::regular;
+use egui_taffy::TuiBuilderLogic;
 use egui_taffy::taffy;
 use egui_taffy::taffy::prelude::*;
 use egui_taffy::tui;
@@ -99,28 +100,39 @@ impl ProjectsPage {
             ("Design System", "~/projects/design-system"),
         ];
 
-        // let max_width = 960.0;
-        // let available_width = ui.available_width();
-        // let h_margin = ((available_width - max_width) / 2.0).max(0.0);
-
-        tui(ui, ui.id().with("projects_grid"))
-            .reserve_available_width() // Reserve full space of this window for layout
+        tui(ui, ui.id().with("projects_grid_wrapper"))
+            .reserve_available_width()
             .style(taffy::Style {
-                display: taffy::Display::Grid,
+                display: taffy::Display::Flex,
+                justify_content: Some(taffy::JustifyContent::Center),
                 size: taffy::Size {
                     width: percent(1.0),
                     height: auto(),
                 },
-                grid_template_columns: vec![fr(1.0), fr(1.0), fr(1.0)],
-                grid_auto_rows: vec![min_content()],
-                gap: taffy::style_helpers::length(16.),
-                padding: taffy::style_helpers::length(16.),
                 ..Default::default()
             })
             .show(|tui| {
-                for (i, (name, dir)) in placeholder_projects.iter().enumerate() {
-                    ProjectCard::new(name, dir, i).show(tui);
-                }
+                tui.style(taffy::Style {
+                    display: taffy::Display::Grid,
+                    max_size: taffy::Size {
+                        width: length(700.0),
+                        height: auto(),
+                    },
+                    size: taffy::Size {
+                        width: percent(1.0),
+                        height: auto(),
+                    },
+                    grid_template_columns: vec![fr(1.0), fr(1.0), fr(1.0)],
+                    grid_auto_rows: vec![min_content()],
+                    gap: taffy::style_helpers::length(16.),
+                    padding: taffy::style_helpers::length(16.),
+                    ..Default::default()
+                })
+                .add(|tui| {
+                    for (i, (name, dir)) in placeholder_projects.iter().enumerate() {
+                        ProjectCard::new(name, dir, i).show(tui);
+                    }
+                });
             });
     }
 
