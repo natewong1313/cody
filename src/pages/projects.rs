@@ -5,15 +5,13 @@ use crate::components::project_card::ProjectCard;
 use crate::components::text_input::StyledTextInput;
 use crate::listen;
 use crate::theme::{BG_50, BG_500, BG_700, BG_900, BG_950, RADIUS_MD, STROKE_WIDTH};
-use egui::{Align, CentralPanel, Frame, Id, Label, Layout, Modal, RichText, Stroke, Ui, vec2};
+use egui::{
+    Align, CentralPanel, Frame, Grid, Id, Label, Layout, Modal, RichText, Stroke, Ui, vec2,
+};
 use egui_flex::{Flex, FlexAlign, FlexJustify, item};
 use egui_form::garde::{GardeReport, field_path};
 use egui_form::{Form, FormField};
 use egui_phosphor::regular;
-use egui_taffy::TuiBuilderLogic;
-use egui_taffy::taffy;
-use egui_taffy::taffy::prelude::*;
-use egui_taffy::tui;
 use garde::Validate;
 use uuid::Uuid;
 
@@ -100,40 +98,39 @@ impl ProjectsPage {
             ("Design System", "~/projects/design-system"),
         ];
 
-        tui(ui, ui.id().with("projects_grid_wrapper"))
-            .reserve_available_width()
-            .style(taffy::Style {
-                display: taffy::Display::Flex,
-                justify_content: Some(taffy::JustifyContent::Center),
-                size: taffy::Size {
-                    width: percent(1.0),
-                    height: auto(),
-                },
-                ..Default::default()
-            })
-            .show(|tui| {
-                tui.style(taffy::Style {
-                    display: taffy::Display::Grid,
-                    max_size: taffy::Size {
-                        width: length(700.0),
-                        height: auto(),
-                    },
-                    size: taffy::Size {
-                        width: percent(1.0),
-                        height: auto(),
-                    },
-                    grid_template_columns: vec![fr(1.0), fr(1.0), fr(1.0)],
-                    grid_auto_rows: vec![min_content()],
-                    gap: taffy::style_helpers::length(16.),
-                    padding: taffy::style_helpers::length(16.),
-                    ..Default::default()
-                })
-                .add(|tui| {
-                    for (i, (name, dir)) in placeholder_projects.iter().enumerate() {
-                        ProjectCard::new(name, dir, i).show(tui);
-                    }
-                });
+        const GRID_MAX_WIDTH: f32 = 700.0;
+        const GRID_COLUMNS: usize = 3;
+        const GRID_GAP: f32 = 16.0;
+        const GRID_PADDING: f32 = 16.0;
+
+        ui.with_layout(Layout::top_down(Align::Center), |ui| {
+            let grid_width = ui.available_width().min(GRID_MAX_WIDTH);
+            ui.set_max_width(grid_width);
+
+            Frame::new().inner_margin(GRID_PADDING).show(ui, |ui| {
+                let total_gap = GRID_GAP * (GRID_COLUMNS as f32 - 1.0);
+                let card_width =
+                    ((ui.available_width() - total_gap) / GRID_COLUMNS as f32).max(0.0);
+
+                Grid::new("projects_grid")
+                    .num_columns(GRID_COLUMNS)
+                    .spacing(vec2(GRID_GAP, GRID_GAP))
+                    .min_col_width(card_width)
+                    .max_col_width(card_width)
+                    .show(ui, |ui| {
+                        for (i, (name, dir)) in placeholder_projects.iter().enumerate() {
+                            ui.allocate_ui(vec2(card_width, 0.0), |ui| {
+                                ui.set_width(card_width);
+                                ProjectCard::new(name, dir, i).show(ui);
+                            });
+
+                            if (i + 1) % GRID_COLUMNS == 0 {
+                                ui.end_row();
+                            }
+                        }
+                    });
             });
+        });
     }
 
     fn render_modal(&mut self, ctx: &egui::Context, page_ctx: &mut super::PageContext) {
