@@ -1,12 +1,12 @@
 use std::{
     collections::HashMap,
-    sync::mpsc::{channel, Receiver, Sender},
+    sync::mpsc::{Receiver, Sender, channel},
 };
 
 use crate::{
-    actions::{handle_action, ActionContext},
+    actions::{ActionContext, handle_action},
     opencode::{OpencodeApiClient, OpencodeSession},
-    pages::{PageAction, PageContext, PageType, PagesRouter},
+    pages::{PageAction, PageContext, PagesRouter},
     sync_engine::SyncEngineClient,
 };
 use egui_inbox::UiInbox;
@@ -45,21 +45,6 @@ impl App {
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Process async results from inbox
-        for result in self.session_inbox.read(ctx) {
-            match result {
-                Ok(session) => {
-                    log::info!("created session: {:?}", session);
-                    let session_id = session.id.clone();
-                    self.current_sessions.insert(session_id.clone(), session);
-                    self.pages_router.navigate(PageType::Session(session_id));
-                }
-                Err(e) => {
-                    log::error!("Failed to create session: {}", e);
-                }
-            }
-        }
-
         while let Ok(action) = self.action_reciever.try_recv() {
             let mut action_ctx = ActionContext {
                 pages_router: &mut self.pages_router,

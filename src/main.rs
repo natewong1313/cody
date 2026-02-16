@@ -5,7 +5,7 @@ use crate::{
 };
 use anyhow::Result;
 use egui::{FontData, FontDefinitions, FontFamily, ViewportBuilder};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 mod actions;
 mod app;
@@ -144,6 +144,8 @@ fn run_app(env: AppEnv) -> eframe::Result {
                 .push("phosphor".into());
 
             cc.egui_ctx.set_fonts(fonts);
+
+            egui_extras::install_image_loaders(&cc.egui_ctx);
 
             // Register handler to repaint UI when hot-reload patches arrive
             #[cfg(feature = "local")]
