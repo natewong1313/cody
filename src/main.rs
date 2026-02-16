@@ -150,6 +150,8 @@ fn run_app(env: AppEnv) -> eframe::Result {
             // Register handler to repaint UI when hot-reload patches arrive
             #[cfg(feature = "local")]
             {
+                use std::sync::Arc;
+
                 let ctx = cc.egui_ctx.clone();
                 subsecond::register_handler(Arc::new(move || {
                     log::debug!("Hot-reload patch received, requesting repaint");
@@ -167,9 +169,11 @@ fn run_app(env: AppEnv) -> eframe::Result {
 #[cfg(not(feature = "local"))]
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize logging
+    // Initialize logging, filter out winit spam
     env_logger::Builder::from_default_env()
         .filter_level(log::LevelFilter::Info)
+        .filter(Some("winit"), log::LevelFilter::Warn)
+        .filter(Some("tracing::span"), log::LevelFilter::Warn)
         .init();
 
     log::info!("Starting opencode gui (production mode)");
@@ -189,9 +193,11 @@ async fn main() -> Result<()> {
 #[cfg(feature = "local")]
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize logging with debug level for development
+    // Initialize logging with debug level for development, but filter out winit spam
     env_logger::Builder::from_default_env()
         .filter_level(log::LevelFilter::Debug)
+        .filter(Some("winit"), log::LevelFilter::Warn)
+        .filter(Some("tracing::span"), log::LevelFilter::Warn)
         .init();
 
     log::info!("Starting opencode gui (development mode with hot-reload)");

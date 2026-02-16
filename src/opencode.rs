@@ -522,15 +522,17 @@ impl OpencodeApiClient {
         request: Option<&OpencodeCreateSessionRequest>,
         directory: Option<&str>,
     ) -> anyhow::Result<OpencodeSession> {
-        let mut req = self.http_client.post(format!("{}/session", self.server_url));
-        
+        let mut req = self
+            .http_client
+            .post(format!("{}/session", self.server_url));
+
         if let Some(dir) = directory {
             req = req.query(&[("directory", dir)]);
         }
         if let Some(body) = request {
             req = req.json(body);
         }
-        
+
         let session: OpencodeSession = req.send().await?.json().await?;
         Ok(session)
     }
@@ -565,7 +567,10 @@ impl OpencodeApiClient {
     ) -> anyhow::Result<OpencodeMessageWithParts> {
         let mut req = self
             .http_client
-            .post(format!("{}/session/{}/message", self.server_url, session_id))
+            .post(format!(
+                "{}/session/{}/message",
+                self.server_url, session_id
+            ))
             .json(request);
         if let Some(dir) = directory {
             req = req.query(&[("directory", dir)]);
@@ -580,9 +585,10 @@ impl OpencodeApiClient {
         limit: Option<i32>,
         directory: Option<&str>,
     ) -> anyhow::Result<Vec<OpencodeMessageWithParts>> {
-        let mut request = self
-            .http_client
-            .get(format!("{}/session/{}/message", self.server_url, session_id));
+        let mut request = self.http_client.get(format!(
+            "{}/session/{}/message",
+            self.server_url, session_id
+        ));
         if let Some(l) = limit {
             request = request.query(&[("limit", l.to_string())]);
         }
@@ -593,8 +599,13 @@ impl OpencodeApiClient {
         Ok(messages)
     }
 
-    pub async fn get_providers(&self, directory: Option<&str>) -> anyhow::Result<OpencodeProviderListResponse> {
-        let mut request = self.http_client.get(format!("{}/provider", self.server_url));
+    pub async fn get_providers(
+        &self,
+        directory: Option<&str>,
+    ) -> anyhow::Result<OpencodeProviderListResponse> {
+        let mut request = self
+            .http_client
+            .get(format!("{}/provider", self.server_url));
         if let Some(dir) = directory {
             request = request.query(&[("directory", dir)]);
         }

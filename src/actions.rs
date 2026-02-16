@@ -1,6 +1,6 @@
 use crate::{
-    opencode::{OpencodeApiClient, OpencodeSession, OpencodePartInput, OpencodeSendMessageRequest},
-    pages::{PageAction, PageType, PagesRouter},
+    opencode::{OpencodeApiClient, OpencodePartInput, OpencodeSendMessageRequest, OpencodeSession},
+    pages::{PageAction, PagesRouter, Route},
 };
 use egui_inbox::UiInbox;
 
@@ -22,7 +22,7 @@ pub fn handle_action(ctx: &mut ActionContext<'_>, action: PageAction) {
     }
 }
 
-fn handle_navigate(pages_router: &mut PagesRouter, page: PageType) {
+fn handle_navigate(pages_router: &mut PagesRouter, page: Route) {
     pages_router.navigate(page);
 }
 
@@ -71,11 +71,7 @@ fn handle_send_message(
                 log::info!("Message sent to session {}", session_id);
             }
             Err(e) => {
-                log::error!(
-                    "Failed to send message to session {}: {}",
-                    session_id,
-                    e
-                );
+                log::error!("Failed to send message to session {}: {}", session_id, e);
             }
         }
     });

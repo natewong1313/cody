@@ -1,8 +1,8 @@
 use crate::components::text_input::{StyledTextInput, TextInputSize};
 use crate::theme::{BG_50, BG_500, BG_700, BG_800, BG_900, FUCHSIA_500, RADIUS_MD};
 use egui::{
-    text::LayoutJob, vec2, Align, FontSelection, Frame, InnerResponse, Key, Popup,
-    PopupCloseBehavior, RectAlign, Response, RichText, ScrollArea, Style,
+    Align, FontSelection, Frame, InnerResponse, Key, Popup, PopupCloseBehavior, RectAlign,
+    Response, RichText, ScrollArea, Style, text::LayoutJob, vec2,
 };
 use egui::{Button, Label, Modifiers, Sense, Ui};
 

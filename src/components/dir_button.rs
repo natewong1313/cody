@@ -1,7 +1,7 @@
 use crate::theme::{BG_50, BG_500, BG_700, BG_800, RADIUS_MD, STROKE_WIDTH};
 use egui::{
-    text::LayoutJob, vec2, Align, Button, FontFamily, FontId, Response, Stroke, TextFormat,
-    TextStyle, TextWrapMode, Ui, Widget,
+    Align, Button, FontFamily, FontId, Response, Stroke, TextFormat, TextStyle, TextWrapMode, Ui,
+    Widget, text::LayoutJob, vec2,
 };
 use egui_inbox::UiInbox;
 

@@ -1,5 +1,5 @@
 use crate::theme::{BG_50, BG_500, BG_700, BG_900, FUCHSIA_500, RADIUS_MD, STROKE_WIDTH};
-use egui::{Frame, Label, RichText, Stroke, TextWrapMode, Ui};
+use egui::{Frame, Label, Response, RichText, Sense, Stroke, TextWrapMode, Ui};
 
 pub struct ProjectCard<'a> {
     name: &'a str,
@@ -12,9 +12,9 @@ impl<'a> ProjectCard<'a> {
         Self { name, dir, index }
     }
 
-    pub fn show(self, ui: &mut Ui) {
+    pub fn show(self, ui: &mut Ui) -> Response {
         ui.push_id(self.index, |ui| {
-            Frame::new()
+            let frame_response = Frame::new()
                 .fill(BG_900)
                 .stroke(Stroke::new(STROKE_WIDTH, BG_700))
                 .corner_radius(RADIUS_MD)
@@ -58,7 +58,15 @@ impl<'a> ProjectCard<'a> {
                                 .wrap_mode(TextWrapMode::Truncate),
                         );
                     });
-                });
-        });
+                })
+                .response;
+
+            ui.interact(
+                frame_response.rect,
+                ui.id().with("click_area"),
+                Sense::click(),
+            )
+        })
+        .inner
     }
 }

@@ -1,7 +1,7 @@
 use crate::theme::{BG_50, BG_500, BG_700, BG_800, RADIUS_MD, STROKE_WIDTH};
 use egui::{
-    text::LayoutJob, Align, FontFamily, FontId, Frame, Layout, Margin, Response, Stroke, TextEdit,
-    TextFormat, TextStyle, Ui, Widget,
+    Align, FontFamily, FontId, Frame, Layout, Margin, Response, Stroke, TextEdit, TextFormat,
+    TextStyle, Ui, Widget, text::LayoutJob,
 };
 
 #[derive(Default, Clone, Copy)]

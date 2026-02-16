@@ -1,5 +1,6 @@
 use crate::{
     opencode::{ModelSelection, OpencodeApiClient, OpencodeSession},
+    pages::project::ProjectPage,
     pages::projects::ProjectsPage,
     sync_engine::SyncEngineClient,
 };
@@ -7,16 +8,17 @@ use std::{collections::HashMap, sync::mpsc::Sender};
 mod project;
 mod projects;
 
-#[derive(Default)]
-pub enum PageType {
+#[derive(Debug, Clone, Default)]
+pub enum Route {
     #[default]
     Projects,
-    // Sessions,
-    // Session(String),
+    Project {
+        id: uuid::Uuid,
+    },
 }
 
 pub enum PageAction {
-    Navigate(PageType),
+    Navigate(Route),
     CreateSession,
     SendMessage {
         session_id: String,
@@ -33,35 +35,34 @@ pub struct PageContext<'a> {
 }
 
 pub struct PagesRouter {
-    current_page: PageType,
+    current_page: Route,
     projects_page: ProjectsPage,
+    project_pages: HashMap<uuid::Uuid, ProjectPage>,
 }
 
 impl PagesRouter {
     pub fn new() -> Self {
         Self {
-            current_page: PageType::default(),
+            current_page: Route::default(),
             projects_page: ProjectsPage::new(),
+            project_pages: HashMap::new(),
         }
     }
 
     pub fn mount(&mut self, ctx: &egui::Context, page_ctx: &mut PageContext) {
-        match &self.current_page {
-            PageType::Projects => self.projects_page.render(ctx, page_ctx),
-            // PageType::Sessions => self.sessions_page.render(ctx, page_ctx),
-            // PageType::Session(session_id) => self
-            //     .get_session_page(session_id.to_string())
-            //     .render(ctx, page_ctx),
+        match self.current_page.clone() {
+            Route::Projects => self.projects_page.render(ctx, page_ctx),
+            Route::Project { id } => self.project_page(id).render(ctx, page_ctx, id),
         }
     }
 
-    pub fn navigate(&mut self, page: PageType) {
+    pub fn navigate(&mut self, page: Route) {
         self.current_page = page
     }
 
-    // fn get_session_page(&mut self, session_id: String) -> &mut session::SessionPage {
-    //     self.session_pages
-    //         .entry(session_id.clone())
-    //         .or_insert_with(|| session::SessionPage::new(session_id.clone()))
-    // }
+    fn project_page(&mut self, id: uuid::Uuid) -> &mut ProjectPage {
+        self.project_pages
+            .entry(id)
+            .or_insert_with(ProjectPage::new)
+    }
 }

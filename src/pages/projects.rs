@@ -3,7 +3,8 @@ use crate::components::button::{ButtonSize, ButtonVariant, StyledButton};
 use crate::components::dir_button::DirButton;
 use crate::components::project_card::ProjectCard;
 use crate::components::text_input::StyledTextInput;
-use crate::listen;
+use crate::pages::{PageAction, Route};
+use crate::sync_engine::Loadable;
 use crate::theme::{BG_50, BG_500, BG_700, BG_900, BG_950, RADIUS_MD, STROKE_WIDTH};
 use egui::{
     Align, CentralPanel, Frame, Grid, Id, Label, Layout, Margin, Modal, RichText, Stroke, Ui, vec2,
@@ -25,7 +26,6 @@ struct ProjectFormFields {
 }
 
 pub struct ProjectsPage {
-    projects: Vec<Project>,
     modal_open: bool,
     modal_id: u32,
     form_fields: ProjectFormFields,
@@ -35,7 +35,6 @@ pub struct ProjectsPage {
 impl ProjectsPage {
     pub fn new() -> Self {
         Self {
-            projects: Vec::new(),
             modal_open: false,
             modal_id: 0,
             form_fields: ProjectFormFields::default(),
@@ -44,6 +43,8 @@ impl ProjectsPage {
     }
 
     pub fn render(&mut self, ctx: &egui::Context, page_ctx: &mut super::PageContext) {
+        page_ctx.sync_engine.ensure_projects_loaded();
+
         CentralPanel::default()
             .frame(
                 Frame::central_panel(&ctx.style())
@@ -51,27 +52,35 @@ impl ProjectsPage {
                     .inner_margin(0.0),
             )
             .show(ctx, |ui| {
-                self.setup_listeners(ui, page_ctx);
+                page_ctx.sync_engine.poll(ui);
 
-                if self.projects.len() == 0 {
-                    self.render_no_projects_screen(ui);
-                } else {
-                    self.render_projects(ui);
+                match page_ctx.sync_engine.projects_state() {
+                    Loadable::Idle | Loadable::Loading => {
+                        ui.centered_and_justified(|ui| {
+                            ui.label(
+                                RichText::new("Loading projects...")
+                                    .color(BG_500)
+                                    .size(16.0),
+                            );
+                        });
+                    }
+                    Loadable::Error(error) => {
+                        ui.centered_and_justified(|ui| {
+                            ui.label(RichText::new(error).color(egui::Color32::RED).size(14.0));
+                        });
+                    }
+                    Loadable::Ready(projects) if projects.is_empty() => {
+                        self.render_no_projects_screen(ui);
+                    }
+                    Loadable::Ready(projects) => {
+                        self.render_projects(ui, page_ctx, &projects);
+                    }
                 }
             });
 
         if self.modal_open {
             self.render_modal(ctx, page_ctx);
         }
-    }
-
-    fn setup_listeners(&mut self, ui: &mut Ui, page_ctx: &mut super::PageContext) {
-        listen!(
-            self,
-            ui,
-            |ui| page_ctx.sync_engine.listen_projects(ui),
-            projects
-        );
     }
 
     fn render_no_projects_screen(&mut self, ui: &mut Ui) {
@@ -104,7 +113,12 @@ impl ProjectsPage {
             });
     }
 
-    fn render_projects(&mut self, ui: &mut Ui) {
+    fn render_projects(
+        &mut self,
+        ui: &mut Ui,
+        page_ctx: &mut super::PageContext,
+        projects: &[Project],
+    ) {
         const GRID_MAX_WIDTH: f32 = 700.0;
         const GRID_PADDING: f32 = 16.0;
 
@@ -129,12 +143,17 @@ impl ProjectsPage {
                             }
                         });
                     });
-                self.render_projects_grid(ui);
+                self.render_projects_grid(ui, page_ctx, projects);
             });
         });
     }
 
-    fn render_projects_grid(&mut self, ui: &mut Ui) {
+    fn render_projects_grid(
+        &mut self,
+        ui: &mut Ui,
+        page_ctx: &mut super::PageContext,
+        projects: &[Project],
+    ) {
         const GRID_COLUMNS: usize = 3;
         const GRID_GAP: f32 = 16.0;
         let total_gap = GRID_GAP * (GRID_COLUMNS as f32 - 1.0);
@@ -146,8 +165,16 @@ impl ProjectsPage {
             .min_col_width(card_width)
             .max_col_width(card_width)
             .show(ui, |ui| {
-                for (i, proj) in self.projects.iter().enumerate() {
-                    ProjectCard::new(&proj.name, &proj.dir, i).show(ui);
+                for (i, proj) in projects.iter().enumerate() {
+                    let response = ProjectCard::new(&proj.name, &proj.dir, i).show(ui);
+                    if response.clicked() {
+                        println!("Sending click event");
+                        page_ctx
+                            .action_sender
+                            .send(PageAction::Navigate(Route::Project { id: proj.id }))
+                            .ok();
+                    }
+
                     if (i + 1) % GRID_COLUMNS == 0 {
                         ui.end_row();
                     }
@@ -166,8 +193,6 @@ impl ProjectsPage {
             )
             .show(ctx, |ui| {
                 ui.set_width(400.0);
-                // Need this for input label spacing
-                // ui.spacing_mut().item_spacing.y = 6.0;
 
                 ui.heading(RichText::new("Create New Project").color(BG_50).strong());
                 ui.add_space(16.0);
@@ -223,10 +248,6 @@ impl ProjectsPage {
                     .show(ui);
 
                 if let Some(Ok(())) = form.handle_submit(&create_response, ui) {
-                    println!(
-                        "Creating project: '{}' at '{}'",
-                        self.form_fields.name, self.form_fields.dir
-                    );
                     let project = Project {
                         id: Uuid::new_v4(),
                         name: self.form_fields.name.clone(),
