@@ -1,7 +1,11 @@
 use crate::backend::Project;
-use crate::pages::{PageAction, Route};
+use crate::components::button::{ButtonSize, StyledButton};
+use crate::pages::{PageAction, PageContext, Route};
 use crate::sync_engine::Loadable;
-use egui::{CentralPanel, Frame, RichText};
+use crate::theme::{BG_50, BG_500, BG_900, BG_950};
+use egui::{CentralPanel, Frame, Label, RichText, Ui, vec2};
+use egui_flex::{Flex, item};
+use egui_phosphor::regular;
 use uuid::Uuid;
 
 pub struct ProjectPage {
@@ -23,18 +27,13 @@ impl ProjectPage {
         page_ctx.sync_engine.ensure_project_loaded(project_id);
 
         CentralPanel::default()
-            .frame(Frame::central_panel(&ctx.style()))
+            .frame(
+                Frame::central_panel(&ctx.style())
+                    .fill(BG_900)
+                    .inner_margin(0.0),
+            )
             .show(ctx, |ui| {
                 page_ctx.sync_engine.poll(ui);
-
-                if ui.button("Back to projects").clicked() {
-                    page_ctx
-                        .action_sender
-                        .send(PageAction::Navigate(Route::Projects))
-                        .ok();
-                }
-
-                ui.add_space(12.0);
 
                 match page_ctx.sync_engine.project_state(project_id) {
                     Loadable::Idle | Loadable::Loading => {
@@ -44,7 +43,7 @@ impl ProjectPage {
                         ui.label(RichText::new(error).color(egui::Color32::RED));
                     }
                     Loadable::Ready(Some(project)) => {
-                        self.render_project_details(ui, &project);
+                        self.render_project_details(ui, page_ctx, &project);
                     }
                     Loadable::Ready(None) => {
                         ui.label("Project not found");
@@ -53,10 +52,43 @@ impl ProjectPage {
             });
     }
 
-    fn render_project_details(&self, ui: &mut egui::Ui, project: &Project) {
-        ui.heading(&project.name);
-        ui.add_space(8.0);
-        ui.label(format!("Id: {}", project.id));
-        ui.label(format!("Directory: {}", project.dir));
+    fn render_project_details(&self, ui: &mut Ui, page_ctx: &mut PageContext, project: &Project) {
+        self.render_project_navbar(ui, page_ctx, project);
+    }
+
+    fn render_project_navbar(&self, ui: &mut Ui, page_ctx: &mut PageContext, project: &Project) {
+        Frame::new().fill(BG_950).inner_margin(8.0).show(ui, |ui| {
+            ui.set_width(ui.available_width());
+
+            Flex::horizontal()
+                .w_full()
+                .gap(vec2(8.0, 0.0))
+                .show(ui, |flex| {
+                    flex.add(
+                        item(),
+                        StyledButton::new("")
+                            .size(ButtonSize::Icon)
+                            .icon_size(15.0)
+                            .variant(crate::components::button::ButtonVariant::Ghost)
+                            .icon(regular::SIDEBAR_SIMPLE),
+                    );
+
+                    let projects_label = flex.add(
+                        item(),
+                        Label::new(RichText::new("Projects").size(14.0).color(BG_500)),
+                    );
+                    if projects_label.clicked() {
+                        page_ctx
+                            .action_sender
+                            .send(PageAction::Navigate(Route::Projects))
+                            .ok();
+                    }
+                    flex.add(item(), Label::new(RichText::new("/").color(BG_500)));
+                    flex.add(
+                        item(),
+                        Label::new(RichText::new(&project.name).size(14.0).color(BG_50)),
+                    );
+                });
+        });
     }
 }

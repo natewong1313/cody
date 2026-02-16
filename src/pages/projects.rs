@@ -7,10 +7,10 @@ use crate::pages::{PageAction, Route};
 use crate::sync_engine::Loadable;
 use crate::theme::{BG_50, BG_500, BG_700, BG_900, BG_950, RADIUS_MD, STROKE_WIDTH};
 use egui::{
-    Align, CentralPanel, Frame, Grid, Id, Label, Layout, Margin, Modal, RichText, Stroke, Ui, vec2,
+    vec2, Align, CentralPanel, Frame, Grid, Id, Label, Layout, Margin, Modal, RichText, Stroke, Ui,
 };
-use egui_flex::{Flex, FlexAlign, FlexJustify, item};
-use egui_form::garde::{GardeReport, field_path};
+use egui_flex::{item, Flex, FlexAlign, FlexJustify};
+use egui_form::garde::{field_path, GardeReport};
 use egui_form::{Form, FormField};
 use egui_inbox::UiInbox;
 use egui_phosphor::regular;
