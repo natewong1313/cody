@@ -6,10 +6,10 @@ use crate::components::text_input::StyledTextInput;
 use crate::listen;
 use crate::theme::{BG_50, BG_500, BG_700, BG_900, BG_950, RADIUS_MD, STROKE_WIDTH};
 use egui::{
-    vec2, Align, CentralPanel, Frame, Grid, Id, Label, Layout, Margin, Modal, RichText, Stroke, Ui,
+    Align, CentralPanel, Frame, Grid, Id, Label, Layout, Margin, Modal, RichText, Stroke, Ui, vec2,
 };
-use egui_flex::{item, Flex, FlexAlign, FlexJustify};
-use egui_form::garde::{field_path, GardeReport};
+use egui_flex::{Flex, FlexAlign, FlexJustify, item};
+use egui_form::garde::{GardeReport, field_path};
 use egui_form::{Form, FormField};
 use egui_inbox::UiInbox;
 use egui_phosphor::regular;
@@ -53,7 +53,11 @@ impl ProjectsPage {
             .show(ctx, |ui| {
                 self.setup_listeners(ui, page_ctx);
 
-                self.render_projects(ui);
+                if self.projects.len() == 0 {
+                    self.render_no_projects_screen(ui);
+                } else {
+                    self.render_projects(ui);
+                }
             });
 
         if self.modal_open {
@@ -80,7 +84,16 @@ impl ProjectsPage {
             .show(ui, |flex| {
                 flex.add(
                     item(),
-                    Label::new(RichText::new("No projects yet").color(BG_500).size(14.0)),
+                    egui::Image::from_bytes(
+                        "bytes://shape1.svg",
+                        include_bytes!("../../assets/shape1.svg"),
+                    )
+                    .fit_to_exact_size(vec2(96.0, 96.0)),
+                );
+
+                flex.add(
+                    item(),
+                    Label::new(RichText::new("No projects yet").color(BG_500).size(16.0)),
                 );
 
                 let btn = flex.add(item(), StyledButton::new("New project"));
