@@ -1,9 +1,9 @@
 use crate::theme::{
-    BG_50, BG_500, BG_700, BG_800, FUCHSIA_300, FUCHSIA_500, FUCHSIA_700, RADIUS_MD, STROKE_WIDTH,
+    BG_50, BG_500, BG_700, BG_800, FUCHSIA_500, FUCHSIA_700, RADIUS_MD, STROKE_WIDTH,
 };
 use egui::{
-    text::LayoutJob, vec2, Align, Button, FontFamily, FontId, Response, RichText, Stroke,
-    StrokeKind, TextFormat, TextStyle, Ui, Vec2, Widget,
+    Align, Button, FontFamily, FontId, Response, RichText, Stroke, StrokeKind, TextFormat,
+    TextStyle, Ui, Vec2, Widget, text::LayoutJob, vec2,
 };
 use egui_flex::{FlexInstance, FlexItem, FlexWidget};
 
