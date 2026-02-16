@@ -13,6 +13,7 @@ pub enum ButtonSize {
     #[default]
     Md,
     Lg,
+    Icon,
 }
 
 impl ButtonSize {
@@ -21,6 +22,7 @@ impl ButtonSize {
             ButtonSize::Sm => vec2(12.0, 9.0),
             ButtonSize::Md => vec2(16.0, 10.0),
             ButtonSize::Lg => vec2(20.0, 14.0),
+            ButtonSize::Icon => vec2(6.0, 6.0),
         }
     }
 }
@@ -30,6 +32,7 @@ pub enum ButtonVariant {
     #[default]
     Primary,
     Secondary,
+    Ghost,
 }
 
 pub struct StyledButton<'a> {
@@ -37,6 +40,7 @@ pub struct StyledButton<'a> {
     size: ButtonSize,
     variant: ButtonVariant,
     icon: Option<&'a str>,
+    icon_size: Option<f32>,
     explicit_size: Option<Vec2>,
 }
 
@@ -47,8 +51,14 @@ impl<'a> StyledButton<'a> {
             size: ButtonSize::default(),
             variant: ButtonVariant::default(),
             icon: None,
+            icon_size: None,
             explicit_size: None,
         }
+    }
+
+    pub fn icon_size(mut self, size: f32) -> Self {
+        self.icon_size = Some(size);
+        self
     }
 
     pub fn explicit_size(mut self, size: Vec2) -> Self {
@@ -88,9 +98,16 @@ impl<'a> StyledButton<'a> {
                 Stroke::new(STROKE_WIDTH, BG_500),
                 BG_50,
             ),
+            ButtonVariant::Ghost => (
+                egui::Color32::TRANSPARENT,
+                Stroke::NONE,
+                Stroke::new(STROKE_WIDTH, BG_700),
+                BG_50,
+            ),
         };
 
         let font_size = ui.style().text_styles[&TextStyle::Button].size;
+        let icon_font_size = self.icon_size.unwrap_or(font_size);
 
         let button = match self.icon {
             Some(icon) if self.text.is_empty() => {
@@ -99,7 +116,7 @@ impl<'a> StyledButton<'a> {
                     RichText::new(icon)
                         .family(FontFamily::Name("phosphor".into()))
                         .color(text_color)
-                        .size(font_size),
+                        .size(icon_font_size),
                 )
             }
             Some(icon) => {
@@ -108,7 +125,7 @@ impl<'a> StyledButton<'a> {
                     icon,
                     0.0,
                     TextFormat {
-                        font_id: FontId::new(font_size, FontFamily::Name("phosphor".into())),
+                        font_id: FontId::new(icon_font_size, FontFamily::Name("phosphor".into())),
                         color: text_color,
                         valign: Align::Center,
                         ..Default::default()
