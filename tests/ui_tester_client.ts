@@ -10,7 +10,6 @@
 
 import { spawn } from "child_process";
 import { createInterface } from "readline";
-import { existsSync } from "fs";
 
 interface CommandRequest {
   id: string;
