@@ -97,7 +97,24 @@ impl BackendRpc for BackendServer {
     }
 
     async fn create_session(self, _: Context, session: Session) -> anyhow::Result<Session> {
-        self.harness.create_session(session.clone()).await?;
+        let project_dir = {
+            let db_conn = self
+                .db_conn
+                .lock()
+                .map_err(|e| anyhow::anyhow!("db_conn mutex poisoned {}", e))?;
+            let project = query_project_by_id(&db_conn, &session.project_id)?.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "project not found for session.project_id {}",
+                    session.project_id
+                )
+            })?;
+
+            project.dir
+        };
+
+        self.harness
+            .create_session(session.clone(), Some(project_dir.as_str()))
+            .await?;
 
         let db_conn = self
             .db_conn
