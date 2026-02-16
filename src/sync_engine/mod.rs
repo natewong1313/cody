@@ -1,17 +1,22 @@
-use crate::backend::{
-    BackendServer, Project,
-    rpc::{BackendRpc, BackendRpcClient},
-};
+mod projects;
+mod sessions;
+mod store;
+
+use crate::backend::BackendServer;
+use crate::backend::rpc::{BackendRpc, BackendRpcClient};
 use egui::Ui;
 use egui_inbox::UiInbox;
 use futures::StreamExt;
 use std::cell::{Cell, RefCell};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use tarpc::{
-    self, client, context,
+    self, client,
     server::{self, Channel},
 };
-use uuid::Uuid;
+
+use store::{
+    StoreMessage, SyncStore, remove_session_from_project_index, upsert_session_into_project_index,
+};
 
 #[derive(Debug, Clone)]
 pub enum Loadable<T> {
@@ -21,38 +26,14 @@ pub enum Loadable<T> {
     Error(String),
 }
 
-#[derive(Debug, Clone)]
-struct ProjectStore {
-    projects: Loadable<Vec<Uuid>>,
-    by_id: HashMap<Uuid, Project>,
-    project_states: HashMap<Uuid, Loadable<Option<Project>>>,
-}
-
-impl Default for ProjectStore {
-    fn default() -> Self {
-        Self {
-            projects: Loadable::Idle,
-            by_id: HashMap::new(),
-            project_states: HashMap::new(),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-enum StoreMessage {
-    ProjectsLoaded(Vec<Project>),
-    ProjectLoaded { id: Uuid, project: Option<Project> },
-    ProjectUpserted(Project),
-    ProjectDeleted(Uuid),
-    Error(String),
-}
-
 pub struct SyncEngineClient {
     client: BackendRpcClient,
-    store: RefCell<ProjectStore>,
+    store: RefCell<SyncStore>,
     updates: UiInbox<StoreMessage>,
     projects_in_flight: Cell<bool>,
-    project_in_flight: RefCell<HashSet<Uuid>>,
+    project_in_flight: RefCell<HashSet<uuid::Uuid>>,
+    sessions_by_project_in_flight: RefCell<HashSet<uuid::Uuid>>,
+    session_in_flight: RefCell<HashSet<uuid::Uuid>>,
 }
 
 impl SyncEngineClient {
@@ -71,10 +52,12 @@ impl SyncEngineClient {
 
         Self {
             client,
-            store: RefCell::new(ProjectStore::default()),
+            store: RefCell::new(SyncStore::default()),
             updates,
             projects_in_flight: Cell::new(false),
             project_in_flight: RefCell::new(HashSet::new()),
+            sessions_by_project_in_flight: RefCell::new(HashSet::new()),
+            session_in_flight: RefCell::new(HashSet::new()),
         }
     }
 
@@ -88,9 +71,9 @@ impl SyncEngineClient {
         for message in messages {
             match message {
                 StoreMessage::ProjectsLoaded(projects) => {
-                    let ids: Vec<Uuid> = projects.iter().map(|project| project.id).collect();
+                    let ids: Vec<uuid::Uuid> = projects.iter().map(|project| project.id).collect();
                     for project in projects {
-                        store.by_id.insert(project.id, project.clone());
+                        store.projects_by_id.insert(project.id, project.clone());
                         store
                             .project_states
                             .insert(project.id, Loadable::Ready(Some(project)));
@@ -100,14 +83,14 @@ impl SyncEngineClient {
                 }
                 StoreMessage::ProjectLoaded { id, project } => {
                     if let Some(project) = project.clone() {
-                        store.by_id.insert(id, project);
+                        store.projects_by_id.insert(id, project);
                     }
                     store.project_states.insert(id, Loadable::Ready(project));
                     self.project_in_flight.borrow_mut().remove(&id);
                 }
                 StoreMessage::ProjectUpserted(project) => {
                     let id = project.id;
-                    store.by_id.insert(id, project.clone());
+                    store.projects_by_id.insert(id, project.clone());
                     store
                         .project_states
                         .insert(id, Loadable::Ready(Some(project.clone())));
@@ -119,195 +102,114 @@ impl SyncEngineClient {
                     }
                 }
                 StoreMessage::ProjectDeleted(project_id) => {
-                    store.by_id.remove(&project_id);
+                    store.projects_by_id.remove(&project_id);
                     store
                         .project_states
                         .insert(project_id, Loadable::Ready(None));
+
+                    store.sessions_by_project_states.remove(&project_id);
+                    let session_ids: Vec<uuid::Uuid> = store
+                        .sessions_by_id
+                        .iter()
+                        .filter_map(|(id, session)| {
+                            (session.project_id == project_id).then_some(*id)
+                        })
+                        .collect();
+                    for session_id in session_ids {
+                        store.sessions_by_id.remove(&session_id);
+                        store
+                            .session_states
+                            .insert(session_id, Loadable::Ready(None));
+                    }
 
                     if let Loadable::Ready(ids) = &mut store.projects {
                         ids.retain(|id| *id != project_id);
                     }
                 }
-                StoreMessage::Error(message) => {
-                    if self.projects_in_flight.get() {
+                StoreMessage::ProjectError { id, message } => {
+                    if let Some(project_id) = id {
+                        store
+                            .project_states
+                            .insert(project_id, Loadable::Error(message.clone()));
+                        self.project_in_flight.borrow_mut().remove(&project_id);
+                    } else if self.projects_in_flight.get() {
                         store.projects = Loadable::Error(message.clone());
                         self.projects_in_flight.set(false);
                     }
                 }
-            }
-        }
-    }
-
-    pub fn projects_state(&self) -> Loadable<Vec<Project>> {
-        let store = self.store.borrow();
-        match &store.projects {
-            Loadable::Idle => Loadable::Idle,
-            Loadable::Loading => Loadable::Loading,
-            Loadable::Error(message) => Loadable::Error(message.clone()),
-            Loadable::Ready(ids) => {
-                let projects = ids
-                    .iter()
-                    .filter_map(|id| store.by_id.get(id))
-                    .cloned()
-                    .collect();
-                Loadable::Ready(projects)
-            }
-        }
-    }
-
-    pub fn project_state(&self, id: Uuid) -> Loadable<Option<Project>> {
-        let store = self.store.borrow();
-        if let Some(project) = store.by_id.get(&id) {
-            return Loadable::Ready(Some(project.clone()));
-        }
-        store
-            .project_states
-            .get(&id)
-            .cloned()
-            .unwrap_or(Loadable::Idle)
-    }
-
-    pub fn ensure_projects_loaded(&self) {
-        if self.projects_in_flight.get() {
-            return;
-        }
-
-        let should_load = {
-            let store = self.store.borrow();
-            matches!(store.projects, Loadable::Idle | Loadable::Error(_))
-        };
-
-        if !should_load {
-            return;
-        }
-
-        {
-            let mut store = self.store.borrow_mut();
-            store.projects = Loadable::Loading;
-        }
-        self.projects_in_flight.set(true);
-
-        let client = self.client.clone();
-        let sender = self.updates.sender();
-        tokio::spawn(async move {
-            let result = client.list_projects(context::current()).await;
-            match result {
-                Ok(Ok(projects)) => {
-                    sender.send(StoreMessage::ProjectsLoaded(projects)).ok();
+                StoreMessage::SessionsByProjectLoaded {
+                    project_id,
+                    sessions,
+                } => {
+                    let ids: Vec<uuid::Uuid> = sessions.iter().map(|session| session.id).collect();
+                    for session in sessions {
+                        store.sessions_by_id.insert(session.id, session.clone());
+                        store
+                            .session_states
+                            .insert(session.id, Loadable::Ready(Some(session)));
+                    }
+                    store
+                        .sessions_by_project_states
+                        .insert(project_id, Loadable::Ready(ids));
+                    self.sessions_by_project_in_flight
+                        .borrow_mut()
+                        .remove(&project_id);
                 }
-                Ok(Err(error)) => {
-                    sender.send(StoreMessage::Error(error.to_string())).ok();
-                }
-                Err(error) => {
-                    sender.send(StoreMessage::Error(error.to_string())).ok();
-                }
-            }
-        });
-    }
+                StoreMessage::SessionLoaded { id, session } => {
+                    if let Some(session) = session.clone() {
+                        if let Some(existing) = store.sessions_by_id.get(&id).cloned() {
+                            remove_session_from_project_index(&mut store, &existing);
+                        }
 
-    pub fn ensure_project_loaded(&self, project_id: Uuid) {
-        {
-            let store = self.store.borrow();
-            if store.by_id.contains_key(&project_id) {
-                return;
-            }
+                        store.sessions_by_id.insert(id, session.clone());
+                        upsert_session_into_project_index(&mut store, &session);
+                    }
 
-            if let Some(state) = store.project_states.get(&project_id) {
-                if matches!(state, Loadable::Loading | Loadable::Ready(_)) {
-                    return;
+                    store.session_states.insert(id, Loadable::Ready(session));
+                    self.session_in_flight.borrow_mut().remove(&id);
+                }
+                StoreMessage::SessionUpserted(session) => {
+                    if let Some(existing) = store.sessions_by_id.get(&session.id).cloned() {
+                        remove_session_from_project_index(&mut store, &existing);
+                    }
+
+                    store.sessions_by_id.insert(session.id, session.clone());
+                    store
+                        .session_states
+                        .insert(session.id, Loadable::Ready(Some(session.clone())));
+                    upsert_session_into_project_index(&mut store, &session);
+                }
+                StoreMessage::SessionDeleted(session_id) => {
+                    if let Some(existing) = store.sessions_by_id.remove(&session_id) {
+                        remove_session_from_project_index(&mut store, &existing);
+                    }
+                    store
+                        .session_states
+                        .insert(session_id, Loadable::Ready(None));
+                    self.session_in_flight.borrow_mut().remove(&session_id);
+                }
+                StoreMessage::SessionError {
+                    project_id,
+                    session_id,
+                    message,
+                } => {
+                    if let Some(project_id) = project_id {
+                        store
+                            .sessions_by_project_states
+                            .insert(project_id, Loadable::Error(message.clone()));
+                        self.sessions_by_project_in_flight
+                            .borrow_mut()
+                            .remove(&project_id);
+                    }
+
+                    if let Some(session_id) = session_id {
+                        store
+                            .session_states
+                            .insert(session_id, Loadable::Error(message));
+                        self.session_in_flight.borrow_mut().remove(&session_id);
+                    }
                 }
             }
         }
-
-        {
-            let mut in_flight = self.project_in_flight.borrow_mut();
-            if in_flight.contains(&project_id) {
-                return;
-            }
-            in_flight.insert(project_id);
-        }
-
-        {
-            let mut store = self.store.borrow_mut();
-            store.project_states.insert(project_id, Loadable::Loading);
-        }
-
-        let client = self.client.clone();
-        let sender = self.updates.sender();
-        tokio::spawn(async move {
-            let result = client.get_project(context::current(), project_id).await;
-            match result {
-                Ok(Ok(project)) => {
-                    sender
-                        .send(StoreMessage::ProjectLoaded {
-                            id: project_id,
-                            project,
-                        })
-                        .ok();
-                }
-                Ok(Err(error)) => {
-                    sender.send(StoreMessage::Error(error.to_string())).ok();
-                }
-                Err(error) => {
-                    sender.send(StoreMessage::Error(error.to_string())).ok();
-                }
-            }
-        });
-    }
-
-    pub fn create_project(&self, project: Project) {
-        {
-            let mut store = self.store.borrow_mut();
-            store.by_id.insert(project.id, project.clone());
-            store
-                .project_states
-                .insert(project.id, Loadable::Ready(Some(project.clone())));
-            if let Loadable::Ready(ids) = &mut store.projects {
-                if !ids.iter().any(|id| *id == project.id) {
-                    ids.push(project.id);
-                }
-            }
-        }
-
-        let client = self.client.clone();
-        let sender = self.updates.sender();
-        tokio::spawn(async move {
-            let result = client.create_project(context::current(), project).await;
-            match result {
-                Ok(Ok(created)) => {
-                    sender.send(StoreMessage::ProjectUpserted(created)).ok();
-                }
-                Ok(Err(error)) => {
-                    sender.send(StoreMessage::Error(error.to_string())).ok();
-                }
-                Err(error) => {
-                    sender.send(StoreMessage::Error(error.to_string())).ok();
-                }
-            }
-        });
-    }
-
-    pub fn delete_project(&self, project_id: Uuid) {
-        {
-            let mut store = self.store.borrow_mut();
-            store.by_id.remove(&project_id);
-            store
-                .project_states
-                .insert(project_id, Loadable::Ready(None));
-            if let Loadable::Ready(ids) = &mut store.projects {
-                ids.retain(|id| *id != project_id);
-            }
-        }
-
-        let client = self.client.clone();
-        let sender = self.updates.sender();
-        tokio::spawn(async move {
-            let result = client.delete_project(context::current(), project_id).await;
-            if let Err(error) = result {
-                sender.send(StoreMessage::Error(error.to_string())).ok();
-                return;
-            }
-            sender.send(StoreMessage::ProjectDeleted(project_id)).ok();
-        });
     }
 }

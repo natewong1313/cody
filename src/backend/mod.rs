@@ -3,6 +3,8 @@ use rusqlite_migration::{M, Migrations};
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
+use self::harness::{Harness, OpencodeHarness};
+
 pub mod rpc;
 
 mod harness;
@@ -16,6 +18,13 @@ pub struct Project {
     pub dir: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct Session {
+    pub id: Uuid,
+    pub project_id: Uuid,
+    pub name: String,
+}
+
 const MIGRATIONS_SLICE: &[M<'_>] = &[
     M::up(
         "CREATE TABLE projects (
@@ -24,14 +33,20 @@ const MIGRATIONS_SLICE: &[M<'_>] = &[
             dir TEXT NOT NULL
         );",
     ),
-    // In the future, add more migrations here:
-    //M::up("ALTER TABLE friend ADD COLUMN email TEXT;"),
+    M::up(
+        "CREATE TABLE sessions (
+            id BLOB CHECK(length(id) = 16),
+            project_id BLOB CHECK(length(project_id) = 16) REFERENCES projects(id),
+            name TEXT NOT NULL
+        );",
+    ),
 ];
 const MIGRATIONS: Migrations<'_> = Migrations::from_slice(MIGRATIONS_SLICE);
 
 #[derive(Clone)]
 pub struct BackendServer {
     db_conn: Arc<Mutex<Connection>>,
+    harness: OpencodeHarness,
 }
 
 impl BackendServer {
@@ -45,6 +60,7 @@ impl BackendServer {
 
         Self {
             db_conn: Arc::new(Mutex::new(db_conn)),
+            harness: OpencodeHarness::new().expect("failed to initialize opencode harness"),
         }
     }
 }
