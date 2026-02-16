@@ -11,6 +11,7 @@ pub struct DirButton<'a> {
     icon: &'a str,
     min_width: Option<f32>,
     inbox: &'a UiInbox<String>,
+    on_dir_change: Option<Box<dyn FnOnce(String) + 'a>>,
 }
 
 impl<'a> DirButton<'a> {
@@ -21,6 +22,7 @@ impl<'a> DirButton<'a> {
             icon: egui_phosphor::regular::FOLDER,
             min_width: None,
             inbox,
+            on_dir_change: None,
         }
     }
 
@@ -36,6 +38,11 @@ impl<'a> DirButton<'a> {
 
     pub fn min_width(mut self, width: f32) -> Self {
         self.min_width = Some(width);
+        self
+    }
+
+    pub fn on_dir_change(mut self, f: impl FnOnce(String) + 'a) -> Self {
+        self.on_dir_change = Some(Box::new(f));
         self
     }
 
@@ -86,6 +93,12 @@ impl<'a> DirButton<'a> {
             .min_size(min_size);
 
         let response = ui.add(button);
+
+        if let Some(on_dir_change) = self.on_dir_change {
+            if let Some(dir) = self.inbox.read(ui).last() {
+                on_dir_change(dir);
+            }
+        }
 
         if response.clicked() {
             let sender = self.inbox.sender();

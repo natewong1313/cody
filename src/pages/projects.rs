@@ -122,14 +122,6 @@ impl ProjectsPage {
     }
 
     fn render_projects_grid(&mut self, ui: &mut Ui) {
-        let placeholder_projects = [
-            ("Cody", "~/dev/cody"),
-            ("Website Redesign", "~/projects/website-redesign"),
-            ("API Server", "~/dev/api-server"),
-            ("Mobile App", "~/projects/mobile-app"),
-            ("Data Pipeline", "~/dev/data-pipeline"),
-            ("Design System", "~/projects/design-system"),
-        ];
         const GRID_COLUMNS: usize = 3;
         const GRID_GAP: f32 = 16.0;
         let total_gap = GRID_GAP * (GRID_COLUMNS as f32 - 1.0);
@@ -141,9 +133,8 @@ impl ProjectsPage {
             .min_col_width(card_width)
             .max_col_width(card_width)
             .show(ui, |ui| {
-                for (i, (name, dir)) in placeholder_projects.iter().enumerate() {
-                    ProjectCard::new(name, dir, i).show(ui);
-
+                for (i, proj) in self.projects.iter().enumerate() {
+                    ProjectCard::new(&proj.name, &proj.dir, i).show(ui);
                     if (i + 1) % GRID_COLUMNS == 0 {
                         ui.end_row();
                     }
@@ -171,13 +162,23 @@ impl ProjectsPage {
                 let mut form =
                     Form::new().add_report(GardeReport::new(self.form_fields.validate()));
 
-                if let Some(dir) = self.dir_inbox.read(ui).last() {
-                    self.form_fields.dir = dir;
-                }
-
+                let dir_display = self.form_fields.dir.clone();
                 FormField::new(&mut form, field_path!("dir"))
                     .label("Directory")
-                    .ui(ui, DirButton::new(&self.form_fields.dir, &self.dir_inbox));
+                    .ui(
+                        ui,
+                        DirButton::new(&dir_display, &self.dir_inbox).on_dir_change(|dir| {
+                            if self.form_fields.name.is_empty() {
+                                if let Some(name) = std::path::Path::new(&dir)
+                                    .file_name()
+                                    .and_then(|n| n.to_str())
+                                {
+                                    self.form_fields.name = name.to_string();
+                                }
+                            }
+                            self.form_fields.dir = dir;
+                        }),
+                    );
 
                 FormField::new(&mut form, field_path!("name"))
                     .label("Project name")
