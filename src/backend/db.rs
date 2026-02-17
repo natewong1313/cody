@@ -1,7 +1,7 @@
 use crate::backend::{Project, Session};
 use chrono::Utc;
 use rusqlite::{Connection, OptionalExtension};
-use rusqlite_migration::{Migrations, M};
+use rusqlite_migration::{M, Migrations};
 use std::sync::{Arc, Mutex};
 use thiserror::Error;
 use uuid::Uuid;
@@ -20,6 +20,9 @@ const MIGRATIONS_SLICE: &[M<'_>] = &[
         "CREATE TABLE sessions (
             id BLOB CHECK(length(id) = 16),
             project_id BLOB CHECK(length(project_id) = 16) REFERENCES projects(id) ON DELETE CASCADE,
+
+            show_in_gui NOT NULL DEFAULT 0 CHECK(show_in_gui IN (0, 1)),
+
             name TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
@@ -133,8 +136,8 @@ impl Database {
         project_id: &Uuid,
     ) -> Result<Vec<Session>, DatabaseError> {
         with_conn!(self, conn, {
-            let mut stmt =
-                conn.prepare("SELECT id, project_id, name, created_at, updated_at FROM sessions WHERE project_id = ?1 ORDER BY updated_at DESC")?;
+            let mut stmt = conn
+                .prepare("SELECT * FROM sessions WHERE project_id = ?1 ORDER BY updated_at DESC")?;
             let sessions = stmt
                 .query_map([project_id], Session::from_row)?
                 .collect::<Result<Vec<_>, _>>()?;
@@ -144,9 +147,7 @@ impl Database {
 
     pub fn get_session(&self, id: &Uuid) -> Result<Option<Session>, DatabaseError> {
         with_conn!(self, conn, {
-            let mut stmt = conn.prepare(
-                "SELECT id, project_id, name, created_at, updated_at FROM sessions WHERE id = ?1",
-            )?;
+            let mut stmt = conn.prepare("SELECT * FROM sessions WHERE id = ?1")?;
             let session = stmt.query_row([id], Session::from_row).optional()?;
             Ok(session)
         })
@@ -155,10 +156,11 @@ impl Database {
     pub fn create_session(&self, session: &Session) -> Result<(), DatabaseError> {
         with_conn!(self, conn, {
             conn.execute(
-                "INSERT INTO sessions (id, project_id, name, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+                "INSERT INTO sessions (id, project_id, show_in_gui, name, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                 (
                     &session.id,
                     &session.project_id,
+                    &session.show_in_gui,
                     &session.name,
                     &session.created_at,
                     &session.updated_at,
@@ -171,10 +173,11 @@ impl Database {
     pub fn update_session(&self, session: &Session) -> Result<(), DatabaseError> {
         with_conn!(self, conn, {
             conn.execute(
-                "UPDATE sessions SET project_id = ?2, name = ?3, updated_at = ?4 WHERE id = ?1",
+                "UPDATE sessions SET project_id = ?2, show_in_gui = ?3, name = ?4, updated_at = ?5 WHERE id = ?1",
                 (
                     &session.id,
                     &session.project_id,
+                    &session.show_in_gui,
                     &session.name,
                     Utc::now().naive_utc(),
                 ),

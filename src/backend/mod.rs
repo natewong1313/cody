@@ -36,6 +36,7 @@ impl Project {
 pub struct Session {
     pub id: Uuid,
     pub project_id: Uuid,
+    pub show_in_gui: bool,
     pub name: String,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
@@ -46,9 +47,10 @@ impl Session {
         Ok(Self {
             id: row.get(0)?,
             project_id: row.get(1)?,
-            name: row.get(2)?,
-            created_at: row.get(3)?,
-            updated_at: row.get(4)?,
+            show_in_gui: row.get(2)?,
+            name: row.get(3)?,
+            created_at: row.get(4)?,
+            updated_at: row.get(5)?,
         })
     }
 }
