@@ -1,34 +1,44 @@
-use crate::backend::Project;
+use crate::backend::{Project, Session};
 use crate::components::button::{ButtonSize, StyledButton};
 use crate::pages::{PageAction, PageContext, Route};
 use crate::sync_engine::Loadable;
-use crate::theme::{
-    BG_50, BG_500, BG_700, BG_800, BG_900, BG_950, FUCHSIA_500, RADIUS_MD, STROKE_WIDTH,
-};
-use egui::{
-    Align2, Button, CentralPanel, Color32, Context, Frame, Label, RichText, Stroke, TextEdit, Ui,
-    vec2,
-};
+use crate::theme::{BG_50, BG_500, BG_700, BG_800, BG_900, BG_950, RADIUS_MD, STROKE_WIDTH};
+use egui::{Align2, CentralPanel, Frame, Label, RichText, Stroke, TextEdit, Ui, vec2};
 use egui_dock::tab_viewer::OnCloseResponse;
-use egui_dock::{DockArea, DockState, NodeIndex};
+use egui_dock::{DockArea, DockState};
 use egui_flex::{Flex, item};
 use egui_phosphor::regular;
 use uuid::Uuid;
 
 pub struct ProjectPage {
     project_id: Option<Uuid>,
+    sessions: Vec<Session>,
+    session_tab_ids: Vec<Uuid>,
 
-    tree: DockState<String>,
+    session_tabs_tree: DockState<Uuid>,
 
     prompt_input: String,
 }
-struct TabViewer {}
+struct TabViewer<'a> {
+    sessions: &'a [Session],
+}
 
-impl egui_dock::TabViewer for TabViewer {
-    type Tab = String;
+impl egui_dock::TabViewer for TabViewer<'_> {
+    type Tab = Uuid;
 
     fn title(&mut self, tab: &mut Self::Tab) -> egui::WidgetText {
-        (&*tab).into()
+        self.sessions
+            .iter()
+            .find(|session| session.id == *tab)
+            .map(|session| {
+                if session.name.trim().is_empty() {
+                    tab.to_string()
+                } else {
+                    session.name.clone()
+                }
+            })
+            .unwrap_or_else(|| tab.to_string())
+            .into()
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, tab: &mut Self::Tab) {
@@ -43,21 +53,12 @@ impl egui_dock::TabViewer for TabViewer {
 
 impl ProjectPage {
     pub fn new() -> Self {
-        let mut tree = DockState::new(vec!["tab1".to_owned(), "tab2".to_owned()]);
-
-        // You can modify the tree before constructing the dock
-        // let [a, b] =
-        //     tree.main_surface_mut()
-        //         .split_left(NodeIndex::root(), 0.3, vec!["tab3".to_owned()]);
-        // let [_, _] = tree
-        //     .main_surface_mut()
-        //     .split_below(a, 0.7, vec!["tab4".to_owned()]);
-        // let [_, _] = tree
-        //     .main_surface_mut()
-        //     .split_below(b, 0.5, vec!["tab5".to_owned()]);
+        let session_tabs_tree = DockState::new(vec![]);
         Self {
             project_id: None,
-            tree,
+            sessions: Vec::new(),
+            session_tab_ids: Vec::new(),
+            session_tabs_tree,
             prompt_input: "".to_string(),
         }
     }
@@ -68,7 +69,13 @@ impl ProjectPage {
         page_ctx: &mut super::PageContext,
         project_id: Uuid,
     ) {
+        if self.project_id != Some(project_id) {
+            self.sessions.clear();
+            self.session_tab_ids.clear();
+            self.session_tabs_tree = DockState::new(vec![]);
+        }
         self.project_id = Some(project_id);
+
         page_ctx.sync_engine.ensure_project_loaded(project_id);
         page_ctx
             .sync_engine
@@ -83,9 +90,14 @@ impl ProjectPage {
             .show(ctx, |ui| {
                 page_ctx.sync_engine.poll(ui);
 
+                let sessions_state = page_ctx.sync_engine.sessions_by_project_state(project_id);
+                if let Loadable::Ready(sessions) = &sessions_state {
+                    self.sync_sessions(sessions);
+                }
+
                 match page_ctx.sync_engine.project_state(project_id) {
                     Loadable::Ready(Some(project)) => {
-                        self.render_project(ctx, ui, page_ctx, &project);
+                        self.render_project(ui, page_ctx, &project, &sessions_state);
                     }
                     Loadable::Ready(None) => {
                         ui.label("Project not found");
@@ -97,29 +109,48 @@ impl ProjectPage {
                         ui.label(RichText::new(error).color(egui::Color32::RED));
                     }
                 }
-
-                match page_ctx.sync_engine.sessions_by_project_state(project_id) {
-                    Loadable::Idle => todo!(),
-                    Loadable::Loading => todo!(),
-                    Loadable::Ready(sessions) => {
-                        println!("{}", sessions.len());
-                    }
-                    Loadable::Error(_) => todo!(),
-                }
             });
+    }
+
+    fn sync_sessions(&mut self, sessions: &[Session]) {
+        self.sessions = sessions.to_vec();
+
+        let next_tab_ids: Vec<Uuid> = sessions.iter().map(|session| session.id).collect();
+        if self.session_tab_ids != next_tab_ids {
+            self.session_tab_ids = next_tab_ids.clone();
+            self.session_tabs_tree = DockState::new(next_tab_ids);
+        }
     }
 
     fn render_project(
         &mut self,
-        ctx: &Context,
         ui: &mut Ui,
         page_ctx: &mut PageContext,
         project: &Project,
+        sessions_state: &Loadable<Vec<Session>>,
     ) {
         self.render_project_navbar(ui, page_ctx, project);
-        self.render_session(ctx, ui);
+        // self.render_session(ui);
 
-        // DockArea::new(&mut self.tree).show_inside(ui, &mut TabViewer {});
+        match sessions_state {
+            Loadable::Idle | Loadable::Loading => {
+                ui.label(RichText::new("Loading sessions...").color(BG_500));
+            }
+            Loadable::Error(error) => {
+                ui.label(RichText::new(error).color(egui::Color32::RED));
+            }
+            Loadable::Ready(_) if self.sessions.is_empty() => {
+                ui.label(RichText::new("No sessions yet").color(BG_500));
+            }
+            Loadable::Ready(_) => {
+                DockArea::new(&mut self.session_tabs_tree).show_inside(
+                    ui,
+                    &mut TabViewer {
+                        sessions: &self.sessions,
+                    },
+                );
+            }
+        }
     }
 
     fn render_project_navbar(&self, ui: &mut Ui, page_ctx: &mut PageContext, project: &Project) {
@@ -158,7 +189,7 @@ impl ProjectPage {
         });
     }
 
-    fn render_session(&mut self, ctx: &Context, ui: &mut Ui) {
+    fn render_session(&mut self, ui: &mut Ui) {
         Frame::new()
             .inner_margin(8.0)
             .outer_margin(8.0)
