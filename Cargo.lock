@@ -776,6 +776,7 @@ dependencies = [
  "serde_json",
  "subsecond",
  "tarpc",
+ "thiserror 2.0.18",
  "tokio",
  "uuid",
 ]

@@ -1,21 +1,30 @@
-use rusqlite::Connection;
-use rusqlite_migration::{M, Migrations};
-use std::sync::{Arc, Mutex};
+use rusqlite::Row;
 use uuid::Uuid;
+
+use crate::backend::db::Database;
 
 use self::harness::{Harness, OpencodeHarness};
 
-pub mod rpc;
-
+mod db;
 mod harness;
 mod opencode_client;
-mod query;
+pub mod rpc;
 
 #[derive(Debug, Clone)]
 pub struct Project {
     pub id: Uuid,
     pub name: String,
     pub dir: String,
+}
+
+impl Project {
+    pub fn from_row(row: &Row) -> Result<Self, rusqlite::Error> {
+        Ok(Self {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            dir: row.get(2)?,
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -25,41 +34,26 @@ pub struct Session {
     pub name: String,
 }
 
-const MIGRATIONS_SLICE: &[M<'_>] = &[
-    M::up(
-        "CREATE TABLE projects (
-            id BLOB CHECK(length(id) = 16),
-            name TEXT NOT NULL,
-            dir TEXT NOT NULL
-        );",
-    ),
-    M::up(
-        "CREATE TABLE sessions (
-            id BLOB CHECK(length(id) = 16),
-            project_id BLOB CHECK(length(project_id) = 16) REFERENCES projects(id),
-            name TEXT NOT NULL
-        );",
-    ),
-];
-const MIGRATIONS: Migrations<'_> = Migrations::from_slice(MIGRATIONS_SLICE);
+impl Session {
+    pub fn from_row(row: &Row) -> Result<Self, rusqlite::Error> {
+        Ok(Self {
+            id: row.get(0)?,
+            project_id: row.get(1)?,
+            name: row.get(2)?,
+        })
+    }
+}
 
 #[derive(Clone)]
 pub struct BackendServer {
-    db_conn: Arc<Mutex<Connection>>,
+    db: Database,
     harness: OpencodeHarness,
 }
 
 impl BackendServer {
     pub fn new() -> Self {
-        // Should be fine to call unwrap for now
-        let mut db_conn = Connection::open_in_memory().unwrap();
-        db_conn
-            .pragma_update_and_check(None, "journal_mode", &"WAL", |_| Ok(()))
-            .unwrap();
-        MIGRATIONS.to_latest(&mut db_conn).unwrap();
-
         Self {
-            db_conn: Arc::new(Mutex::new(db_conn)),
+            db: Database::new().expect("failed to create database"),
             harness: OpencodeHarness::new().expect("failed to initialize opencode harness"),
         }
     }

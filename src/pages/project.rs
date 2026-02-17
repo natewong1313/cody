@@ -81,17 +81,17 @@ impl ProjectPage {
                 page_ctx.sync_engine.poll(ui);
 
                 match page_ctx.sync_engine.project_state(project_id) {
-                    Loadable::Idle | Loadable::Loading => {
-                        ui.label("Loading project...");
-                    }
-                    Loadable::Error(error) => {
-                        ui.label(RichText::new(error).color(egui::Color32::RED));
-                    }
                     Loadable::Ready(Some(project)) => {
                         self.render_project(ctx, ui, page_ctx, &project);
                     }
                     Loadable::Ready(None) => {
                         ui.label("Project not found");
+                    }
+                    Loadable::Idle | Loadable::Loading => {
+                        ui.label("Loading project...");
+                    }
+                    Loadable::Error(error) => {
+                        ui.label(RichText::new(error).color(egui::Color32::RED));
                     }
                 }
             });
@@ -149,6 +149,7 @@ impl ProjectPage {
     fn render_session(&mut self, ctx: &Context, ui: &mut Ui) {
         Frame::new()
             .inner_margin(8.0)
+            .outer_margin(8.0)
             .corner_radius(RADIUS_MD)
             .fill(BG_800)
             .stroke(Stroke::new(STROKE_WIDTH, BG_700))
