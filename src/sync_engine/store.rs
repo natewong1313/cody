@@ -87,3 +87,62 @@ pub(super) fn remove_session_from_project_index(store: &mut SyncStore, session: 
         ids.retain(|id| *id != session.id);
     }
 }
+
+pub(super) fn upsert_project(store: &mut SyncStore, project: &Project) {
+    let project_id = project.id;
+    store.projects_by_id.insert(project_id, project.clone());
+    store
+        .project_states
+        .insert(project_id, Loadable::Ready(Some(project.clone())));
+
+    if let Loadable::Ready(ids) = &mut store.projects {
+        if !ids.iter().any(|existing| *existing == project_id) {
+            ids.push(project_id);
+        }
+    }
+}
+
+pub(super) fn remove_project(store: &mut SyncStore, project_id: Uuid) {
+    store.projects_by_id.remove(&project_id);
+    store
+        .project_states
+        .insert(project_id, Loadable::Ready(None));
+    store.sessions_by_project_states.remove(&project_id);
+
+    let session_ids: Vec<Uuid> = store
+        .sessions_by_id
+        .iter()
+        .filter_map(|(id, session)| (session.project_id == project_id).then_some(*id))
+        .collect();
+    for session_id in session_ids {
+        store.sessions_by_id.remove(&session_id);
+        store
+            .session_states
+            .insert(session_id, Loadable::Ready(None));
+    }
+
+    if let Loadable::Ready(ids) = &mut store.projects {
+        ids.retain(|id| *id != project_id);
+    }
+}
+
+pub(super) fn upsert_session(store: &mut SyncStore, session: &Session) {
+    if let Some(existing) = store.sessions_by_id.get(&session.id).cloned() {
+        remove_session_from_project_index(store, &existing);
+    }
+
+    store.sessions_by_id.insert(session.id, session.clone());
+    store
+        .session_states
+        .insert(session.id, Loadable::Ready(Some(session.clone())));
+    upsert_session_into_project_index(store, session);
+}
+
+pub(super) fn remove_session(store: &mut SyncStore, session_id: Uuid) {
+    if let Some(existing) = store.sessions_by_id.remove(&session_id) {
+        remove_session_from_project_index(store, &existing);
+    }
+    store
+        .session_states
+        .insert(session_id, Loadable::Ready(None));
+}

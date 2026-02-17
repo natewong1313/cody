@@ -2,9 +2,7 @@ use crate::backend::Session;
 use tarpc::context;
 use uuid::Uuid;
 
-use super::store::{
-    StoreMessage, remove_session_from_project_index, upsert_session_into_project_index,
-};
+use super::store::{StoreMessage, remove_session, upsert_session};
 use super::{Loadable, SyncEngineClient};
 
 impl SyncEngineClient {
@@ -166,11 +164,7 @@ impl SyncEngineClient {
     pub fn create_session(&self, session: Session) {
         {
             let mut store = self.store.borrow_mut();
-            store.sessions_by_id.insert(session.id, session.clone());
-            store
-                .session_states
-                .insert(session.id, Loadable::Ready(Some(session.clone())));
-            upsert_session_into_project_index(&mut store, &session);
+            upsert_session(&mut store, &session);
         }
 
         let client = self.client.clone();
@@ -206,15 +200,7 @@ impl SyncEngineClient {
     pub fn update_session(&self, session: Session) {
         {
             let mut store = self.store.borrow_mut();
-            if let Some(existing) = store.sessions_by_id.get(&session.id).cloned() {
-                remove_session_from_project_index(&mut store, &existing);
-            }
-
-            store.sessions_by_id.insert(session.id, session.clone());
-            store
-                .session_states
-                .insert(session.id, Loadable::Ready(Some(session.clone())));
-            upsert_session_into_project_index(&mut store, &session);
+            upsert_session(&mut store, &session);
         }
 
         let client = self.client.clone();
@@ -250,12 +236,7 @@ impl SyncEngineClient {
     pub fn delete_session(&self, session_id: Uuid) {
         {
             let mut store = self.store.borrow_mut();
-            if let Some(existing) = store.sessions_by_id.remove(&session_id) {
-                remove_session_from_project_index(&mut store, &existing);
-            }
-            store
-                .session_states
-                .insert(session_id, Loadable::Ready(None));
+            remove_session(&mut store, session_id);
         }
 
         let client = self.client.clone();

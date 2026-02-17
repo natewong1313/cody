@@ -2,7 +2,7 @@ use crate::backend::Project;
 use tarpc::context;
 use uuid::Uuid;
 
-use super::store::StoreMessage;
+use super::store::{StoreMessage, remove_project, upsert_project};
 use super::{Loadable, SyncEngineClient};
 
 impl SyncEngineClient {
@@ -147,15 +147,7 @@ impl SyncEngineClient {
     pub fn create_project(&self, project: Project) {
         {
             let mut store = self.store.borrow_mut();
-            store.projects_by_id.insert(project.id, project.clone());
-            store
-                .project_states
-                .insert(project.id, Loadable::Ready(Some(project.clone())));
-            if let Loadable::Ready(ids) = &mut store.projects {
-                if !ids.iter().any(|id| *id == project.id) {
-                    ids.push(project.id);
-                }
-            }
+            upsert_project(&mut store, &project);
         }
 
         let client = self.client.clone();
@@ -189,27 +181,7 @@ impl SyncEngineClient {
     pub fn delete_project(&self, project_id: Uuid) {
         {
             let mut store = self.store.borrow_mut();
-            store.projects_by_id.remove(&project_id);
-            store
-                .project_states
-                .insert(project_id, Loadable::Ready(None));
-            store.sessions_by_project_states.remove(&project_id);
-
-            let session_ids: Vec<Uuid> = store
-                .sessions_by_id
-                .iter()
-                .filter_map(|(id, session)| (session.project_id == project_id).then_some(*id))
-                .collect();
-            for session_id in session_ids {
-                store.sessions_by_id.remove(&session_id);
-                store
-                    .session_states
-                    .insert(session_id, Loadable::Ready(None));
-            }
-
-            if let Loadable::Ready(ids) = &mut store.projects {
-                ids.retain(|id| *id != project_id);
-            }
+            remove_project(&mut store, project_id);
         }
 
         let client = self.client.clone();
