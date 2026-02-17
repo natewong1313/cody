@@ -14,11 +14,12 @@ impl<'a> ProjectCard<'a> {
 
     pub fn show(self, ui: &mut Ui) -> Response {
         ui.push_id(self.index, |ui| {
-            let frame_response = Frame::new()
+            let card_frame = Frame::new()
                 .fill(BG_900)
                 .stroke(Stroke::new(STROKE_WIDTH, BG_700))
                 .corner_radius(RADIUS_MD)
-                .inner_margin(16.0)
+                .inner_margin(16.0);
+            let frame_response = card_frame
                 .show(ui, |ui| {
                     ui.set_width(ui.available_width());
                     ui.vertical(|ui| {
@@ -61,11 +62,21 @@ impl<'a> ProjectCard<'a> {
                 })
                 .response;
 
-            ui.interact(
+            let frame_interact = ui.interact(
                 frame_response.rect,
                 ui.id().with("click_area"),
                 Sense::click(),
-            )
+            );
+            if frame_interact.hovered() {
+                ui.painter().rect_stroke(
+                    frame_response.rect,
+                    RADIUS_MD,
+                    Stroke::new(STROKE_WIDTH, BG_700),
+                    egui::StrokeKind::Outside,
+                );
+            }
+
+            frame_interact
         })
         .inner
     }
