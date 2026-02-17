@@ -281,9 +281,18 @@ impl ProjectsPage {
             created_at: Utc::now().naive_utc(),
             updated_at: Utc::now().naive_utc(),
         };
+        let session2 = Session {
+            id: Uuid::new_v4(),
+            project_id: project_id,
+            show_in_gui: true,
+            name: "".to_string(),
+            created_at: Utc::now().naive_utc(),
+            updated_at: Utc::now().naive_utc(),
+        };
 
         page_ctx.sync_engine.create_project(project);
         page_ctx.sync_engine.create_session(session);
+        page_ctx.sync_engine.create_session(session2);
 
         self.reset_form();
     }
