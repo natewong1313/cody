@@ -100,6 +100,8 @@ pub(super) fn upsert_project(store: &mut SyncStore, project: &Project) {
             ids.push(project_id);
         }
     }
+
+    sort_projects_by_updated_at_desc(store);
 }
 
 pub(super) fn remove_project(store: &mut SyncStore, project_id: Uuid) {
@@ -136,6 +138,7 @@ pub(super) fn upsert_session(store: &mut SyncStore, session: &Session) {
         .session_states
         .insert(session.id, Loadable::Ready(Some(session.clone())));
     upsert_session_into_project_index(store, session);
+    sort_sessions_by_updated_at_desc(store, session.project_id);
 }
 
 pub(super) fn remove_session(store: &mut SyncStore, session_id: Uuid) {
@@ -145,4 +148,38 @@ pub(super) fn remove_session(store: &mut SyncStore, session_id: Uuid) {
     store
         .session_states
         .insert(session_id, Loadable::Ready(None));
+}
+
+fn sort_projects_by_updated_at_desc(store: &mut SyncStore) {
+    let updated_at_by_id: HashMap<Uuid, _> = store
+        .projects_by_id
+        .iter()
+        .map(|(id, project)| (*id, project.updated_at))
+        .collect();
+
+    if let Loadable::Ready(ids) = &mut store.projects {
+        ids.sort_by(|a, b| {
+            let a_updated = updated_at_by_id.get(a);
+            let b_updated = updated_at_by_id.get(b);
+            b_updated.cmp(&a_updated).then_with(|| a.cmp(b))
+        });
+    }
+}
+
+fn sort_sessions_by_updated_at_desc(store: &mut SyncStore, project_id: Uuid) {
+    let updated_at_by_id: HashMap<Uuid, _> = store
+        .sessions_by_id
+        .iter()
+        .filter_map(|(id, session)| {
+            (session.project_id == project_id).then_some((*id, session.updated_at))
+        })
+        .collect();
+
+    if let Some(Loadable::Ready(ids)) = store.sessions_by_project_states.get_mut(&project_id) {
+        ids.sort_by(|a, b| {
+            let a_updated = updated_at_by_id.get(a);
+            let b_updated = updated_at_by_id.get(b);
+            b_updated.cmp(&a_updated).then_with(|| a.cmp(b))
+        });
+    }
 }

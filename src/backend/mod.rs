@@ -1,3 +1,4 @@
+use chrono::{NaiveDateTime, Utc};
 use rusqlite::Row;
 use uuid::Uuid;
 
@@ -15,6 +16,8 @@ pub struct Project {
     pub id: Uuid,
     pub name: String,
     pub dir: String,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
 }
 
 impl Project {
@@ -23,6 +26,8 @@ impl Project {
             id: row.get(0)?,
             name: row.get(1)?,
             dir: row.get(2)?,
+            created_at: row.get(3)?,
+            updated_at: row.get(4)?,
         })
     }
 }
@@ -32,6 +37,8 @@ pub struct Session {
     pub id: Uuid,
     pub project_id: Uuid,
     pub name: String,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
 }
 
 impl Session {
@@ -40,6 +47,8 @@ impl Session {
             id: row.get(0)?,
             project_id: row.get(1)?,
             name: row.get(2)?,
+            created_at: row.get(3)?,
+            updated_at: row.get(4)?,
         })
     }
 }

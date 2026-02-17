@@ -1,4 +1,4 @@
-use crate::backend::Project;
+use crate::backend::{Project, Session};
 use crate::components::button::{ButtonSize, ButtonVariant, StyledButton};
 use crate::components::dir_button::DirButton;
 use crate::components::project_card::ProjectCard;
@@ -6,6 +6,7 @@ use crate::components::text_input::StyledTextInput;
 use crate::pages::{PageAction, Route};
 use crate::sync_engine::Loadable;
 use crate::theme::{BG_50, BG_500, BG_700, BG_900, BG_950, RADIUS_MD, STROKE_WIDTH};
+use chrono::Utc;
 use egui::{
     Align, CentralPanel, Frame, Grid, Id, Label, Layout, Margin, Modal, RichText, Stroke, Ui, vec2,
 };
@@ -73,7 +74,7 @@ impl ProjectsPage {
                         self.render_no_projects_screen(ui);
                     }
                     Loadable::Ready(projects) => {
-                        self.render_projects(ui, page_ctx, &projects);
+                        self.render_projects_screen(ui, page_ctx, &projects);
                     }
                 }
             });
@@ -113,7 +114,7 @@ impl ProjectsPage {
             });
     }
 
-    fn render_projects(
+    fn render_projects_screen(
         &mut self,
         ui: &mut Ui,
         page_ctx: &mut super::PageContext,
@@ -248,14 +249,7 @@ impl ProjectsPage {
                     .show(ui);
 
                 if let Some(Ok(())) = form.handle_submit(&create_response, ui) {
-                    let project = Project {
-                        id: Uuid::new_v4(),
-                        name: self.form_fields.name.clone(),
-                        dir: self.form_fields.dir.clone(),
-                    };
-                    page_ctx.sync_engine.create_project(project);
-
-                    self.reset_form();
+                    self.on_create_project_click(page_ctx);
                 }
 
                 if StyledButton::new("Cancel")
@@ -268,6 +262,27 @@ impl ProjectsPage {
                 }
             });
         });
+    }
+
+    fn on_create_project_click(&mut self, page_ctx: &mut super::PageContext) {
+        let project_id = Uuid::new_v4();
+        let project = Project {
+            id: project_id,
+            name: self.form_fields.name.clone(),
+            dir: self.form_fields.dir.clone(),
+            created_at: Utc::now().naive_utc(),
+            updated_at: Utc::now().naive_utc(),
+        };
+        page_ctx.sync_engine.create_project(project);
+        page_ctx.sync_engine.create_session(Session {
+            id: Uuid::new_v4(),
+            project_id: project_id,
+            name: "".to_string(),
+            created_at: Utc::now().naive_utc(),
+            updated_at: Utc::now().naive_utc(),
+        });
+
+        self.reset_form();
     }
 
     fn reset_form(&mut self) {

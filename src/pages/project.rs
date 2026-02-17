@@ -70,6 +70,9 @@ impl ProjectPage {
     ) {
         self.project_id = Some(project_id);
         page_ctx.sync_engine.ensure_project_loaded(project_id);
+        page_ctx
+            .sync_engine
+            .ensure_sessions_by_project_loaded(project_id);
 
         CentralPanel::default()
             .frame(
@@ -93,6 +96,15 @@ impl ProjectPage {
                     Loadable::Error(error) => {
                         ui.label(RichText::new(error).color(egui::Color32::RED));
                     }
+                }
+
+                match page_ctx.sync_engine.sessions_by_project_state(project_id) {
+                    Loadable::Idle => todo!(),
+                    Loadable::Loading => todo!(),
+                    Loadable::Ready(sessions) => {
+                        println!("{}", sessions.len());
+                    }
+                    Loadable::Error(_) => todo!(),
                 }
             });
     }

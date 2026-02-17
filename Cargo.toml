@@ -27,7 +27,7 @@ eventsource-stream = "0.2.3"
 futures = "0.3"
 egui_kittest = { version = "0.33.3", features = ["snapshot", "wgpu"] }
 tarpc = { version = "0.37.0", features = ["tokio1"] }
-rusqlite = { version = "0.38.0", features = ["bundled", "uuid"] }
+rusqlite = { version = "0.38.0", features = ["bundled", "chrono", "uuid"] }
 uuid = { version = "1.20.0", features = ["v4"] }
 rusqlite_migration = "2.4.1"
 egui_form = { version = "0.7.0", features = ["validator_garde"] }
@@ -38,3 +38,4 @@ egui_extras = { version = "0.33.3", features = ["image", "svg"] }
 rfd = "0.17"
 egui_dock = "0.18.0"
 thiserror = "2.0.18"
+chrono = "0.4.43"
