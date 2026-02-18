@@ -61,7 +61,7 @@ macro_rules! with_conn {
 
 impl Database {
     pub fn new() -> Result<Self, DatabaseStartupError> {
-        let mut conn = Connection::open_in_memory()?;
+        let mut conn = Connection::open("./cody.db")?;
         conn.pragma_update_and_check(None, "journal_mode", &"WAL", |_| Ok(()))?;
         conn.execute_batch("PRAGMA foreign_keys = ON;")?;
         MIGRATIONS.to_latest(&mut conn)?;

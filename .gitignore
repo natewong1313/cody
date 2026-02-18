@@ -3,3 +3,4 @@
 /egui
 /src/ui_tests
 /tests/snapshots
+cody.db*
