@@ -56,21 +56,11 @@ impl SyncEngineClient {
         }
         self.projects_in_flight.set(true);
 
-        let client = self.client.clone();
-        let sender = self.updates.sender();
-        tokio::spawn(async move {
-            let result = flatten_rpc(client.list_projects(context::current()).await);
-            match result {
-                Ok(projects) => {
-                    sender.send(StoreMessage::ProjectsLoaded(projects)).ok();
-                }
-                Err(message) => {
-                    sender
-                        .send(StoreMessage::ProjectError { id: None, message })
-                        .ok();
-                }
-            }
-        });
+        spawn_rpc!(self,
+            |client| client.list_projects(context::current()).await,
+            ok(projects) => StoreMessage::ProjectsLoaded(projects),
+            err(message) => StoreMessage::ProjectError { id: None, message },
+        );
     }
 
     pub fn ensure_project_loaded(&self, project_id: Uuid) {
@@ -100,29 +90,11 @@ impl SyncEngineClient {
             store.project_states.insert(project_id, Loadable::Loading);
         }
 
-        let client = self.client.clone();
-        let sender = self.updates.sender();
-        tokio::spawn(async move {
-            let result = flatten_rpc(client.get_project(context::current(), project_id).await);
-            match result {
-                Ok(project) => {
-                    sender
-                        .send(StoreMessage::ProjectLoaded {
-                            id: project_id,
-                            project,
-                        })
-                        .ok();
-                }
-                Err(message) => {
-                    sender
-                        .send(StoreMessage::ProjectError {
-                            id: Some(project_id),
-                            message,
-                        })
-                        .ok();
-                }
-            }
-        });
+        spawn_rpc!(self,
+            |client| client.get_project(context::current(), project_id).await,
+            ok(project) => StoreMessage::ProjectLoaded { id: project_id, project },
+            err(message) => StoreMessage::ProjectError { id: Some(project_id), message },
+        );
     }
 
     pub fn create_project(&self, project: Project) {
@@ -131,21 +103,11 @@ impl SyncEngineClient {
             upsert_project(&mut store, &project);
         }
 
-        let client = self.client.clone();
-        let sender = self.updates.sender();
-        tokio::spawn(async move {
-            let result = flatten_rpc(client.create_project(context::current(), project).await);
-            match result {
-                Ok(created) => {
-                    sender.send(StoreMessage::ProjectUpserted(created)).ok();
-                }
-                Err(message) => {
-                    sender
-                        .send(StoreMessage::ProjectError { id: None, message })
-                        .ok();
-                }
-            }
-        });
+        spawn_rpc!(self,
+            |client| client.create_project(context::current(), project).await,
+            ok(created) => StoreMessage::ProjectUpserted(created),
+            err(message) => StoreMessage::ProjectError { id: None, message },
+        );
     }
 
     pub fn delete_project(&self, project_id: Uuid) {
@@ -154,23 +116,10 @@ impl SyncEngineClient {
             remove_project(&mut store, project_id);
         }
 
-        let client = self.client.clone();
-        let sender = self.updates.sender();
-        tokio::spawn(async move {
-            let result = flatten_rpc(client.delete_project(context::current(), project_id).await);
-            match result {
-                Ok(()) => {
-                    sender.send(StoreMessage::ProjectDeleted(project_id)).ok();
-                }
-                Err(message) => {
-                    sender
-                        .send(StoreMessage::ProjectError {
-                            id: Some(project_id),
-                            message,
-                        })
-                        .ok();
-                }
-            }
-        });
+        spawn_rpc!(self,
+            |client| client.delete_project(context::current(), project_id).await,
+            ok(()) => StoreMessage::ProjectDeleted(project_id),
+            err(message) => StoreMessage::ProjectError { id: Some(project_id), message },
+        );
     }
 }

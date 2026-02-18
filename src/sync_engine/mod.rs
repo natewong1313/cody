@@ -1,3 +1,26 @@
+macro_rules! spawn_rpc {
+    (
+        $self:expr,
+        |$client:ident| $rpc_call:expr,
+        ok($ok_pat:pat) => $ok_msg:expr,
+        err($err:ident) => $err_msg:expr $(,)?
+    ) => {{
+        let $client = $self.client.clone();
+        let sender = $self.updates.sender();
+        tokio::spawn(async move {
+            let result = flatten_rpc($rpc_call);
+            match result {
+                Ok($ok_pat) => {
+                    sender.send($ok_msg).ok();
+                }
+                Err($err) => {
+                    sender.send($err_msg).ok();
+                }
+            }
+        });
+    }};
+}
+
 mod projects;
 mod sessions;
 mod store;
@@ -9,6 +32,9 @@ use egui_inbox::UiInbox;
 use futures::StreamExt;
 use std::cell::{Cell, RefCell};
 use std::collections::HashSet;
+use store::{
+    StoreMessage, SyncStore, remove_project, remove_session, upsert_project, upsert_session,
+};
 use tarpc::{
     self, client,
     server::{self, Channel},
@@ -21,10 +47,6 @@ fn flatten_rpc<T>(
         .map_err(|e| e.to_string())
         .and_then(|r| r.map_err(|e| e.to_string()))
 }
-
-use store::{
-    StoreMessage, SyncStore, remove_project, remove_session, upsert_project, upsert_session,
-};
 
 #[derive(Debug, Clone)]
 pub enum Loadable<T> {
