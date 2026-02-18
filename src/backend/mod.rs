@@ -1,15 +1,30 @@
-use chrono::{NaiveDateTime, Utc};
+use self::harness::{Harness, OpencodeHarness};
+use crate::backend::db::Database;
+use chrono::NaiveDateTime;
 use rusqlite::Row;
 use uuid::Uuid;
 
-use crate::backend::db::Database;
-
-use self::harness::{Harness, OpencodeHarness};
-
 mod db;
+mod db_migrations;
 mod harness;
 mod opencode_client;
 pub mod rpc;
+
+#[derive(Clone)]
+pub struct BackendServer {
+    db: Database,
+    harness: OpencodeHarness,
+}
+
+/// The parent TARPC server, rpc routes are in rpc.rs
+impl BackendServer {
+    pub fn new() -> Self {
+        Self {
+            db: Database::new().expect("failed to create database"),
+            harness: OpencodeHarness::new().expect("failed to initialize opencode harness"),
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Project {
@@ -52,20 +67,5 @@ impl Session {
             created_at: row.get(4)?,
             updated_at: row.get(5)?,
         })
-    }
-}
-
-#[derive(Clone)]
-pub struct BackendServer {
-    db: Database,
-    harness: OpencodeHarness,
-}
-
-impl BackendServer {
-    pub fn new() -> Self {
-        Self {
-            db: Database::new().expect("failed to create database"),
-            harness: OpencodeHarness::new().expect("failed to initialize opencode harness"),
-        }
     }
 }

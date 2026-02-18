@@ -1,35 +1,9 @@
-use crate::backend::{Project, Session};
+use crate::backend::{Project, Session, db_migrations::MIGRATIONS};
 use chrono::Utc;
 use rusqlite::{Connection, OptionalExtension};
-use rusqlite_migration::{M, Migrations};
 use std::sync::{Arc, Mutex};
 use thiserror::Error;
 use uuid::Uuid;
-
-const MIGRATIONS_SLICE: &[M<'_>] = &[
-    M::up(
-        "CREATE TABLE projects (
-            id BLOB CHECK(length(id) = 16),
-            name TEXT NOT NULL,
-            dir TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        );",
-    ),
-    M::up(
-        "CREATE TABLE sessions (
-            id BLOB CHECK(length(id) = 16),
-            project_id BLOB CHECK(length(project_id) = 16) REFERENCES projects(id) ON DELETE CASCADE,
-
-            show_in_gui NOT NULL DEFAULT 0 CHECK(show_in_gui IN (0, 1)),
-
-            name TEXT,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        );",
-    ),
-];
-const MIGRATIONS: Migrations<'_> = Migrations::from_slice(MIGRATIONS_SLICE);
 
 #[derive(Clone)]
 pub struct Database {
@@ -50,8 +24,15 @@ pub enum DatabaseError {
     QueryError(#[from] rusqlite::Error),
     #[error("Db conn lock poisoned")]
     PoisonedLock,
+    #[error("{op} unexpected rows affected, expected {expected} got {actual}")]
+    UnexpectedRowsAffected {
+        op: &'static str,
+        expected: usize,
+        actual: usize,
+    },
 }
 
+/// Grabs a database connection or returns an error if its mutex lock is poisoned
 macro_rules! with_conn {
     ($self:expr, $conn:ident, $body:block) => {{
         let $conn = $self.conn.lock().map_err(|_| DatabaseError::PoisonedLock)?;
@@ -69,6 +50,23 @@ impl Database {
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
         })
+    }
+
+    /// Helper function to make sure rows are actually being updated/deleted
+    fn assert_one_row_affected(
+        &self,
+        op: &'static str,
+        rows_affected: usize,
+    ) -> Result<(), DatabaseError> {
+        if rows_affected == 1 {
+            Ok(())
+        } else {
+            Err(DatabaseError::UnexpectedRowsAffected {
+                op,
+                expected: 1,
+                actual: rows_affected,
+            })
+        }
     }
 
     pub fn list_projects(&self) -> Result<Vec<Project>, DatabaseError> {
@@ -104,8 +102,7 @@ impl Database {
                     &project.created_at,
                     &project.updated_at,
                 ),
-            )?;
-            Ok(())
+            ).map(|rows| {self.assert_one_row_affected("create_project", rows)})?
         })
     }
 
@@ -119,15 +116,15 @@ impl Database {
                     &project.dir,
                     Utc::now().naive_utc(),
                 ),
-            )?;
-            Ok(())
+            )
+            .map(|rows| self.assert_one_row_affected("update_project", rows))?
         })
     }
 
     pub fn delete_project(&self, project_id: &Uuid) -> Result<(), DatabaseError> {
         with_conn!(self, conn, {
-            conn.execute("DELETE FROM projects WHERE id = ?1", [project_id])?;
-            Ok(())
+            conn.execute("DELETE FROM projects WHERE id = ?1", [project_id])
+                .map(|rows| self.assert_one_row_affected("delete_project", rows))?
         })
     }
 
@@ -165,8 +162,7 @@ impl Database {
                     &session.created_at,
                     &session.updated_at,
                 ),
-            )?;
-            Ok(())
+            ).map(|rows| self.assert_one_row_affected("create_session", rows))?
         })
     }
 
@@ -181,15 +177,14 @@ impl Database {
                     &session.name,
                     Utc::now().naive_utc(),
                 ),
-            )?;
-            Ok(())
+            ).map(|rows| self.assert_one_row_affected("update_session", rows))?
         })
     }
 
     pub fn delete_session(&self, session_id: &Uuid) -> Result<(), DatabaseError> {
         with_conn!(self, conn, {
-            conn.execute("DELETE FROM sessions WHERE id = ?1", [session_id])?;
-            Ok(())
+            conn.execute("DELETE FROM sessions WHERE id = ?1", [session_id])
+                .map(|rows| self.assert_one_row_affected("delete_session", rows))?
         })
     }
 }
