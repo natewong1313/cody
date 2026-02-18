@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::backend::{Project, Session};
 use crate::components::button::{ButtonSize, StyledButton};
 use crate::pages::{PageAction, PageContext, Route};
@@ -7,13 +9,21 @@ use crate::theme::{
 };
 use egui::epaint::CornerRadiusF32;
 use egui::{
-    Align2, CentralPanel, Color32, CornerRadius, Frame, Label, RichText, Stroke, TextEdit, Ui, vec2,
+    Align2, CentralPanel, Color32, Frame, Id, Label, RichText, ScrollArea, Stroke, TextEdit,
+    TopBottomPanel, Ui, vec2,
 };
 use egui_dock::tab_viewer::OnCloseResponse;
-use egui_dock::{DockArea, DockState, Style};
+use egui_dock::{DockArea, DockState, Style, TabAddAlign};
 use egui_flex::{Flex, item};
 use egui_phosphor::regular;
 use uuid::Uuid;
+
+type SessionTabStateMap = HashMap<Uuid, SessionTabState>;
+
+#[derive(Default)]
+struct SessionTabState {
+    prompt_input: String,
+}
 
 pub struct ProjectPage {
     project_id: Option<Uuid>,
@@ -21,18 +31,18 @@ pub struct ProjectPage {
     session_tab_ids: Vec<Uuid>,
 
     session_tabs_tree: DockState<Uuid>,
-
-    prompt_input: String,
+    sessions_states: SessionTabStateMap,
 }
 struct TabViewer<'a> {
     sessions: &'a [Session],
+    sessions_states: &'a mut SessionTabStateMap,
 }
 
 impl egui_dock::TabViewer for TabViewer<'_> {
     type Tab = Uuid;
 
     fn id(&mut self, tab: &mut Self::Tab) -> egui::Id {
-        egui::Id::new(*tab)
+        Id::new(*tab)
     }
 
     fn title(&mut self, tab: &mut Self::Tab) -> egui::WidgetText {
@@ -51,7 +61,55 @@ impl egui_dock::TabViewer for TabViewer<'_> {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, tab: &mut Self::Tab) {
-        ui.label(format!("Content of {tab}"));
+        let tab_state = self.sessions_states.entry(*tab).or_default();
+
+        TopBottomPanel::bottom(Id::new(("bottom_panel", *tab)))
+            .show_separator_line(false)
+            .default_height(120.0)
+            .show_inside(ui, |ui| {
+                Frame::new()
+                    .inner_margin(8.0)
+                    .outer_margin(8.0)
+                    .corner_radius(RADIUS_MD)
+                    .fill(BG_800)
+                    .stroke(Stroke::new(STROKE_WIDTH, BG_700))
+                    .show(ui, |ui| {
+                        Flex::vertical()
+                            .w_full()
+                            .gap(vec2(0.0, 16.0))
+                            .show(ui, |flex| {
+                                flex.add(
+                                    item().align_self_content(Align2::LEFT_TOP),
+                                    TextEdit::multiline(&mut tab_state.prompt_input)
+                                        .hint_text("Type anything")
+                                        .frame(false)
+                                        .desired_rows(2),
+                                );
+                                flex.add_flex(
+                                    item(),
+                                    Flex::horizontal()
+                                        .w_full()
+                                        .justify(egui_flex::FlexJustify::SpaceBetween)
+                                        .align_items(egui_flex::FlexAlign::Center),
+                                    |flex| {
+                                        let btn = flex.add(item(), StyledButton::new("Send"));
+                                        if btn.clicked() {
+                                            println!("send: {}", tab_state.prompt_input);
+                                            tab_state.prompt_input.clear();
+                                        }
+                                    },
+                                );
+                            })
+                    });
+            });
+        ScrollArea::vertical()
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                ui.set_width(ui.available_width());
+                for _ in 1..=50 {
+                    ui.label("messages");
+                }
+            });
     }
 
     fn on_close(&mut self, _tab: &mut Self::Tab) -> OnCloseResponse {
@@ -68,7 +126,7 @@ impl ProjectPage {
             sessions: Vec::new(),
             session_tab_ids: Vec::new(),
             session_tabs_tree,
-            prompt_input: "".to_string(),
+            sessions_states: HashMap::new(),
         }
     }
 
@@ -124,6 +182,11 @@ impl ProjectPage {
     fn sync_sessions(&mut self, sessions: &[Session]) {
         self.sessions = sessions.to_vec();
 
+        let valid_ids: std::collections::HashSet<Uuid> =
+            sessions.iter().map(|session| session.id).collect();
+        self.sessions_states
+            .retain(|session_id, _| valid_ids.contains(session_id));
+
         let next_tab_ids: Vec<Uuid> = sessions.iter().map(|session| session.id).collect();
         if self.session_tab_ids != next_tab_ids {
             self.session_tab_ids = next_tab_ids.clone();
@@ -153,65 +216,7 @@ impl ProjectPage {
                 ui.label(RichText::new("No sessions yet").color(BG_500));
             }
             Loadable::Ready(_) => {
-                let mut dock_style = Style::from_egui(ui.style().as_ref());
-                let active_text_color = BG_50;
-                let inactive_text_color = BG_500;
-                let focused_bg_color = BG_800;
-
-                dock_style.tab.spacing = 6.0;
-                dock_style.tab_bar.bg_fill = BG_900;
-                dock_style.tab_bar.height = 36.0;
-                dock_style.tab_bar.hline_color = Color32::TRANSPARENT;
-                dock_style.tab_bar.inner_margin = egui::Margin::symmetric(8, 4);
-
-                dock_style.tab.active.bg_fill = focused_bg_color;
-                dock_style.tab.active.text_color = active_text_color;
-                dock_style.tab.active.outline_color = egui::Color32::TRANSPARENT;
-                dock_style.tab.active.corner_radius = CornerRadiusF32::same(RADIUS_MD).into();
-                dock_style.tab.active_with_kb_focus.bg_fill = FUCHSIA_500;
-                dock_style.tab.active_with_kb_focus.text_color = active_text_color;
-                dock_style.tab.active_with_kb_focus.outline_color = egui::Color32::TRANSPARENT;
-
-                dock_style.tab.focused.bg_fill = focused_bg_color;
-                dock_style.tab.focused.text_color = active_text_color;
-                dock_style.tab.focused.outline_color = egui::Color32::TRANSPARENT;
-                dock_style.tab.focused.corner_radius = CornerRadiusF32::same(RADIUS_MD).into();
-                dock_style.tab.focused_with_kb_focus.bg_fill = FUCHSIA_500;
-                dock_style.tab.focused_with_kb_focus.text_color = active_text_color;
-                dock_style.tab.focused_with_kb_focus.outline_color = egui::Color32::TRANSPARENT;
-
-                dock_style.tab.inactive.bg_fill = BG_900;
-                dock_style.tab.inactive.text_color = inactive_text_color;
-                dock_style.tab.inactive.outline_color = egui::Color32::TRANSPARENT;
-                dock_style.tab.inactive.corner_radius = CornerRadiusF32::same(RADIUS_MD).into();
-                dock_style.tab.hovered.bg_fill = focused_bg_color;
-                dock_style.tab.hovered.text_color = inactive_text_color;
-                dock_style.tab.hovered.outline_color = egui::Color32::TRANSPARENT;
-                dock_style.tab.hovered.corner_radius = CornerRadiusF32::same(RADIUS_MD).into();
-                dock_style.tab.inactive_with_kb_focus.bg_fill = BG_900;
-                dock_style.tab.inactive_with_kb_focus.text_color = inactive_text_color;
-                dock_style.tab.inactive_with_kb_focus.outline_color = egui::Color32::TRANSPARENT;
-
-                dock_style.buttons.close_tab_color = inactive_text_color;
-                dock_style.buttons.close_tab_active_color = active_text_color;
-                dock_style.buttons.close_tab_bg_fill = BG_900;
-
-                dock_style.buttons.close_all_tabs_color = inactive_text_color;
-                dock_style.buttons.close_all_tabs_active_color = active_text_color;
-                dock_style.buttons.close_all_tabs_bg_fill = BG_800;
-
-                dock_style.buttons.collapse_tabs_color = inactive_text_color;
-                dock_style.buttons.collapse_tabs_active_color = active_text_color;
-                dock_style.buttons.collapse_tabs_bg_fill = BG_800;
-
-                DockArea::new(&mut self.session_tabs_tree)
-                    .style(dock_style)
-                    .show_inside(
-                        ui,
-                        &mut TabViewer {
-                            sessions: &self.sessions,
-                        },
-                    );
+                self.render_sessions_dock(ui);
             }
         }
     }
@@ -252,38 +257,72 @@ impl ProjectPage {
         });
     }
 
-    fn render_session(&mut self, ui: &mut Ui) {
-        Frame::new()
-            .inner_margin(8.0)
-            .outer_margin(8.0)
-            .corner_radius(RADIUS_MD)
-            .fill(BG_800)
-            .stroke(Stroke::new(STROKE_WIDTH, BG_700))
-            .show(ui, |ui| {
-                Flex::vertical()
-                    .w_full()
-                    .gap(vec2(0.0, 16.0))
-                    .show(ui, |flex| {
-                        flex.add(
-                            item().align_self_content(Align2::LEFT_TOP),
-                            TextEdit::multiline(&mut self.prompt_input)
-                                .hint_text("Type anything")
-                                .frame(false),
-                        );
-                        flex.add_flex(
-                            item(),
-                            Flex::horizontal()
-                                .w_full()
-                                .justify(egui_flex::FlexJustify::SpaceBetween)
-                                .align_items(egui_flex::FlexAlign::Center),
-                            |flex| {
-                                let btn = flex.add(item(), StyledButton::new("Send"));
-                                if btn.clicked() {
-                                    println!("send");
-                                }
-                            },
-                        );
-                    })
-            });
+    fn render_sessions_dock(&mut self, ui: &mut Ui) {
+        let mut dock_style = Style::from_egui(ui.style().as_ref());
+        let active_text_color = BG_50;
+        let inactive_text_color = BG_500;
+        let focused_bg_color = BG_800;
+
+        dock_style.tab.spacing = 6.0;
+        dock_style.tab_bar.bg_fill = BG_900;
+        dock_style.tab_bar.height = 36.0;
+        dock_style.tab_bar.hline_color = Color32::TRANSPARENT;
+        dock_style.tab_bar.inner_margin = egui::Margin::symmetric(8, 4);
+
+        dock_style.tab.active.bg_fill = focused_bg_color;
+        dock_style.tab.active.text_color = active_text_color;
+        dock_style.tab.active.outline_color = egui::Color32::TRANSPARENT;
+        dock_style.tab.active.corner_radius = CornerRadiusF32::same(RADIUS_MD).into();
+        dock_style.tab.active_with_kb_focus.bg_fill = FUCHSIA_500;
+        dock_style.tab.active_with_kb_focus.text_color = active_text_color;
+        dock_style.tab.active_with_kb_focus.outline_color = egui::Color32::TRANSPARENT;
+
+        dock_style.tab.focused.bg_fill = focused_bg_color;
+        dock_style.tab.focused.text_color = active_text_color;
+        dock_style.tab.focused.outline_color = egui::Color32::TRANSPARENT;
+        dock_style.tab.focused.corner_radius = CornerRadiusF32::same(RADIUS_MD).into();
+        dock_style.tab.focused_with_kb_focus.bg_fill = FUCHSIA_500;
+        dock_style.tab.focused_with_kb_focus.text_color = active_text_color;
+        dock_style.tab.focused_with_kb_focus.outline_color = egui::Color32::TRANSPARENT;
+
+        dock_style.tab.inactive.bg_fill = BG_900;
+        dock_style.tab.inactive.text_color = inactive_text_color;
+        dock_style.tab.inactive.outline_color = egui::Color32::TRANSPARENT;
+        dock_style.tab.inactive.corner_radius = CornerRadiusF32::same(RADIUS_MD).into();
+        dock_style.tab.hovered.bg_fill = focused_bg_color;
+        dock_style.tab.hovered.text_color = inactive_text_color;
+        dock_style.tab.hovered.outline_color = egui::Color32::TRANSPARENT;
+        dock_style.tab.hovered.corner_radius = CornerRadiusF32::same(RADIUS_MD).into();
+        dock_style.tab.inactive_with_kb_focus.bg_fill = BG_900;
+        dock_style.tab.inactive_with_kb_focus.text_color = inactive_text_color;
+        dock_style.tab.inactive_with_kb_focus.outline_color = egui::Color32::TRANSPARENT;
+
+        dock_style.buttons.add_tab_align = TabAddAlign::Left;
+        dock_style.buttons.add_tab_color = inactive_text_color;
+        dock_style.buttons.add_tab_active_color = active_text_color;
+        dock_style.buttons.add_tab_bg_fill = BG_800;
+
+        dock_style.buttons.close_tab_color = inactive_text_color;
+        dock_style.buttons.close_tab_active_color = active_text_color;
+        dock_style.buttons.close_tab_bg_fill = BG_900;
+
+        dock_style.buttons.close_all_tabs_color = inactive_text_color;
+        dock_style.buttons.close_all_tabs_active_color = active_text_color;
+        dock_style.buttons.close_all_tabs_bg_fill = BG_800;
+
+        dock_style.buttons.collapse_tabs_color = inactive_text_color;
+        dock_style.buttons.collapse_tabs_active_color = active_text_color;
+        dock_style.buttons.collapse_tabs_bg_fill = BG_800;
+
+        DockArea::new(&mut self.session_tabs_tree)
+            .style(dock_style)
+            .show_add_buttons(true)
+            .show_inside(
+                ui,
+                &mut TabViewer {
+                    sessions: &self.sessions,
+                    sessions_states: &mut self.sessions_states,
+                },
+            );
     }
 }
