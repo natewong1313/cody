@@ -3,7 +3,7 @@ mod sessions;
 mod store;
 
 use crate::backend::BackendServer;
-use crate::backend::rpc::{BackendRpc, BackendRpcClient};
+use crate::backend::rpc::{BackendRpc, BackendRpcClient, RpcError};
 use egui::Ui;
 use egui_inbox::UiInbox;
 use futures::StreamExt;
@@ -13,6 +13,14 @@ use tarpc::{
     self, client,
     server::{self, Channel},
 };
+
+fn flatten_rpc<T>(
+    result: Result<Result<T, RpcError>, tarpc::client::RpcError>,
+) -> Result<T, String> {
+    result
+        .map_err(|e| e.to_string())
+        .and_then(|r| r.map_err(|e| e.to_string()))
+}
 
 use store::{
     StoreMessage, SyncStore, remove_project, remove_session, upsert_project, upsert_session,

@@ -3,7 +3,7 @@ use tarpc::context;
 use uuid::Uuid;
 
 use super::store::{StoreMessage, remove_session, upsert_session};
-use super::{Loadable, SyncEngineClient};
+use super::{Loadable, SyncEngineClient, flatten_rpc};
 
 impl SyncEngineClient {
     pub fn sessions_by_project_state(&self, project_id: Uuid) -> Loadable<Vec<Session>> {
@@ -65,11 +65,13 @@ impl SyncEngineClient {
         let client = self.client.clone();
         let sender = self.updates.sender();
         tokio::spawn(async move {
-            let result = client
-                .list_sessions_by_project(context::current(), project_id)
-                .await;
+            let result = flatten_rpc(
+                client
+                    .list_sessions_by_project(context::current(), project_id)
+                    .await,
+            );
             match result {
-                Ok(Ok(sessions)) => {
+                Ok(sessions) => {
                     sender
                         .send(StoreMessage::SessionsByProjectLoaded {
                             project_id,
@@ -77,21 +79,12 @@ impl SyncEngineClient {
                         })
                         .ok();
                 }
-                Ok(Err(error)) => {
+                Err(message) => {
                     sender
                         .send(StoreMessage::SessionError {
                             project_id: Some(project_id),
                             session_id: None,
-                            message: error.to_string(),
-                        })
-                        .ok();
-                }
-                Err(error) => {
-                    sender
-                        .send(StoreMessage::SessionError {
-                            project_id: Some(project_id),
-                            session_id: None,
-                            message: error.to_string(),
+                            message,
                         })
                         .ok();
                 }
@@ -129,9 +122,9 @@ impl SyncEngineClient {
         let client = self.client.clone();
         let sender = self.updates.sender();
         tokio::spawn(async move {
-            let result = client.get_session(context::current(), session_id).await;
+            let result = flatten_rpc(client.get_session(context::current(), session_id).await);
             match result {
-                Ok(Ok(session)) => {
+                Ok(session) => {
                     sender
                         .send(StoreMessage::SessionLoaded {
                             id: session_id,
@@ -139,21 +132,12 @@ impl SyncEngineClient {
                         })
                         .ok();
                 }
-                Ok(Err(error)) => {
+                Err(message) => {
                     sender
                         .send(StoreMessage::SessionError {
                             project_id: None,
                             session_id: Some(session_id),
-                            message: error.to_string(),
-                        })
-                        .ok();
-                }
-                Err(error) => {
-                    sender
-                        .send(StoreMessage::SessionError {
-                            project_id: None,
-                            session_id: Some(session_id),
-                            message: error.to_string(),
+                            message,
                         })
                         .ok();
                 }
@@ -170,26 +154,17 @@ impl SyncEngineClient {
         let client = self.client.clone();
         let sender = self.updates.sender();
         tokio::spawn(async move {
-            let result = client.create_session(context::current(), session).await;
+            let result = flatten_rpc(client.create_session(context::current(), session).await);
             match result {
-                Ok(Ok(created)) => {
+                Ok(created) => {
                     sender.send(StoreMessage::SessionUpserted(created)).ok();
                 }
-                Ok(Err(error)) => {
+                Err(message) => {
                     sender
                         .send(StoreMessage::SessionError {
                             project_id: None,
                             session_id: None,
-                            message: error.to_string(),
-                        })
-                        .ok();
-                }
-                Err(error) => {
-                    sender
-                        .send(StoreMessage::SessionError {
-                            project_id: None,
-                            session_id: None,
-                            message: error.to_string(),
+                            message,
                         })
                         .ok();
                 }
@@ -206,26 +181,17 @@ impl SyncEngineClient {
         let client = self.client.clone();
         let sender = self.updates.sender();
         tokio::spawn(async move {
-            let result = client.update_session(context::current(), session).await;
+            let result = flatten_rpc(client.update_session(context::current(), session).await);
             match result {
-                Ok(Ok(updated)) => {
+                Ok(updated) => {
                     sender.send(StoreMessage::SessionUpserted(updated)).ok();
                 }
-                Ok(Err(error)) => {
+                Err(message) => {
                     sender
                         .send(StoreMessage::SessionError {
                             project_id: None,
                             session_id: None,
-                            message: error.to_string(),
-                        })
-                        .ok();
-                }
-                Err(error) => {
-                    sender
-                        .send(StoreMessage::SessionError {
-                            project_id: None,
-                            session_id: None,
-                            message: error.to_string(),
+                            message,
                         })
                         .ok();
                 }
@@ -242,26 +208,17 @@ impl SyncEngineClient {
         let client = self.client.clone();
         let sender = self.updates.sender();
         tokio::spawn(async move {
-            let result = client.delete_session(context::current(), session_id).await;
+            let result = flatten_rpc(client.delete_session(context::current(), session_id).await);
             match result {
-                Ok(Ok(())) => {
+                Ok(()) => {
                     sender.send(StoreMessage::SessionDeleted(session_id)).ok();
                 }
-                Ok(Err(error)) => {
+                Err(message) => {
                     sender
                         .send(StoreMessage::SessionError {
                             project_id: None,
                             session_id: Some(session_id),
-                            message: error.to_string(),
-                        })
-                        .ok();
-                }
-                Err(error) => {
-                    sender
-                        .send(StoreMessage::SessionError {
-                            project_id: None,
-                            session_id: Some(session_id),
-                            message: error.to_string(),
+                            message,
                         })
                         .ok();
                 }
