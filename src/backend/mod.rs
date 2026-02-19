@@ -1,10 +1,12 @@
+use std::sync::{Arc, Mutex};
+
 use self::harness::{Harness, OpencodeHarness};
 use crate::backend::db::Database;
 use chrono::NaiveDateTime;
-use rusqlite::Row;
+use rusqlite::{Connection, Row};
 use uuid::Uuid;
 
-pub mod data;
+mod data;
 mod db;
 mod db_migrations;
 mod harness;
@@ -16,6 +18,12 @@ pub struct BackendServer {
     db: Database,
     harness: OpencodeHarness,
     sender: BackendEventSender,
+}
+
+pub struct BackendContext {
+    db: Arc<Mutex<Connection>>,
+    harness: OpencodeHarness,
+    event_sender: BackendEventSender,
 }
 
 #[derive(Debug, Clone)]
