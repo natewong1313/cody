@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::backend::{Project, Session};
 use crate::components::button::{ButtonSize, StyledButton};
 use crate::pages::{PageAction, PageContext, Route};
@@ -16,6 +14,7 @@ use egui_dock::tab_viewer::OnCloseResponse;
 use egui_dock::{DockArea, DockState, Style, TabAddAlign};
 use egui_flex::{Flex, item};
 use egui_phosphor::regular;
+use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
 type SessionTabStateMap = HashMap<Uuid, SessionTabState>;
@@ -27,14 +26,13 @@ struct SessionTabState {
 
 pub struct ProjectPage {
     project_id: Option<Uuid>,
-    sessions: Vec<Session>,
     session_tab_ids: Vec<Uuid>,
 
     session_tabs_tree: DockState<Uuid>,
     sessions_states: SessionTabStateMap,
 }
 struct TabViewer<'a> {
-    sessions: &'a [Session],
+    sessions_by_id: &'a HashMap<Uuid, &'a Session>,
     sessions_states: &'a mut SessionTabStateMap,
 }
 
@@ -46,9 +44,8 @@ impl egui_dock::TabViewer for TabViewer<'_> {
     }
 
     fn title(&mut self, tab: &mut Self::Tab) -> egui::WidgetText {
-        self.sessions
-            .iter()
-            .find(|session| session.id == *tab)
+        self.sessions_by_id
+            .get(tab)
             .map(|session| {
                 if session.name.trim().is_empty() {
                     "New Session".to_string()
@@ -123,7 +120,6 @@ impl ProjectPage {
         let session_tabs_tree = DockState::new(vec![]);
         Self {
             project_id: None,
-            sessions: Vec::new(),
             session_tab_ids: Vec::new(),
             session_tabs_tree,
             sessions_states: HashMap::new(),
@@ -137,9 +133,9 @@ impl ProjectPage {
         project_id: Uuid,
     ) {
         if self.project_id != Some(project_id) {
-            self.sessions.clear();
             self.session_tab_ids.clear();
             self.session_tabs_tree = DockState::new(vec![]);
+            self.sessions_states.clear();
         }
         self.project_id = Some(project_id);
 
@@ -159,7 +155,7 @@ impl ProjectPage {
 
                 let sessions_state = page_ctx.sync_engine.sessions_by_project_state(project_id);
                 if let Loadable::Ready(sessions) = &sessions_state {
-                    self.sync_sessions(sessions);
+                    self.sync_session_tabs(sessions);
                 }
 
                 match page_ctx.sync_engine.project_state(project_id) {
@@ -179,19 +175,37 @@ impl ProjectPage {
             });
     }
 
-    fn sync_sessions(&mut self, sessions: &[Session]) {
-        self.sessions = sessions.to_vec();
-
-        let valid_ids: std::collections::HashSet<Uuid> =
-            sessions.iter().map(|session| session.id).collect();
-        self.sessions_states
-            .retain(|session_id, _| valid_ids.contains(session_id));
-
+    fn sync_session_tabs(&mut self, sessions: &[Session]) {
         let next_tab_ids: Vec<Uuid> = sessions.iter().map(|session| session.id).collect();
-        if self.session_tab_ids != next_tab_ids {
-            self.session_tab_ids = next_tab_ids.clone();
-            self.session_tabs_tree = DockState::new(next_tab_ids);
+        let next_set: HashSet<Uuid> = next_tab_ids.iter().copied().collect();
+
+        self.sessions_states
+            .retain(|session_id, _| next_set.contains(session_id));
+
+        let current_tab_ids: Vec<Uuid> = self
+            .session_tabs_tree
+            .iter_all_tabs()
+            .map(|(_, tab_id)| *tab_id)
+            .collect();
+        let current_set: HashSet<Uuid> = current_tab_ids.iter().copied().collect();
+
+        let sets_differ = current_set != next_set;
+        let order_differs = current_tab_ids != next_tab_ids;
+
+        if sets_differ {
+            self.session_tabs_tree
+                .retain_tabs(|tab_id| next_set.contains(tab_id));
+
+            for session_id in &next_tab_ids {
+                if self.session_tabs_tree.find_tab(session_id).is_none() {
+                    self.session_tabs_tree.push_to_focused_leaf(*session_id);
+                }
+            }
+        } else if order_differs {
+            self.session_tabs_tree = DockState::new(next_tab_ids.clone());
         }
+
+        self.session_tab_ids = next_tab_ids;
     }
 
     fn render_project(
@@ -212,11 +226,11 @@ impl ProjectPage {
             Loadable::Error(error) => {
                 ui.label(RichText::new(error).color(egui::Color32::RED));
             }
-            Loadable::Ready(_) if self.sessions.is_empty() => {
+            Loadable::Ready(sessions) if sessions.is_empty() => {
                 ui.label(RichText::new("No sessions yet").color(BG_500));
             }
-            Loadable::Ready(_) => {
-                self.render_sessions_dock(ui);
+            Loadable::Ready(sessions) => {
+                self.render_sessions_dock(ui, sessions);
             }
         }
     }
@@ -257,7 +271,12 @@ impl ProjectPage {
         });
     }
 
-    fn render_sessions_dock(&mut self, ui: &mut Ui) {
+    fn render_sessions_dock(&mut self, ui: &mut Ui, sessions: &[Session]) {
+        let sessions_by_id: HashMap<Uuid, &Session> = sessions
+            .iter()
+            .map(|session| (session.id, session))
+            .collect();
+
         let mut dock_style = Style::from_egui(ui.style().as_ref());
         let active_text_color = BG_50;
         let inactive_text_color = BG_500;
@@ -320,7 +339,7 @@ impl ProjectPage {
             .show_inside(
                 ui,
                 &mut TabViewer {
-                    sessions: &self.sessions,
+                    sessions_by_id: &sessions_by_id,
                     sessions_states: &mut self.sessions_states,
                 },
             );
