@@ -1,6 +1,6 @@
 use crate::backend::Session;
 
-use super::{BackendServer, Project, harness::Harness};
+use super::{BackendEvent, BackendServer, Project, harness::Harness};
 use tarpc::context::Context;
 use thiserror::Error;
 use uuid::Uuid;
@@ -40,17 +40,20 @@ impl BackendRpc for BackendServer {
     }
 
     async fn create_project(self, _: Context, project: Project) -> Result<Project, RpcError> {
-        self.db.create_project(&project)?;
-        Ok(project)
+        let created = self.db.create_project(&project)?;
+        self.emit_event(BackendEvent::ProjectUpserted(created.clone()));
+        Ok(created)
     }
 
     async fn update_project(self, _: Context, project: Project) -> Result<Project, RpcError> {
-        self.db.update_project(&project)?;
-        Ok(project)
+        let updated = self.db.update_project(&project)?;
+        self.emit_event(BackendEvent::ProjectUpserted(updated.clone()));
+        Ok(updated)
     }
 
     async fn delete_project(self, _: Context, project_id: Uuid) -> Result<(), RpcError> {
         self.db.delete_project(&project_id)?;
+        self.emit_event(BackendEvent::ProjectDeleted(project_id));
         Ok(())
     }
 
@@ -77,17 +80,20 @@ impl BackendRpc for BackendServer {
             .await
             .map_err(|e| RpcError::Harness(e.to_string()))?;
 
-        self.db.create_session(&session)?;
-        Ok(session)
+        let created = self.db.create_session(&session)?;
+        self.emit_event(BackendEvent::SessionUpserted(created.clone()));
+        Ok(created)
     }
 
     async fn update_session(self, _: Context, session: Session) -> Result<Session, RpcError> {
-        self.db.update_session(&session)?;
-        Ok(session)
+        let updated = self.db.update_session(&session)?;
+        self.emit_event(BackendEvent::SessionUpserted(updated.clone()));
+        Ok(updated)
     }
 
     async fn delete_session(self, _: Context, session_id: Uuid) -> Result<(), RpcError> {
         self.db.delete_session(&session_id)?;
+        self.emit_event(BackendEvent::SessionDeleted(session_id));
         Ok(())
     }
 }

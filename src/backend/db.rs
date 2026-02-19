@@ -40,6 +40,31 @@ macro_rules! with_conn {
     }};
 }
 
+/// Helper function to make sure updates are updating
+fn check_returning_row_error(op: &'static str, err: rusqlite::Error) -> DatabaseError {
+    match err {
+        rusqlite::Error::QueryReturnedNoRows => DatabaseError::UnexpectedRowsAffected {
+            op,
+            expected: 1,
+            actual: 0,
+        },
+        other => DatabaseError::QueryError(other),
+    }
+}
+
+/// Helper function to make sure rows are actually being deleted
+fn assert_one_row_affected(op: &'static str, rows_affected: usize) -> Result<(), DatabaseError> {
+    if rows_affected == 1 {
+        Ok(())
+    } else {
+        Err(DatabaseError::UnexpectedRowsAffected {
+            op,
+            expected: 1,
+            actual: rows_affected,
+        })
+    }
+}
+
 impl Database {
     pub fn new() -> Result<Self, DatabaseStartupError> {
         let mut conn = Connection::open("./cody.db")?;
@@ -50,23 +75,6 @@ impl Database {
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
         })
-    }
-
-    /// Helper function to make sure rows are actually being updated/deleted
-    fn assert_one_row_affected(
-        &self,
-        op: &'static str,
-        rows_affected: usize,
-    ) -> Result<(), DatabaseError> {
-        if rows_affected == 1 {
-            Ok(())
-        } else {
-            Err(DatabaseError::UnexpectedRowsAffected {
-                op,
-                expected: 1,
-                actual: rows_affected,
-            })
-        }
     }
 
     pub fn list_projects(&self) -> Result<Vec<Project>, DatabaseError> {
@@ -91,10 +99,12 @@ impl Database {
         })
     }
 
-    pub fn create_project(&self, project: &Project) -> Result<(), DatabaseError> {
+    pub fn create_project(&self, project: &Project) -> Result<Project, DatabaseError> {
         with_conn!(self, conn, {
-            conn.execute(
-                "INSERT INTO projects (id, name, dir, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+            let created = conn.query_row(
+                "INSERT INTO projects (id, name, dir, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5)
+                 RETURNING id, name, dir, created_at, updated_at",
                 (
                     &project.id,
                     &project.name,
@@ -102,29 +112,37 @@ impl Database {
                     &project.created_at,
                     &project.updated_at,
                 ),
-            ).map(|rows| {self.assert_one_row_affected("create_project", rows)})?
+                Project::from_row,
+            )?;
+            Ok(created)
         })
     }
 
-    pub fn update_project(&self, project: &Project) -> Result<(), DatabaseError> {
+    pub fn update_project(&self, project: &Project) -> Result<Project, DatabaseError> {
         with_conn!(self, conn, {
-            conn.execute(
-                "UPDATE projects SET name = ?2, dir = ?3, updated_at = ?4 WHERE id = ?1",
-                (
-                    &project.id,
-                    &project.name,
-                    &project.dir,
-                    Utc::now().naive_utc(),
-                ),
-            )
-            .map(|rows| self.assert_one_row_affected("update_project", rows))?
+            let updated = conn
+                .query_row(
+                    "UPDATE projects
+                     SET name = ?2, dir = ?3, updated_at = ?4
+                     WHERE id = ?1
+                     RETURNING id, name, dir, created_at, updated_at",
+                    (
+                        &project.id,
+                        &project.name,
+                        &project.dir,
+                        Utc::now().naive_utc(),
+                    ),
+                    Project::from_row,
+                )
+                .map_err(|e| check_returning_row_error("update_project", e))?;
+            Ok(updated)
         })
     }
 
     pub fn delete_project(&self, project_id: &Uuid) -> Result<(), DatabaseError> {
         with_conn!(self, conn, {
-            conn.execute("DELETE FROM projects WHERE id = ?1", [project_id])
-                .map(|rows| self.assert_one_row_affected("delete_project", rows))?
+            let rows = conn.execute("DELETE FROM projects WHERE id = ?1", [project_id])?;
+            assert_one_row_affected("delete_project", rows)
         })
     }
 
@@ -150,10 +168,12 @@ impl Database {
         })
     }
 
-    pub fn create_session(&self, session: &Session) -> Result<(), DatabaseError> {
+    pub fn create_session(&self, session: &Session) -> Result<Session, DatabaseError> {
         with_conn!(self, conn, {
-            conn.execute(
-                "INSERT INTO sessions (id, project_id, show_in_gui, name, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            let created = conn.query_row(
+                "INSERT INTO sessions (id, project_id, show_in_gui, name, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+                 RETURNING id, project_id, show_in_gui, name, created_at, updated_at",
                 (
                     &session.id,
                     &session.project_id,
@@ -162,29 +182,38 @@ impl Database {
                     &session.created_at,
                     &session.updated_at,
                 ),
-            ).map(|rows| self.assert_one_row_affected("create_session", rows))?
+                Session::from_row,
+            )?;
+            Ok(created)
         })
     }
 
-    pub fn update_session(&self, session: &Session) -> Result<(), DatabaseError> {
+    pub fn update_session(&self, session: &Session) -> Result<Session, DatabaseError> {
         with_conn!(self, conn, {
-            conn.execute(
-                "UPDATE sessions SET project_id = ?2, show_in_gui = ?3, name = ?4, updated_at = ?5 WHERE id = ?1",
-                (
-                    &session.id,
-                    &session.project_id,
-                    &session.show_in_gui,
-                    &session.name,
-                    Utc::now().naive_utc(),
-                ),
-            ).map(|rows| self.assert_one_row_affected("update_session", rows))?
+            let updated = conn
+                .query_row(
+                    "UPDATE sessions
+                     SET project_id = ?2, show_in_gui = ?3, name = ?4, updated_at = ?5
+                     WHERE id = ?1
+                     RETURNING id, project_id, show_in_gui, name, created_at, updated_at",
+                    (
+                        &session.id,
+                        &session.project_id,
+                        &session.show_in_gui,
+                        &session.name,
+                        Utc::now().naive_utc(),
+                    ),
+                    Session::from_row,
+                )
+                .map_err(|e| check_returning_row_error("update_session", e))?;
+            Ok(updated)
         })
     }
 
     pub fn delete_session(&self, session_id: &Uuid) -> Result<(), DatabaseError> {
         with_conn!(self, conn, {
-            conn.execute("DELETE FROM sessions WHERE id = ?1", [session_id])
-                .map(|rows| self.assert_one_row_affected("delete_session", rows))?
+            let rows = conn.execute("DELETE FROM sessions WHERE id = ?1", [session_id])?;
+            assert_one_row_affected("delete_session", rows)
         })
     }
 }

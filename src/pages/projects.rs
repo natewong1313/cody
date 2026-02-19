@@ -3,8 +3,8 @@ use crate::components::button::{ButtonSize, ButtonVariant, StyledButton};
 use crate::components::dir_button::DirButton;
 use crate::components::project_card::ProjectCard;
 use crate::components::text_input::StyledTextInput;
+use crate::live_query::Loadable;
 use crate::pages::{PageAction, Route};
-use crate::sync_engine::Loadable;
 use crate::theme::{BG_50, BG_500, BG_700, BG_900, BG_950, RADIUS_MD, STROKE_WIDTH};
 use chrono::Utc;
 use egui::{
@@ -44,8 +44,6 @@ impl ProjectsPage {
     }
 
     pub fn render(&mut self, ctx: &egui::Context, page_ctx: &mut super::PageContext) {
-        page_ctx.sync_engine.ensure_projects_loaded();
-
         CentralPanel::default()
             .frame(
                 Frame::central_panel(&ctx.style())
@@ -53,9 +51,9 @@ impl ProjectsPage {
                     .inner_margin(0.0),
             )
             .show(ctx, |ui| {
-                page_ctx.sync_engine.poll(ui);
+                page_ctx.live_query.poll(ui);
 
-                match page_ctx.sync_engine.projects_state() {
+                match page_ctx.live_query.projects() {
                     Loadable::Idle | Loadable::Loading => {
                         ui.centered_and_justified(|ui| {
                             ui.label(
@@ -290,9 +288,9 @@ impl ProjectsPage {
             updated_at: Utc::now().naive_utc(),
         };
 
-        page_ctx.sync_engine.create_project(project);
-        page_ctx.sync_engine.create_session(session);
-        page_ctx.sync_engine.create_session(session2);
+        page_ctx.live_query.create_project(project);
+        page_ctx.live_query.create_session(session);
+        page_ctx.live_query.create_session(session2);
 
         self.reset_form();
     }

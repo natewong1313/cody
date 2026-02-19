@@ -1,7 +1,7 @@
 use crate::{
     app::App,
+    live_query::LiveQueryClient,
     opencode::{OpencodeApiClient, OpencodeProcess},
-    sync_engine::SyncEngineClient,
 };
 use anyhow::Result;
 use egui::{FontData, FontDefinitions, FontFamily, ViewportBuilder};
@@ -11,9 +11,9 @@ mod actions;
 mod app;
 mod backend;
 mod components;
+mod live_query;
 mod opencode;
 mod pages;
-mod sync_engine;
 mod theme;
 // mod ui_tests;
 
@@ -71,7 +71,7 @@ fn run_app(env: AppEnv) -> eframe::Result {
         "opencode gui",
         opts,
         Box::new(move |cc| {
-            let sync_engine = SyncEngineClient::new();
+            let live_query = LiveQueryClient::new();
 
             // Load JetBrains Mono Nerd Font
             let mut fonts = FontDefinitions::default();
@@ -160,7 +160,7 @@ fn run_app(env: AppEnv) -> eframe::Result {
                 log::info!("Subsecond hot-reload handler registered");
             }
 
-            Ok(Box::new(App::new(env.api_client.clone(), sync_engine)))
+            Ok(Box::new(App::new(env.api_client.clone(), live_query)))
         }),
     )
 }

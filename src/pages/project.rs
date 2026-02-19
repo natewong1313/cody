@@ -1,7 +1,7 @@
 use crate::backend::{Project, Session};
 use crate::components::button::{ButtonSize, StyledButton};
+use crate::live_query::Loadable;
 use crate::pages::{PageAction, PageContext, Route};
-use crate::sync_engine::Loadable;
 use crate::theme::{
     BG_50, BG_500, BG_700, BG_800, BG_900, BG_950, FUCHSIA_500, RADIUS_MD, STROKE_WIDTH,
 };
@@ -139,11 +139,6 @@ impl ProjectPage {
         }
         self.project_id = Some(project_id);
 
-        page_ctx.sync_engine.ensure_project_loaded(project_id);
-        page_ctx
-            .sync_engine
-            .ensure_sessions_by_project_loaded(project_id);
-
         CentralPanel::default()
             .frame(
                 Frame::central_panel(&ctx.style())
@@ -151,14 +146,14 @@ impl ProjectPage {
                     .inner_margin(0.0),
             )
             .show(ctx, |ui| {
-                page_ctx.sync_engine.poll(ui);
+                page_ctx.live_query.poll(ui);
 
-                let sessions_state = page_ctx.sync_engine.sessions_by_project_state(project_id);
+                let sessions_state = page_ctx.live_query.sessions_by_project(project_id);
                 if let Loadable::Ready(sessions) = &sessions_state {
                     self.sync_session_tabs(sessions);
                 }
 
-                match page_ctx.sync_engine.project_state(project_id) {
+                match page_ctx.live_query.project(project_id) {
                     Loadable::Ready(Some(project)) => {
                         self.render_project(ui, page_ctx, &project, &sessions_state);
                     }

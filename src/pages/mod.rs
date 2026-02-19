@@ -1,8 +1,8 @@
 use crate::{
+    live_query::LiveQueryClient,
     opencode::{ModelSelection, OpencodeApiClient, OpencodeSession},
     pages::project::ProjectPage,
     pages::projects::ProjectsPage,
-    sync_engine::SyncEngineClient,
 };
 use std::{collections::HashMap, sync::mpsc::Sender};
 mod project;
@@ -29,7 +29,7 @@ pub enum PageAction {
 
 pub struct PageContext<'a> {
     pub api_client: &'a OpencodeApiClient,
-    pub sync_engine: &'a SyncEngineClient,
+    pub live_query: &'a LiveQueryClient,
     pub action_sender: &'a Sender<PageAction>,
     pub current_sessions: &'a HashMap<String, OpencodeSession>,
 }
