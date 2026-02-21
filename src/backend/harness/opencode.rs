@@ -24,7 +24,7 @@ pub enum OpencodeHarnessError {
 // Needs to be clonable since we pass this around in the repos
 #[derive(Clone)]
 pub struct OpencodeHarness {
-    proc: Arc<Mutex<Child>>,
+    proc: Arc<Mutex<Option<Child>>>,
     opencode_client: OpencodeApiClient,
 }
 
@@ -50,15 +50,20 @@ impl Harness for OpencodeHarness {
         let opencode_client = OpencodeApiClient::new(port);
 
         Ok(Self {
-            proc: Arc::new(Mutex::new(proc)),
+            proc: Arc::new(Mutex::new(Some(proc))),
             opencode_client,
         })
     }
 
     fn cleanup(&self) {
-        let Ok(proc) = self.proc.lock() else {
+        let Ok(mut proc) = self.proc.lock() else {
             return;
         };
+
+        let Some(proc) = proc.take() else {
+            return;
+        };
+
         let pid = proc.id() as i32;
         unsafe {
             libc::kill(-pid, libc::SIGTERM);
