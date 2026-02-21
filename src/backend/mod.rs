@@ -1,103 +1,116 @@
+use crate::backend::{
+    data::{project::ProjectRepoError, session::SessionRepoError},
+    harness::{Harness, opencode::OpencodeHarness},
+    state::StateError,
+};
+use rusqlite::Connection;
 use std::sync::{Arc, Mutex};
-
-use self::harness::{Harness, OpencodeHarness};
-use crate::backend::db::Database;
-use chrono::NaiveDateTime;
-use rusqlite::{Connection, Row};
+use tokio::sync::watch;
 use uuid::Uuid;
+
+pub use data::project::Project;
+pub use data::session::Session;
 
 mod data;
 mod db;
-mod db_migrations;
 mod harness;
-mod opencode_client;
-pub mod rpc;
+mod local;
+mod state;
 
-#[derive(Clone)]
-pub struct BackendServer {
-    db: Database,
-    harness: OpencodeHarness,
-    sender: BackendEventSender,
+#[derive(Debug, thiserror::Error)]
+pub enum BackendError {
+    #[error("internal error: {0}")]
+    Internal(String),
+    #[error("project not found: {0}")]
+    ProjectNotFound(Uuid),
+    #[error("not found")]
+    NotFound,
+    #[error("backend unavailable: {0}")]
+    Unavailable(String),
 }
 
-pub struct BackendContext {
-    db: Arc<Mutex<Connection>>,
-    harness: OpencodeHarness,
-    event_sender: BackendEventSender,
+impl From<ProjectRepoError> for BackendError {
+    fn from(err: ProjectRepoError) -> Self {
+        Self::Internal(err.to_string())
+    }
 }
 
-#[derive(Debug, Clone)]
-pub enum BackendEvent {
-    // Projects(Vec<Project>),
-    // Sessions(Vec<Session>),
-    ProjectUpserted(Project),
-    ProjectDeleted(Uuid),
-    SessionUpserted(Session),
-    SessionDeleted(Uuid),
-}
-type BackendEventSender = tokio::sync::broadcast::Sender<BackendEvent>;
-
-/// The parent TARPC server, rpc routes are in rpc.rs
-impl BackendServer {
-    pub fn new(sender: BackendEventSender) -> Self {
-        Self {
-            db: Database::new().expect("failed to create database"),
-            harness: OpencodeHarness::new().expect("failed to initialize opencode harness"),
-            sender,
+impl From<SessionRepoError> for BackendError {
+    fn from(err: SessionRepoError) -> Self {
+        match err {
+            SessionRepoError::ProjectNotFound(id) => Self::ProjectNotFound(id),
+            SessionRepoError::Harness(message) => Self::Unavailable(message),
+            SessionRepoError::Database(e) => Self::Internal(e.to_string()),
         }
     }
+}
 
-    pub fn subscribe(&self) -> tokio::sync::broadcast::Receiver<BackendEvent> {
-        self.sender.subscribe()
-    }
-
-    pub(super) fn emit_event(&self, event: BackendEvent) {
-        if let Err(e) = self.sender.send(event) {
-            eprintln!("error emitting event {:?}", e);
-        };
+impl From<StateError> for BackendError {
+    fn from(err: StateError) -> Self {
+        Self::Internal(err.to_string())
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Project {
-    pub id: Uuid,
-    pub name: String,
-    pub dir: String,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
+// #[derive(Clone)]
+// pub enum BackendEvent {
+//     ProjectsLoaded(Vec<Project>),
+// }
+
+// // We'll need to make this a trait at some point when we add wasm
+// #[derive(Clone)]
+// pub struct BackendEventSender {
+//     sender: broadcast::Sender<BackendEvent>,
+// }
+//
+// impl BackendEventSender {
+//     fn new() -> Self {
+//         let (sender, _) = broadcast::channel(16);
+//         Self { sender }
+//     }
+// }
+
+#[derive(Clone)]
+pub struct BackendContext {
+    // TODO: dont wrap connection, write something higher level
+    db: Arc<Mutex<Connection>>,
+    // TODO: make this generic
+    harness: OpencodeHarness,
 }
 
-impl Project {
-    pub fn from_row(row: &Row) -> Result<Self, rusqlite::Error> {
-        Ok(Self {
-            id: row.get(0)?,
-            name: row.get(1)?,
-            dir: row.get(2)?,
-            created_at: row.get(3)?,
-            updated_at: row.get(4)?,
-        })
+impl BackendContext {
+    fn new(conn: Connection, harness: OpencodeHarness) -> Self {
+        Self {
+            db: Arc::new(Mutex::new(conn)),
+            harness,
+        }
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Session {
-    pub id: Uuid,
-    pub project_id: Uuid,
-    pub show_in_gui: bool,
-    pub name: String,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
-}
-
-impl Session {
-    pub fn from_row(row: &Row) -> Result<Self, rusqlite::Error> {
-        Ok(Self {
-            id: row.get(0)?,
-            project_id: row.get(1)?,
-            show_in_gui: row.get(2)?,
-            name: row.get(3)?,
-            created_at: row.get(4)?,
-            updated_at: row.get(5)?,
-        })
-    }
+pub trait Backend {
+    async fn subscribe_projects(&self) -> Result<watch::Receiver<Vec<Project>>, BackendError>;
+    async fn subscribe_project(
+        &self,
+        project_id: Uuid,
+    ) -> Result<watch::Receiver<Option<Project>>, BackendError>;
+    async fn subscribe_sessions_by_project(
+        &self,
+        project_id: Uuid,
+    ) -> Result<watch::Receiver<Vec<Session>>, BackendError>;
+    async fn subscribe_session(
+        &self,
+        session_id: Uuid,
+    ) -> Result<watch::Receiver<Option<Session>>, BackendError>;
+    async fn list_projects(&self) -> Result<Vec<Project>, BackendError>;
+    async fn get_project(&self, project_id: Uuid) -> Result<Option<Project>, BackendError>;
+    async fn create_project(&self, project: Project) -> Result<Project, BackendError>;
+    async fn update_project(&self, project: Project) -> Result<Project, BackendError>;
+    async fn delete_project(&self, project_id: Uuid) -> Result<(), BackendError>;
+    async fn list_sessions_by_project(
+        &self,
+        project_id: Uuid,
+    ) -> Result<Vec<Session>, BackendError>;
+    async fn get_session(&self, session_id: Uuid) -> Result<Option<Session>, BackendError>;
+    async fn create_session(&self, session: Session) -> Result<Session, BackendError>;
+    async fn update_session(&self, session: Session) -> Result<Session, BackendError>;
+    async fn delete_session(&self, session_id: Uuid) -> Result<(), BackendError>;
 }
