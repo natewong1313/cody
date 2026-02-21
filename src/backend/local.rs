@@ -36,7 +36,7 @@ pub enum LocalBackendStartupError {
 }
 
 impl LocalBackend {
-    async fn new() -> Result<Self, LocalBackendStartupError> {
+    pub async fn new() -> Result<Self, LocalBackendStartupError> {
         let db = Sqlite::new()?;
         let harness =
             OpencodeHarness::new().map_err(|e| LocalBackendStartupError::Harness(e.to_string()))?;

@@ -10,6 +10,7 @@ use uuid::Uuid;
 
 pub use data::project::Project;
 pub use data::session::Session;
+pub use local::{LocalBackend, LocalBackendStartupError};
 
 mod data;
 mod db;
