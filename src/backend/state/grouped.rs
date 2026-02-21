@@ -150,7 +150,10 @@ where
             }
         }
 
-        self.group_senders_lock()?.remove(&group_key);
+        let sender = self.group_senders_lock()?.remove(&group_key);
+        if let Some(sender) = sender {
+            let _ = sender.send(Vec::new());
+        }
 
         Ok(())
     }

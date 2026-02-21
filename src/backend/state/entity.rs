@@ -104,7 +104,10 @@ where
     pub(crate) fn remove(&self, key: K) -> Result<(), StateError> {
         self.items_write()?.remove(&key);
 
-        self.item_senders_lock()?.remove(&key);
+        let sender = self.item_senders_lock()?.remove(&key);
+        if let Some(sender) = sender {
+            let _ = sender.send(None);
+        }
 
         self.publish_all()
     }
