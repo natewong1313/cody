@@ -1,20 +1,23 @@
-use migrations::MIGRATIONS;
-use rusqlite::Connection;
 use thiserror::Error;
+use uuid::Uuid;
+
+use crate::backend::{Project, Session};
+
 mod migrations;
+pub mod sqlite;
 
 #[derive(Error, Debug)]
 pub enum DatabaseStartupError {
-    #[error("Error establishing connection {0}")]
-    Connection(#[from] rusqlite::Error),
-    #[error("Error migrating db {0}")]
-    Migration(#[from] rusqlite_migration::Error),
+    #[error("Error establishing sqlite connection {0}")]
+    SqliteConnection(#[from] rusqlite::Error),
+    #[error("Error migrating sqlite {0}")]
+    SqliteMigration(#[from] rusqlite_migration::Error),
 }
 
 #[derive(Error, Debug)]
 pub enum DatabaseError {
-    #[error("Generic database error {0}")]
-    QueryError(#[from] rusqlite::Error),
+    #[error("Sqlite database error {0}")]
+    SqliteQueryError(#[from] rusqlite::Error),
     #[error("Db conn lock poisoned")]
     PoisonedLock,
     #[error("{op} unexpected rows affected, expected {expected} got {actual}")]
@@ -25,38 +28,19 @@ pub enum DatabaseError {
     },
 }
 
-pub fn new_db_connection() -> Result<Connection, DatabaseStartupError> {
-    let mut conn = Connection::open("./cody.db")?;
-    conn.pragma_update_and_check(None, "journal_mode", &"WAL", |_| Ok(()))?;
-    conn.execute_batch("PRAGMA foreign_keys = ON;")?;
-    MIGRATIONS.to_latest(&mut conn)?;
-    Ok(conn)
-}
+pub trait Database {
+    async fn list_projects(&self) -> Result<Vec<Project>, DatabaseError>;
+    async fn get_project(&self, project_id: Uuid) -> Result<Option<Project>, DatabaseError>;
+    async fn create_project(&self, project: Project) -> Result<Project, DatabaseError>;
+    async fn update_project(&self, project: Project) -> Result<Project, DatabaseError>;
+    async fn delete_project(&self, project_id: Uuid) -> Result<(), DatabaseError>;
 
-/// Helper function to make sure updates are updating
-pub fn check_returning_row_error(op: &'static str, err: rusqlite::Error) -> DatabaseError {
-    match err {
-        rusqlite::Error::QueryReturnedNoRows => DatabaseError::UnexpectedRowsAffected {
-            op,
-            expected: 1,
-            actual: 0,
-        },
-        other => DatabaseError::QueryError(other),
-    }
-}
-
-/// Helper function to make sure rows are actually being deleted
-pub fn assert_one_row_affected(
-    op: &'static str,
-    rows_affected: usize,
-) -> Result<(), DatabaseError> {
-    if rows_affected == 1 {
-        Ok(())
-    } else {
-        Err(DatabaseError::UnexpectedRowsAffected {
-            op,
-            expected: 1,
-            actual: rows_affected,
-        })
-    }
+    async fn list_sessions_by_project(
+        &self,
+        project_id: Uuid,
+    ) -> Result<Vec<Session>, DatabaseError>;
+    async fn get_session(&self, session_id: Uuid) -> Result<Option<Session>, DatabaseError>;
+    async fn create_session(&self, session: Session) -> Result<Session, DatabaseError>;
+    async fn update_session(&self, session: Session) -> Result<Session, DatabaseError>;
+    async fn delete_session(&self, session_id: Uuid) -> Result<(), DatabaseError>;
 }

@@ -1,6 +1,6 @@
 use rusqlite_migration::{M, Migrations};
 
-const MIGRATIONS_SLICE: &[M<'_>] = &[
+const SQLITE_MIGRATIONS_SLICE: &[M<'_>] = &[
     M::up(
         "CREATE TABLE projects (
             id BLOB PRIMARY KEY NOT NULL CHECK(length(id) = 16),
@@ -23,4 +23,4 @@ const MIGRATIONS_SLICE: &[M<'_>] = &[
         );",
     ),
 ];
-pub const MIGRATIONS: Migrations<'_> = Migrations::from_slice(MIGRATIONS_SLICE);
+pub const SQLITE_MIGRATIONS: Migrations<'_> = Migrations::from_slice(SQLITE_MIGRATIONS_SLICE);

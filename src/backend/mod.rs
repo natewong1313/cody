@@ -1,10 +1,10 @@
 use crate::backend::{
     data::{project::ProjectRepoError, session::SessionRepoError},
-    harness::{Harness, opencode::OpencodeHarness},
+    db::Database,
+    harness::opencode::OpencodeHarness,
     state::StateError,
 };
-use rusqlite::Connection;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tokio::sync::watch;
 use uuid::Uuid;
 
@@ -69,18 +69,33 @@ impl From<StateError> for BackendError {
 //     }
 // }
 
-#[derive(Clone)]
-pub struct BackendContext {
-    // TODO: dont wrap connection, write something higher level
-    db: Arc<Mutex<Connection>>,
-    // TODO: make this generic
+pub struct BackendContext<D>
+where
+    D: Database,
+{
+    db: Arc<D>,
     harness: OpencodeHarness,
 }
 
-impl BackendContext {
-    fn new(conn: Connection, harness: OpencodeHarness) -> Self {
+impl<D> Clone for BackendContext<D>
+where
+    D: Database,
+{
+    fn clone(&self) -> Self {
         Self {
-            db: Arc::new(Mutex::new(conn)),
+            db: Arc::clone(&self.db),
+            harness: self.harness.clone(),
+        }
+    }
+}
+
+impl<D> BackendContext<D>
+where
+    D: Database,
+{
+    fn new(db: D, harness: OpencodeHarness) -> Self {
+        Self {
+            db: Arc::new(db),
             harness,
         }
     }

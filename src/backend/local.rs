@@ -1,22 +1,23 @@
 use std::cmp::Ordering;
 
-use rusqlite::Connection;
 use tokio::sync::watch;
 use uuid::Uuid;
 
 use crate::backend::{
-    BackendContext, Harness, Project, Session,
+    BackendContext, Project, Session,
     data::{
         project::{ProjectRepo, ProjectRepoError},
         session::{SessionRepo, SessionRepoError},
     },
+    db::{DatabaseStartupError, sqlite::Sqlite},
+    harness::Harness,
     harness::opencode::OpencodeHarness,
     state::{EntityState, GroupedState},
 };
 
 pub struct LocalBackend {
-    project_repo: ProjectRepo,
-    session_repo: SessionRepo,
+    project_repo: ProjectRepo<Sqlite>,
+    session_repo: SessionRepo<Sqlite>,
     project_state: EntityState<Uuid, Project>,
     session_state: EntityState<Uuid, Session>,
     session_by_project_state: GroupedState<Uuid, Uuid, Session>,
@@ -24,10 +25,8 @@ pub struct LocalBackend {
 
 #[derive(thiserror::Error, Debug)]
 pub enum LocalBackendStartupError {
-    #[error("Error establishing connection {0}")]
-    Connection(#[from] rusqlite::Error),
-    #[error("Error migrating db {0}")]
-    Migration(#[from] rusqlite_migration::Error),
+    #[error("Database initialization failed: {0}")]
+    Database(#[from] DatabaseStartupError),
     #[error("Harness initialization failed: {0}")]
     Harness(String),
     #[error("Project repo initialization failed: {0}")]
@@ -37,22 +36,29 @@ pub enum LocalBackendStartupError {
 }
 
 impl LocalBackend {
-    fn new() -> Result<Self, LocalBackendStartupError> {
-        let conn = Connection::open("./cody.db")?;
+    async fn new() -> Result<Self, LocalBackendStartupError> {
+        let db = Sqlite::new()?;
         let harness =
             OpencodeHarness::new().map_err(|e| LocalBackendStartupError::Harness(e.to_string()))?;
-        let ctx = BackendContext::new(conn, harness);
+        let ctx = BackendContext::new(db, harness);
 
         let project_repo = ProjectRepo::new(ctx.clone());
-        let initial_projects = project_repo.list()?;
+        let initial_projects = project_repo.list().await?;
+        let projects_for_sessions = initial_projects.clone();
         let project_state = EntityState::new(
             "projects",
             initial_projects,
             |project| project.id,
             sort_projects,
         );
+
         let session_repo = SessionRepo::new(ctx.clone());
-        let initial_sessions = session_repo.list()?;
+        let mut initial_sessions = Vec::new();
+        for project in projects_for_sessions {
+            let mut sessions = session_repo.list_by_project(&project.id).await?;
+            initial_sessions.append(&mut sessions);
+        }
+
         let session_state = EntityState::new(
             "sessions",
             initial_sessions.clone(),
@@ -137,7 +143,7 @@ impl super::Backend for LocalBackend {
         &self,
         project: super::data::project::Project,
     ) -> Result<super::data::project::Project, super::BackendError> {
-        let project = self.project_repo.create(&project)?;
+        let project = self.project_repo.create(&project).await?;
         self.project_state.upsert(project.clone())?;
         Ok(project)
     }
@@ -146,13 +152,13 @@ impl super::Backend for LocalBackend {
         &self,
         project: super::data::project::Project,
     ) -> Result<super::data::project::Project, super::BackendError> {
-        let project = self.project_repo.update(&project)?;
+        let project = self.project_repo.update(&project).await?;
         self.project_state.upsert(project.clone())?;
         Ok(project)
     }
 
     async fn delete_project(&self, project_id: Uuid) -> Result<(), super::BackendError> {
-        self.project_repo.delete(&project_id)?;
+        self.project_repo.delete(&project_id).await?;
         self.project_state.remove(project_id)?;
 
         let sessions = self.session_by_project_state.list_group(project_id)?;
@@ -194,14 +200,14 @@ impl super::Backend for LocalBackend {
         &self,
         session: super::data::session::Session,
     ) -> Result<super::data::session::Session, super::BackendError> {
-        let session = self.session_repo.update(&session)?;
+        let session = self.session_repo.update(&session).await?;
         self.session_state.upsert(session.clone())?;
         self.session_by_project_state.upsert(session.clone())?;
         Ok(session)
     }
 
     async fn delete_session(&self, session_id: Uuid) -> Result<(), super::BackendError> {
-        self.session_repo.delete(&session_id)?;
+        self.session_repo.delete(&session_id).await?;
         self.session_state.remove(session_id)?;
         self.session_by_project_state.remove(session_id)?;
         Ok(())

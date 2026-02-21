@@ -3,7 +3,7 @@ use std::process::{Child, Command};
 use std::sync::{Arc, Mutex};
 use thiserror::Error;
 
-use crate::backend::Harness;
+use crate::backend::harness::Harness;
 use crate::backend::{
     data::session::Session,
     harness::opencode_client::{OpencodeApiClient, OpencodeCreateSessionRequest},
@@ -28,7 +28,7 @@ pub struct OpencodeHarness {
     opencode_client: OpencodeApiClient,
 }
 
-impl super::Harness for OpencodeHarness {
+impl Harness for OpencodeHarness {
     fn new() -> anyhow::Result<Self> {
         let port = 6767;
         let proc = unsafe {
@@ -90,3 +90,15 @@ impl Drop for OpencodeHarness {
         self.cleanup();
     }
 }
+
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//
+//     #[test]
+//     fn test_creation_flow() {
+//         let harness = OpencodeHarness::new();
+//         assert_eq!(harness.is_ok(), true);
+//         assert_eq!(harness.unwrap().cleanup().is_ok(), true);
+//     }
+// }
