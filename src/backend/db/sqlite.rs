@@ -1,23 +1,50 @@
 use crate::backend::{Project, Session};
 
-use super::{Database, DatabaseError, DatabaseStartupError, migrations::SQLITE_MIGRATIONS};
+use super::{
+    Database, DatabaseError, DatabaseStartupError, DatabaseTransaction,
+    migrations::SQLITE_MIGRATIONS,
+};
 use chrono::Utc;
 use rusqlite::{Connection, OptionalExtension, Row};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 pub struct Sqlite {
     conn: Arc<Mutex<Connection>>,
 }
 
-/// Grabs a database connection or returns an error if its mutex lock is poisoned
-macro_rules! with_conn {
-    ($self:expr, $conn:ident, $body:block) => {{
-        let $conn = $self
-            .conn
-            .lock()
-            .map_err(|_| super::DatabaseError::PoisonedLock)?;
-        $body
-    }};
+pub struct SqliteTransaction<'a> {
+    conn: MutexGuard<'a, Connection>,
+    finished: bool,
+}
+
+impl DatabaseTransaction for SqliteTransaction<'_> {
+    fn commit(&mut self) -> Result<(), DatabaseError> {
+        if self.finished {
+            return Ok(());
+        }
+        self.conn.execute_batch("COMMIT;")?;
+        self.finished = true;
+        Ok(())
+    }
+
+    fn rollback(&mut self) -> Result<(), DatabaseError> {
+        if self.finished {
+            return Ok(());
+        }
+        self.conn.execute_batch("ROLLBACK;")?;
+        self.finished = true;
+        Ok(())
+    }
+}
+
+impl Drop for SqliteTransaction<'_> {
+    fn drop(&mut self) {
+        if self.finished {
+            return;
+        }
+        let _ = self.conn.execute_batch("ROLLBACK;");
+        self.finished = true;
+    }
 }
 
 impl Sqlite {
@@ -38,6 +65,49 @@ impl Sqlite {
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
         })
+    }
+
+    fn with_optional_tx_conn<T>(
+        &self,
+        tx: Option<&mut SqliteTransaction<'_>>,
+        f: impl FnOnce(&Connection) -> Result<T, DatabaseError>,
+    ) -> Result<T, DatabaseError> {
+        match tx {
+            Some(tx) => f(&tx.conn),
+            None => self.with_conn(f),
+        }
+    }
+
+    fn with_conn<T>(
+        &self,
+        f: impl FnOnce(&Connection) -> Result<T, DatabaseError>,
+    ) -> Result<T, DatabaseError> {
+        let conn = self.conn.lock().map_err(|_| DatabaseError::PoisonedLock)?;
+        f(&conn)
+    }
+
+    pub async fn create_project(&self, project: Project) -> Result<Project, DatabaseError> {
+        <Self as Database>::create_project(self, project, None).await
+    }
+
+    pub async fn update_project(&self, project: Project) -> Result<Project, DatabaseError> {
+        <Self as Database>::update_project(self, project, None).await
+    }
+
+    pub async fn delete_project(&self, project_id: uuid::Uuid) -> Result<(), DatabaseError> {
+        <Self as Database>::delete_project(self, project_id, None).await
+    }
+
+    pub async fn create_session(&self, session: Session) -> Result<Session, DatabaseError> {
+        <Self as Database>::create_session(self, session, None).await
+    }
+
+    pub async fn update_session(&self, session: Session) -> Result<Session, DatabaseError> {
+        <Self as Database>::update_session(self, session, None).await
+    }
+
+    pub async fn delete_session(&self, session_id: uuid::Uuid) -> Result<(), DatabaseError> {
+        <Self as Database>::delete_session(self, session_id, None).await
     }
 }
 
@@ -91,8 +161,22 @@ fn row_to_session(row: &Row) -> Result<Session, rusqlite::Error> {
 }
 
 impl Database for Sqlite {
+    type Transaction<'a>
+        = SqliteTransaction<'a>
+    where
+        Self: 'a;
+
+    async fn begin_transaction(&self) -> Result<Self::Transaction<'_>, DatabaseError> {
+        let conn = self.conn.lock().map_err(|_| DatabaseError::PoisonedLock)?;
+        conn.execute_batch("BEGIN IMMEDIATE;")?;
+        Ok(SqliteTransaction {
+            conn,
+            finished: false,
+        })
+    }
+
     async fn list_projects(&self) -> Result<Vec<crate::backend::Project>, super::DatabaseError> {
-        with_conn!(self, conn, {
+        self.with_conn(|conn| {
             let mut stmt = conn.prepare(
                 "SELECT id, name, dir, created_at, updated_at FROM projects ORDER BY updated_at DESC",
             )?;
@@ -107,7 +191,7 @@ impl Database for Sqlite {
         &self,
         project_id: uuid::Uuid,
     ) -> Result<Option<crate::backend::Project>, super::DatabaseError> {
-        with_conn!(self, conn, {
+        self.with_conn(|conn| {
             let mut stmt = conn.prepare(
                 "SELECT id, name, dir, created_at, updated_at FROM projects WHERE id = ?1",
             )?;
@@ -119,8 +203,9 @@ impl Database for Sqlite {
     async fn create_project(
         &self,
         project: crate::backend::Project,
+        tx: Option<&mut Self::Transaction<'_>>,
     ) -> Result<crate::backend::Project, super::DatabaseError> {
-        with_conn!(self, conn, {
+        self.with_optional_tx_conn(tx, |conn| {
             let created = conn.query_row(
                 "INSERT INTO projects (id, name, dir, created_at, updated_at)
                  VALUES (?1, ?2, ?3, ?4, ?5)
@@ -141,8 +226,9 @@ impl Database for Sqlite {
     async fn update_project(
         &self,
         project: crate::backend::Project,
+        tx: Option<&mut Self::Transaction<'_>>,
     ) -> Result<crate::backend::Project, super::DatabaseError> {
-        with_conn!(self, conn, {
+        self.with_optional_tx_conn(tx, |conn| {
             let updated = conn
                 .query_row(
                     "UPDATE projects
@@ -162,8 +248,12 @@ impl Database for Sqlite {
         })
     }
 
-    async fn delete_project(&self, project_id: uuid::Uuid) -> Result<(), super::DatabaseError> {
-        with_conn!(self, conn, {
+    async fn delete_project(
+        &self,
+        project_id: uuid::Uuid,
+        tx: Option<&mut Self::Transaction<'_>>,
+    ) -> Result<(), super::DatabaseError> {
+        self.with_optional_tx_conn(tx, |conn| {
             let rows = conn.execute("DELETE FROM projects WHERE id = ?1", [project_id])?;
             assert_one_row_affected("delete_project", rows)
         })
@@ -173,7 +263,7 @@ impl Database for Sqlite {
         &self,
         project_id: uuid::Uuid,
     ) -> Result<Vec<crate::backend::Session>, super::DatabaseError> {
-        with_conn!(self, conn, {
+        self.with_conn(|conn| {
             let mut stmt = conn.prepare(
                 "SELECT id, project_id, show_in_gui, name, created_at, updated_at
                  FROM sessions
@@ -191,7 +281,7 @@ impl Database for Sqlite {
         &self,
         session_id: uuid::Uuid,
     ) -> Result<Option<crate::backend::Session>, super::DatabaseError> {
-        with_conn!(self, conn, {
+        self.with_conn(|conn| {
             let mut stmt = conn.prepare(
                 "SELECT id, project_id, show_in_gui, name, created_at, updated_at
                  FROM sessions
@@ -205,8 +295,9 @@ impl Database for Sqlite {
     async fn create_session(
         &self,
         session: crate::backend::Session,
+        tx: Option<&mut Self::Transaction<'_>>,
     ) -> Result<crate::backend::Session, super::DatabaseError> {
-        with_conn!(self, conn, {
+        self.with_optional_tx_conn(tx, |conn| {
             let created = conn.query_row(
                 "INSERT INTO sessions (id, project_id, show_in_gui, name, created_at, updated_at)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6)
@@ -228,8 +319,9 @@ impl Database for Sqlite {
     async fn update_session(
         &self,
         session: crate::backend::Session,
+        tx: Option<&mut Self::Transaction<'_>>,
     ) -> Result<crate::backend::Session, super::DatabaseError> {
-        with_conn!(self, conn, {
+        self.with_optional_tx_conn(tx, |conn| {
             let updated = conn
                 .query_row(
                     "UPDATE sessions
@@ -250,8 +342,12 @@ impl Database for Sqlite {
         })
     }
 
-    async fn delete_session(&self, session_id: uuid::Uuid) -> Result<(), super::DatabaseError> {
-        with_conn!(self, conn, {
+    async fn delete_session(
+        &self,
+        session_id: uuid::Uuid,
+        tx: Option<&mut Self::Transaction<'_>>,
+    ) -> Result<(), super::DatabaseError> {
+        self.with_optional_tx_conn(tx, |conn| {
             let rows = conn.execute("DELETE FROM sessions WHERE id = ?1", [session_id])?;
             assert_one_row_affected("delete_session", rows)
         })

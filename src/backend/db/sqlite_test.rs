@@ -1,9 +1,7 @@
 use crate::backend::data::{project::Project, session::Session};
-use crate::backend::db::Database;
 use crate::backend::db::sqlite::Sqlite;
+use crate::backend::db::{Database, DatabaseTransaction};
 use chrono::Utc;
-use std::time::Duration;
-use tokio::time::sleep;
 use uuid::Uuid;
 
 fn create_test_project(name: &str, dir: &str) -> Project {
@@ -125,8 +123,6 @@ async fn test_update_project() {
     let project = create_test_project("Original", "/original/dir");
     let created = db.create_project(project).await.unwrap();
 
-    sleep(Duration::from_millis(10)).await;
-
     let mut updated_project = created.clone();
     updated_project.name = "Updated".to_string();
     updated_project.dir = "/updated/dir".to_string();
@@ -187,18 +183,15 @@ async fn test_list_projects_ordered_by_updated_at_desc() {
 
     let project1 = create_test_project("Project 1", "/dir1");
     let created1 = db.create_project(project1).await.unwrap();
-    sleep(Duration::from_millis(10)).await;
 
     let project2 = create_test_project("Project 2", "/dir2");
     let created2 = db.create_project(project2).await.unwrap();
-    sleep(Duration::from_millis(10)).await;
 
     let project3 = create_test_project("Project 3", "/dir3");
     let created3 = db.create_project(project3).await.unwrap();
 
     let mut updated2 = created2.clone();
     updated2.name = "Updated Project 2".to_string();
-    sleep(Duration::from_millis(10)).await;
     db.update_project(updated2).await.unwrap();
 
     let projects = db.list_projects().await.unwrap();
@@ -269,7 +262,6 @@ async fn test_list_sessions_by_project() {
     let session1 = create_test_session(created_project.id, "Session 1", true);
     let session2 = create_test_session(created_project.id, "Session 2", false);
     let created1 = db.create_session(session1).await.unwrap();
-    sleep(Duration::from_millis(10)).await;
     let created2 = db.create_session(session2).await.unwrap();
 
     let sessions = db
@@ -301,18 +293,15 @@ async fn test_list_sessions_ordered_by_updated_at_desc() {
 
     let session1 = create_test_session(created_project.id, "Session 1", true);
     let created1 = db.create_session(session1).await.unwrap();
-    sleep(Duration::from_millis(10)).await;
 
     let session2 = create_test_session(created_project.id, "Session 2", true);
     let created2 = db.create_session(session2).await.unwrap();
-    sleep(Duration::from_millis(10)).await;
 
     let session3 = create_test_session(created_project.id, "Session 3", true);
     let created3 = db.create_session(session3).await.unwrap();
 
     let mut updated1 = created1.clone();
     updated1.name = "Updated Session 1".to_string();
-    sleep(Duration::from_millis(10)).await;
     db.update_session(updated1).await.unwrap();
 
     let sessions = db
@@ -333,8 +322,6 @@ async fn test_update_session() {
 
     let session = create_test_session(created_project.id, "Original", true);
     let created = db.create_session(session).await.unwrap();
-
-    sleep(Duration::from_millis(10)).await;
 
     let mut updated_session = created.clone();
     updated_session.name = "Updated".to_string();
@@ -477,6 +464,104 @@ async fn test_session_show_in_gui_default() {
 }
 
 #[tokio::test]
+async fn test_transaction_commit_persists_writes() {
+    let db = Sqlite::new_in_memory().unwrap();
+
+    let mut tx = db.begin_transaction().await.unwrap();
+
+    let project = create_test_project("Project Tx", "/tx/dir");
+    let mut created_project = <Sqlite as Database>::create_project(&db, project, Some(&mut tx))
+        .await
+        .unwrap();
+
+    created_project.name = "Project Tx Updated".to_string();
+    let updated_project = <Sqlite as Database>::update_project(&db, created_project, Some(&mut tx))
+        .await
+        .unwrap();
+
+    let session = create_test_session(updated_project.id, "Session Tx", true);
+    let mut created_session = <Sqlite as Database>::create_session(&db, session, Some(&mut tx))
+        .await
+        .unwrap();
+
+    created_session.name = "Session Tx Updated".to_string();
+    let updated_session = <Sqlite as Database>::update_session(&db, created_session, Some(&mut tx))
+        .await
+        .unwrap();
+
+    <Sqlite as Database>::delete_session(&db, updated_session.id, Some(&mut tx))
+        .await
+        .unwrap();
+    <Sqlite as Database>::delete_project(&db, updated_project.id, Some(&mut tx))
+        .await
+        .unwrap();
+
+    tx.commit().unwrap();
+    drop(tx);
+
+    let project_result = db.get_project(updated_project.id).await.unwrap();
+    let session_result = db.get_session(updated_session.id).await.unwrap();
+    assert!(project_result.is_none());
+    assert!(session_result.is_none());
+}
+
+#[tokio::test]
+async fn test_transaction_rollback_discards_writes() {
+    let db = Sqlite::new_in_memory().unwrap();
+
+    let mut tx = db.begin_transaction().await.unwrap();
+
+    let project = create_test_project("Rollback Project", "/rollback/dir");
+    let created_project = <Sqlite as Database>::create_project(&db, project, Some(&mut tx))
+        .await
+        .unwrap();
+
+    let session = create_test_session(created_project.id, "Rollback Session", true);
+    let created_session = <Sqlite as Database>::create_session(&db, session, Some(&mut tx))
+        .await
+        .unwrap();
+
+    tx.rollback().unwrap();
+    drop(tx);
+
+    let project_result = db.get_project(created_project.id).await.unwrap();
+    let session_result = db.get_session(created_session.id).await.unwrap();
+    assert!(project_result.is_none());
+    assert!(session_result.is_none());
+}
+
+#[tokio::test]
+async fn test_transaction_drop_without_finish_rolls_back() {
+    let db = Sqlite::new_in_memory().unwrap();
+
+    let project_id = {
+        let mut tx = db.begin_transaction().await.unwrap();
+        let project = create_test_project("Drop Rollback", "/drop/rollback");
+        let created = <Sqlite as Database>::create_project(&db, project, Some(&mut tx))
+            .await
+            .unwrap();
+        created.id
+    };
+
+    let project_result = db.get_project(project_id).await.unwrap();
+    assert!(project_result.is_none());
+}
+
+#[tokio::test]
+async fn test_transaction_finish_methods_are_idempotent() {
+    let db = Sqlite::new_in_memory().unwrap();
+
+    let mut tx = db.begin_transaction().await.unwrap();
+    tx.commit().unwrap();
+    tx.commit().unwrap();
+    drop(tx);
+
+    let mut tx = db.begin_transaction().await.unwrap();
+    tx.rollback().unwrap();
+    tx.rollback().unwrap();
+}
+
+#[tokio::test]
 async fn test_project_with_special_characters_in_name() {
     let db = Sqlite::new_in_memory().unwrap();
     let project = create_test_project(
@@ -519,8 +604,6 @@ async fn test_update_project_preserves_created_at() {
     let created = db.create_project(project).await.unwrap();
     let original_created_at = created.created_at;
 
-    sleep(Duration::from_millis(10)).await;
-
     let mut updated = created.clone();
     updated.name = "Updated".to_string();
     let result = db.update_project(updated).await.unwrap();
@@ -538,8 +621,6 @@ async fn test_update_session_preserves_created_at() {
     let session = create_test_session(created_project.id, "Test", true);
     let created = db.create_session(session).await.unwrap();
     let original_created_at = created.created_at;
-
-    sleep(Duration::from_millis(10)).await;
 
     let mut updated = created.clone();
     updated.name = "Updated".to_string();
