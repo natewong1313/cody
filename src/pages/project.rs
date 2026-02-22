@@ -1,6 +1,5 @@
 use crate::backend::{Project, Session};
 use crate::components::button::{ButtonSize, StyledButton};
-use crate::live_query::Loadable;
 use crate::pages::{PageAction, PageContext, Route};
 use crate::theme::{
     BG_50, BG_500, BG_700, BG_800, BG_900, BG_950, FUCHSIA_500, RADIUS_MD, STROKE_WIDTH,
@@ -146,27 +145,27 @@ impl ProjectPage {
                     .inner_margin(0.0),
             )
             .show(ctx, |ui| {
-                page_ctx.live_query.poll(ui);
-
-                let sessions_state = page_ctx.live_query.sessions_by_project(project_id);
-                if let Loadable::Ready(sessions) = &sessions_state {
-                    self.sync_session_tabs(sessions);
-                }
-
-                match page_ctx.live_query.project(project_id) {
-                    Loadable::Ready(Some(project)) => {
-                        self.render_project(ui, page_ctx, &project, &sessions_state);
-                    }
-                    Loadable::Ready(None) => {
-                        ui.label("Project not found");
-                    }
-                    Loadable::Idle | Loadable::Loading => {
-                        ui.label("Loading project...");
-                    }
-                    Loadable::Error(error) => {
-                        ui.label(RichText::new(error).color(egui::Color32::RED));
-                    }
-                }
+                // page_ctx.live_query.poll(ui);
+                //
+                // let sessions_state = page_ctx.live_query.sessions_by_project(project_id);
+                // if let Loadable::Ready(sessions) = &sessions_state {
+                //     self.sync_session_tabs(sessions);
+                // }
+                //
+                // match page_ctx.live_query.project(project_id) {
+                //     Loadable::Ready(Some(project)) => {
+                //         self.render_project(ui, page_ctx, &project, &sessions_state);
+                //     }
+                //     Loadable::Ready(None) => {
+                //         ui.label("Project not found");
+                //     }
+                //     Loadable::Idle | Loadable::Loading => {
+                //         ui.label("Loading project...");
+                //     }
+                //     Loadable::Error(error) => {
+                //         ui.label(RichText::new(error).color(egui::Color32::RED));
+                //     }
+                // }
             });
     }
 
@@ -208,26 +207,26 @@ impl ProjectPage {
         ui: &mut Ui,
         page_ctx: &mut PageContext,
         project: &Project,
-        sessions_state: &Loadable<Vec<Session>>,
+        // sessions_state: &Loadable<Vec<Session>>,
     ) {
         self.render_project_navbar(ui, page_ctx, project);
         ui.add_space(12.0);
         // self.render_session(ui);
 
-        match sessions_state {
-            Loadable::Idle | Loadable::Loading => {
-                ui.label(RichText::new("Loading sessions...").color(BG_500));
-            }
-            Loadable::Error(error) => {
-                ui.label(RichText::new(error).color(egui::Color32::RED));
-            }
-            Loadable::Ready(sessions) if sessions.is_empty() => {
-                ui.label(RichText::new("No sessions yet").color(BG_500));
-            }
-            Loadable::Ready(sessions) => {
-                self.render_sessions_dock(ui, sessions);
-            }
-        }
+        // match sessions_state {
+        //     Loadable::Idle | Loadable::Loading => {
+        //         ui.label(RichText::new("Loading sessions...").color(BG_500));
+        //     }
+        //     Loadable::Error(error) => {
+        //         ui.label(RichText::new(error).color(egui::Color32::RED));
+        //     }
+        //     Loadable::Ready(sessions) if sessions.is_empty() => {
+        //         ui.label(RichText::new("No sessions yet").color(BG_500));
+        //     }
+        //     Loadable::Ready(sessions) => {
+        //         self.render_sessions_dock(ui, sessions);
+        //     }
+        // }
     }
 
     fn render_project_navbar(&self, ui: &mut Ui, page_ctx: &mut PageContext, project: &Project) {

@@ -5,7 +5,6 @@ use std::{
 
 use crate::{
     actions::{ActionContext, handle_action},
-    live_query::LiveQueryClient,
     opencode::{OpencodeApiClient, OpencodeSession},
     pages::{PageAction, PageContext, PagesRouter},
 };
@@ -16,7 +15,6 @@ use subsecond;
 
 pub struct App {
     pub api_client: OpencodeApiClient,
-    pub live_query: LiveQueryClient,
     pages_router: PagesRouter,
 
     pub action_sender: Sender<PageAction>,
@@ -27,11 +25,10 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(api_client: OpencodeApiClient, live_query: LiveQueryClient) -> Self {
+    pub fn new(api_client: OpencodeApiClient) -> Self {
         let (action_sender, action_reciever) = channel();
         Self {
             api_client,
-            live_query,
             pages_router: PagesRouter::new(),
 
             action_sender,
@@ -56,7 +53,6 @@ impl eframe::App for App {
 
         let mut page_ctx = PageContext {
             api_client: &self.api_client,
-            live_query: &self.live_query,
             action_sender: &self.action_sender,
             current_sessions: &self.current_sessions,
         };

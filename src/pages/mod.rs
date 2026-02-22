@@ -1,5 +1,4 @@
 use crate::{
-    live_query::LiveQueryClient,
     opencode::{ModelSelection, OpencodeApiClient, OpencodeSession},
     pages::project::ProjectPage,
     pages::projects::ProjectsPage,
@@ -29,7 +28,6 @@ pub enum PageAction {
 
 pub struct PageContext<'a> {
     pub api_client: &'a OpencodeApiClient,
-    pub live_query: &'a LiveQueryClient,
     pub action_sender: &'a Sender<PageAction>,
     pub current_sessions: &'a HashMap<String, OpencodeSession>,
 }

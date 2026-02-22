@@ -3,7 +3,6 @@ use crate::components::button::{ButtonSize, ButtonVariant, StyledButton};
 use crate::components::dir_button::DirButton;
 use crate::components::project_card::ProjectCard;
 use crate::components::text_input::StyledTextInput;
-use crate::live_query::Loadable;
 use crate::pages::{PageAction, Route};
 use crate::theme::{BG_50, BG_500, BG_700, BG_900, BG_950, RADIUS_MD, STROKE_WIDTH};
 use chrono::Utc;
@@ -51,30 +50,30 @@ impl ProjectsPage {
                     .inner_margin(0.0),
             )
             .show(ctx, |ui| {
-                page_ctx.live_query.poll(ui);
-
-                match page_ctx.live_query.projects() {
-                    Loadable::Idle | Loadable::Loading => {
-                        ui.centered_and_justified(|ui| {
-                            ui.label(
-                                RichText::new("Loading projects...")
-                                    .color(BG_500)
-                                    .size(16.0),
-                            );
-                        });
-                    }
-                    Loadable::Error(error) => {
-                        ui.centered_and_justified(|ui| {
-                            ui.label(RichText::new(error).color(egui::Color32::RED).size(14.0));
-                        });
-                    }
-                    Loadable::Ready(projects) if projects.is_empty() => {
-                        self.render_no_projects_screen(ui);
-                    }
-                    Loadable::Ready(projects) => {
-                        self.render_projects_screen(ui, page_ctx, &projects);
-                    }
-                }
+                // page_ctx.live_query.poll(ui);
+                //
+                // match page_ctx.live_query.projects() {
+                //     Loadable::Idle | Loadable::Loading => {
+                //         ui.centered_and_justified(|ui| {
+                //             ui.label(
+                //                 RichText::new("Loading projects...")
+                //                     .color(BG_500)
+                //                     .size(16.0),
+                //             );
+                //         });
+                //     }
+                //     Loadable::Error(error) => {
+                //         ui.centered_and_justified(|ui| {
+                //             ui.label(RichText::new(error).color(egui::Color32::RED).size(14.0));
+                //         });
+                //     }
+                //     Loadable::Ready(projects) if projects.is_empty() => {
+                //         self.render_no_projects_screen(ui);
+                //     }
+                //     Loadable::Ready(projects) => {
+                //         self.render_projects_screen(ui, page_ctx, &projects);
+                //     }
+                // }
             });
 
         if self.modal_open {
@@ -288,9 +287,9 @@ impl ProjectsPage {
             updated_at: Utc::now().naive_utc(),
         };
 
-        page_ctx.live_query.create_project(project);
-        page_ctx.live_query.create_session(session);
-        page_ctx.live_query.create_session(session2);
+        // page_ctx.live_query.create_project(project);
+        // page_ctx.live_query.create_session(session);
+        // page_ctx.live_query.create_session(session2);
 
         self.reset_form();
     }

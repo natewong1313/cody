@@ -1,6 +1,6 @@
 use crate::{
     app::App,
-    live_query::LiveQueryClient,
+    // live_query::LiveQueryClient,
     opencode::{OpencodeApiClient, OpencodeProcess},
 };
 use anyhow::Result;
@@ -11,9 +11,10 @@ mod actions;
 mod app;
 mod backend;
 mod components;
-mod live_query;
+// mod live_query;
 mod opencode;
 mod pages;
+mod query;
 mod theme;
 // mod ui_tests;
 
@@ -71,7 +72,7 @@ fn run_app(env: AppEnv) -> eframe::Result {
         "opencode gui",
         opts,
         Box::new(move |cc| {
-            let live_query = LiveQueryClient::new();
+            // let live_query = LiveQueryClient::new();
 
             // Load JetBrains Mono Nerd Font
             let mut fonts = FontDefinitions::default();
@@ -160,7 +161,7 @@ fn run_app(env: AppEnv) -> eframe::Result {
                 log::info!("Subsecond hot-reload handler registered");
             }
 
-            Ok(Box::new(App::new(env.api_client.clone(), live_query)))
+            Ok(Box::new(App::new(env.api_client.clone())))
         }),
     )
 }
