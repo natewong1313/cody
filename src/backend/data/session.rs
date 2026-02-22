@@ -2,7 +2,11 @@ use chrono::NaiveDateTime;
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::backend::{BackendContext, db::DatabaseError, harness::Harness};
+use crate::backend::{
+    BackendContext,
+    db::{DatabaseError, DatabaseTransaction},
+    harness::Harness,
+};
 
 #[derive(Debug, Clone)]
 pub struct Session {
@@ -43,19 +47,11 @@ where
         &self,
         project_id: &Uuid,
     ) -> Result<Vec<Session>, SessionRepoError> {
-        self.ctx
-            .db
-            .list_sessions_by_project(*project_id)
-            .await
-            .map_err(SessionRepoError::from)
+        Ok(self.ctx.db.list_sessions_by_project(*project_id).await?)
     }
 
     pub async fn get(&self, id: &Uuid) -> Result<Option<Session>, SessionRepoError> {
-        self.ctx
-            .db
-            .get_session(*id)
-            .await
-            .map_err(SessionRepoError::from)
+        Ok(self.ctx.db.get_session(*id).await?)
     }
 
     pub async fn create(&self, session: &Session) -> Result<Session, SessionRepoError> {
@@ -64,35 +60,38 @@ where
             .db
             .get_project(session.project_id)
             .await
-            .map_err(SessionRepoError::from)?
+            ?
             .ok_or(SessionRepoError::ProjectNotFound(session.project_id))?;
 
-        self.ctx
+        let mut tx = self.ctx.db.begin_transaction().await?;
+
+        let created = self
+            .ctx
+            .db
+            .create_session(session.clone(), Some(&mut tx))
+            .await
+            ?;
+
+        if let Err(e) = self
+            .ctx
             .harness
             .create_session(session.clone(), Some(project.dir.as_str()))
             .await
-            .map_err(|e| SessionRepoError::Harness(e.to_string()))?;
+        {
+            tx.rollback()?;
+            return Err(SessionRepoError::Harness(e.to_string()));
+        }
 
-        self.ctx
-            .db
-            .create_session(session.clone())
-            .await
-            .map_err(SessionRepoError::from)
+        tx.commit()?;
+        Ok(created)
     }
 
     pub async fn update(&self, session: &Session) -> Result<Session, SessionRepoError> {
-        self.ctx
-            .db
-            .update_session(session.clone())
-            .await
-            .map_err(SessionRepoError::from)
+        Ok(self.ctx.db.update_session(session.clone(), None).await?)
     }
 
     pub async fn delete(&self, session_id: &Uuid) -> Result<(), SessionRepoError> {
-        self.ctx
-            .db
-            .delete_session(*session_id)
-            .await
-            .map_err(SessionRepoError::from)
+        self.ctx.db.delete_session(*session_id, None).await?;
+        Ok(())
     }
 }

@@ -35,42 +35,23 @@ where
     }
 
     pub async fn list(&self) -> Result<Vec<Project>, ProjectRepoError> {
-        self.ctx
-            .db
-            .list_projects()
-            .await
-            .map_err(ProjectRepoError::from)
+        Ok(self.ctx.db.list_projects().await?)
     }
 
     pub async fn get(&self, id: &Uuid) -> Result<Option<Project>, ProjectRepoError> {
-        self.ctx
-            .db
-            .get_project(*id)
-            .await
-            .map_err(ProjectRepoError::from)
+        Ok(self.ctx.db.get_project(*id).await?)
     }
 
     pub async fn create(&self, project: &Project) -> Result<Project, ProjectRepoError> {
-        self.ctx
-            .db
-            .create_project(project.clone())
-            .await
-            .map_err(ProjectRepoError::from)
+        Ok(self.ctx.db.create_project(project.clone(), None).await?)
     }
 
     pub async fn update(&self, project: &Project) -> Result<Project, ProjectRepoError> {
-        self.ctx
-            .db
-            .update_project(project.clone())
-            .await
-            .map_err(ProjectRepoError::from)
+        Ok(self.ctx.db.update_project(project.clone(), None).await?)
     }
 
     pub async fn delete(&self, project_id: &Uuid) -> Result<(), ProjectRepoError> {
-        self.ctx
-            .db
-            .delete_project(*project_id)
-            .await
-            .map_err(ProjectRepoError::from)
+        self.ctx.db.delete_project(*project_id, None).await?;
+        Ok(())
     }
 }
