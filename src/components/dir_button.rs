@@ -107,6 +107,7 @@ impl<'a> DirButton<'a> {
             } else {
                 "/".to_string()
             };
+            #[cfg(not(target_arch = "wasm32"))]
             std::thread::spawn(move || {
                 if let Some(s) = rfd::FileDialog::new()
                     .set_directory(start_dir)

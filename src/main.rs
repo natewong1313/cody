@@ -1,13 +1,29 @@
 use crate::app::App;
+use egui::{FontData, FontDefinitions, FontFamily};
+
+#[cfg(not(all(feature = "browser", target_arch = "wasm32")))]
+use egui::ViewportBuilder;
+
+#[cfg(not(all(feature = "browser", target_arch = "wasm32")))]
 use anyhow::Result;
-use egui::{FontData, FontDefinitions, FontFamily, ViewportBuilder};
+#[cfg(all(feature = "browser", target_arch = "wasm32"))]
+use wasm_bindgen::JsCast;
+#[cfg(all(feature = "browser", target_arch = "wasm32"))]
+use wasm_bindgen::prelude::*;
+#[cfg(all(feature = "browser", target_arch = "wasm32"))]
+use eframe::web_sys::{self, HtmlCanvasElement};
 
 mod actions;
 mod app;
+#[cfg(all(feature = "browser", target_arch = "wasm32"))]
+#[path = "backend_web.rs"]
+mod backend;
+#[cfg(not(all(feature = "browser", target_arch = "wasm32")))]
 mod backend;
 mod components;
 mod opencode;
 mod pages;
+#[cfg(not(all(feature = "browser", target_arch = "wasm32")))]
 mod query;
 mod theme;
 
@@ -20,7 +36,91 @@ impl AppEnv {
     }
 }
 
-fn run_app(_: AppEnv) -> eframe::Result {
+fn configure_egui(cc: &eframe::CreationContext<'_>) {
+    let mut fonts = FontDefinitions::default();
+
+    fonts.font_data.insert(
+        "JetBrainsMono-Regular".to_owned(),
+        FontData::from_static(include_bytes!(
+            "../assets/JetBrainsMono/JetBrainsMonoNerdFont-Regular.ttf"
+        ))
+        .into(),
+    );
+    fonts.font_data.insert(
+        "JetBrainsMono-Bold".to_owned(),
+        FontData::from_static(include_bytes!(
+            "../assets/JetBrainsMono/JetBrainsMonoNerdFont-Bold.ttf"
+        ))
+        .into(),
+    );
+    fonts.font_data.insert(
+        "JetBrainsMono-Italic".to_owned(),
+        FontData::from_static(include_bytes!(
+            "../assets/JetBrainsMono/JetBrainsMonoNerdFont-Italic.ttf"
+        ))
+        .into(),
+    );
+    fonts.font_data.insert(
+        "JetBrainsMono-BoldItalic".to_owned(),
+        FontData::from_static(include_bytes!(
+            "../assets/JetBrainsMono/JetBrainsMonoNerdFont-BoldItalic.ttf"
+        ))
+        .into(),
+    );
+    fonts.font_data.insert(
+        "JetBrainsMono-Medium".to_owned(),
+        FontData::from_static(include_bytes!(
+            "../assets/JetBrainsMono/JetBrainsMonoNerdFont-Medium.ttf"
+        ))
+        .into(),
+    );
+    fonts.font_data.insert(
+        "JetBrainsMono-MediumItalic".to_owned(),
+        FontData::from_static(include_bytes!(
+            "../assets/JetBrainsMono/JetBrainsMonoNerdFont-MediumItalic.ttf"
+        ))
+        .into(),
+    );
+
+    fonts
+        .families
+        .entry(FontFamily::Proportional)
+        .or_default()
+        .insert(0, "JetBrainsMono-Regular".to_owned());
+    fonts
+        .families
+        .entry(FontFamily::Monospace)
+        .or_default()
+        .insert(0, "JetBrainsMono-Regular".to_owned());
+
+    fonts.font_data.insert(
+        "phosphor".into(),
+        egui_phosphor::Variant::Regular.font_data().into(),
+    );
+    fonts
+        .families
+        .entry(FontFamily::Name("phosphor".into()))
+        .or_default()
+        .push("phosphor".into());
+
+    cc.egui_ctx.set_fonts(fonts);
+    egui_extras::install_image_loaders(&cc.egui_ctx);
+
+    #[cfg(feature = "local")]
+    {
+        use std::sync::Arc;
+
+        let ctx = cc.egui_ctx.clone();
+        subsecond::register_handler(Arc::new(move || {
+            log::debug!("Hot-reload patch received, requesting repaint");
+            ctx.request_repaint();
+        }));
+        log::info!("Subsecond hot-reload handler registered");
+    }
+}
+
+#[cfg(not(all(feature = "browser", target_arch = "wasm32")))]
+fn run_app(_env: AppEnv) -> eframe::Result {
     let opts = eframe::NativeOptions {
         viewport: ViewportBuilder::default()
             .with_inner_size([800.0, 800.0])
@@ -32,105 +132,16 @@ fn run_app(_: AppEnv) -> eframe::Result {
         "opencode gui",
         opts,
         Box::new(move |cc| {
-            // let live_query = LiveQueryClient::new();
-
-            // Load JetBrains Mono Nerd Font
-            let mut fonts = FontDefinitions::default();
-
-            fonts.font_data.insert(
-                "JetBrainsMono-Regular".to_owned(),
-                FontData::from_static(include_bytes!(
-                    "../assets/JetBrainsMono/JetBrainsMonoNerdFont-Regular.ttf"
-                ))
-                .into(),
-            );
-            fonts.font_data.insert(
-                "JetBrainsMono-Bold".to_owned(),
-                FontData::from_static(include_bytes!(
-                    "../assets/JetBrainsMono/JetBrainsMonoNerdFont-Bold.ttf"
-                ))
-                .into(),
-            );
-            fonts.font_data.insert(
-                "JetBrainsMono-Italic".to_owned(),
-                FontData::from_static(include_bytes!(
-                    "../assets/JetBrainsMono/JetBrainsMonoNerdFont-Italic.ttf"
-                ))
-                .into(),
-            );
-            fonts.font_data.insert(
-                "JetBrainsMono-BoldItalic".to_owned(),
-                FontData::from_static(include_bytes!(
-                    "../assets/JetBrainsMono/JetBrainsMonoNerdFont-BoldItalic.ttf"
-                ))
-                .into(),
-            );
-            fonts.font_data.insert(
-                "JetBrainsMono-Medium".to_owned(),
-                FontData::from_static(include_bytes!(
-                    "../assets/JetBrainsMono/JetBrainsMonoNerdFont-Medium.ttf"
-                ))
-                .into(),
-            );
-            fonts.font_data.insert(
-                "JetBrainsMono-MediumItalic".to_owned(),
-                FontData::from_static(include_bytes!(
-                    "../assets/JetBrainsMono/JetBrainsMonoNerdFont-MediumItalic.ttf"
-                ))
-                .into(),
-            );
-
-            // Set JetBrains Mono as the primary text font
-            fonts
-                .families
-                .entry(FontFamily::Proportional)
-                .or_default()
-                .insert(0, "JetBrainsMono-Regular".to_owned());
-            fonts
-                .families
-                .entry(FontFamily::Monospace)
-                .or_default()
-                .insert(0, "JetBrainsMono-Regular".to_owned());
-
-            // Register Phosphor icons as a dedicated font family so icons
-            // aren't shadowed by Nerd Font PUA glyphs in the same range
-            fonts.font_data.insert(
-                "phosphor".into(),
-                egui_phosphor::Variant::Regular.font_data().into(),
-            );
-            fonts
-                .families
-                .entry(FontFamily::Name("phosphor".into()))
-                .or_default()
-                .push("phosphor".into());
-
-            cc.egui_ctx.set_fonts(fonts);
-
-            egui_extras::install_image_loaders(&cc.egui_ctx);
-
-            // Register handler to repaint UI when hot-reload patches arrive
-            #[cfg(feature = "local")]
-            {
-                use std::sync::Arc;
-
-                let ctx = cc.egui_ctx.clone();
-                subsecond::register_handler(Arc::new(move || {
-                    log::debug!("Hot-reload patch received, requesting repaint");
-                    ctx.request_repaint();
-                }));
-                log::info!("Subsecond hot-reload handler registered");
-            }
-
+            configure_egui(cc);
             Ok(Box::new(App::new()))
         }),
     )
 }
 
-// No hot reloading
 #[cfg(not(feature = "local"))]
+#[cfg(not(all(feature = "browser", target_arch = "wasm32")))]
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize logging, filter out winit spam
     env_logger::Builder::from_default_env()
         .filter_level(log::LevelFilter::Info)
         .filter(Some("winit"), log::LevelFilter::Warn)
@@ -146,11 +157,10 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-// Hot reloading
 #[cfg(feature = "local")]
+#[cfg(not(all(feature = "browser", target_arch = "wasm32")))]
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize logging with debug level for development, but filter out winit spam
     env_logger::Builder::from_default_env()
         .filter_level(log::LevelFilter::Debug)
         .filter(Some("winit"), log::LevelFilter::Warn)
@@ -162,11 +172,7 @@ async fn main() -> Result<()> {
 
     let env = AppEnv::new();
 
-    // Use subsecond to enable hot-reloading
-    // Note: run_app must be wrapped in subsecond::call for hot-patching to work
     dioxus_devtools::serve_subsecond_with_args(env, |app_env| async move {
-        // Clone the environment for each hot-reload iteration
-        // subsecond::call may be invoked multiple times during hot-reloading
         subsecond::call(move || {
             let env_clone = app_env.clone();
             run_app(env_clone)
@@ -176,3 +182,41 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(all(feature = "browser", target_arch = "wasm32"))]
+#[wasm_bindgen(start)]
+pub fn wasm_start() -> Result<(), JsValue> {
+    console_error_panic_hook::set_once();
+    eframe::WebLogger::init(log::LevelFilter::Debug).ok();
+
+    wasm_bindgen_futures::spawn_local(async {
+        let web_options = eframe::WebOptions::default();
+        let runner = eframe::WebRunner::new();
+        let window = web_sys::window().expect("window not available");
+        let document = window.document().expect("document not available");
+        let canvas: HtmlCanvasElement = document
+            .get_element_by_id("the_canvas_id")
+            .expect("canvas element with id 'the_canvas_id' not found")
+            .dyn_into()
+            .expect("element with id 'the_canvas_id' is not a canvas");
+        let result = runner
+            .start(
+                canvas,
+                web_options,
+                Box::new(|cc| {
+                    configure_egui(cc);
+                    Ok(Box::new(App::new()))
+                }),
+            )
+            .await;
+
+        if let Err(err) = result {
+            log::error!("Failed to start web app: {err:?}");
+        }
+    });
+
+    Ok(())
+}
+
+#[cfg(all(feature = "browser", target_arch = "wasm32"))]
+fn main() {}

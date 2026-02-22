@@ -31,6 +31,7 @@ fn handle_create_session(
 ) {
     let sender = session_inbox.sender();
     let client = api_client.clone();
+    #[cfg(not(target_arch = "wasm32"))]
     tokio::spawn(async move {
         match client.create_session(None, None).await {
             Ok(session) => {
@@ -50,6 +51,7 @@ fn handle_send_message(
     model: Option<crate::opencode::ModelSelection>,
 ) {
     let client = api_client.clone();
+    #[cfg(not(target_arch = "wasm32"))]
     tokio::spawn(async move {
         let request = OpencodeSendMessageRequest {
             message_id: None,
