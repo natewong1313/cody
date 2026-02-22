@@ -79,6 +79,3 @@ pub trait Database {
         tx: Option<&mut Self::Transaction<'_>>,
     ) -> Result<(), DatabaseError>;
 }
-
-#[cfg(test)]
-mod sqlite_test;
