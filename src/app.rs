@@ -14,7 +14,6 @@ use egui_inbox::UiInbox;
 use subsecond;
 
 pub struct App {
-    pub api_client: OpencodeApiClient,
     pages_router: PagesRouter,
 
     pub action_sender: Sender<PageAction>,
@@ -25,10 +24,9 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(api_client: OpencodeApiClient) -> Self {
+    pub fn new() -> Self {
         let (action_sender, action_reciever) = channel();
         Self {
-            api_client,
             pages_router: PagesRouter::new(),
 
             action_sender,
@@ -45,14 +43,12 @@ impl eframe::App for App {
         while let Ok(action) = self.action_reciever.try_recv() {
             let mut action_ctx = ActionContext {
                 pages_router: &mut self.pages_router,
-                api_client: &self.api_client,
                 session_inbox: &self.session_inbox,
             };
             handle_action(&mut action_ctx, action);
         }
 
         let mut page_ctx = PageContext {
-            api_client: &self.api_client,
             action_sender: &self.action_sender,
             current_sessions: &self.current_sessions,
         };

@@ -50,6 +50,7 @@ impl ProjectsPage {
                     .inner_margin(0.0),
             )
             .show(ctx, |ui| {
+                ui.label("it worked");
                 // page_ctx.live_query.poll(ui);
                 //
                 // match page_ctx.live_query.projects() {

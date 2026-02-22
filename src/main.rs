@@ -1,66 +1,26 @@
-use crate::{
-    app::App,
-    // live_query::LiveQueryClient,
-    opencode::{OpencodeApiClient, OpencodeProcess},
-};
+use crate::app::App;
 use anyhow::Result;
 use egui::{FontData, FontDefinitions, FontFamily, ViewportBuilder};
-use std::sync::Mutex;
 
 mod actions;
 mod app;
 mod backend;
 mod components;
-// mod live_query;
 mod opencode;
 mod pages;
 mod query;
 mod theme;
-// mod ui_tests;
 
-const PORT: u32 = 6767;
-
-/// Application environment/state that gets passed to the hot-reload server
 #[derive(Clone)]
-struct AppEnv {
-    port: u32,
-    api_client: OpencodeApiClient,
-}
+struct AppEnv {}
 
-/// Global process handle for cleanup (stored separately since it's not Clone)
-static PROCESS_HANDLE: Mutex<Option<OpencodeProcess>> = Mutex::new(None);
-
-/// Setup the application environment (runs once before hot-reloading starts)
-async fn setup_app_env() -> Result<AppEnv> {
-    log::info!("Setting up application environment...");
-
-    let process = OpencodeProcess::start(PORT)
-        .map_err(|e| anyhow::anyhow!("Failed to start opencode server: {}", e))?;
-    let api_client = OpencodeApiClient::new(PORT);
-
-    // Store process handle globally for cleanup
-    *PROCESS_HANDLE.lock().unwrap() = Some(process);
-
-    log::info!("Application environment setup complete");
-
-    Ok(AppEnv {
-        port: PORT,
-        api_client,
-    })
-}
-
-/// Cleanup function to stop the opencode process
-fn cleanup_process() {
-    let mut handle = PROCESS_HANDLE.lock().unwrap();
-    if let Some(process) = handle.take() {
-        log::info!("Stopping opencode process...");
-        process.stop();
+impl AppEnv {
+    pub fn new() -> Self {
+        Self {}
     }
 }
 
-/// Run the application with hot-reloading support
-/// This function gets called by subsecond when a hot-patch is applied
-fn run_app(env: AppEnv) -> eframe::Result {
+fn run_app(_: AppEnv) -> eframe::Result {
     let opts = eframe::NativeOptions {
         viewport: ViewportBuilder::default()
             .with_inner_size([800.0, 800.0])
@@ -161,12 +121,12 @@ fn run_app(env: AppEnv) -> eframe::Result {
                 log::info!("Subsecond hot-reload handler registered");
             }
 
-            Ok(Box::new(App::new(env.api_client.clone())))
+            Ok(Box::new(App::new()))
         }),
     )
 }
 
-/// Production main entry point (no hot-reloading)
+// No hot reloading
 #[cfg(not(feature = "local"))]
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -179,18 +139,14 @@ async fn main() -> Result<()> {
 
     log::info!("Starting opencode gui (production mode)");
 
-    let env = setup_app_env().await?;
+    let env = AppEnv::new();
 
-    // Run the app directly without hot-reloading
     run_app(env).map_err(|e| anyhow::anyhow!("Application error: {}", e))?;
-
-    // Cleanup
-    cleanup_process();
 
     Ok(())
 }
 
-/// Development main entry point with hot-reloading
+// Hot reloading
 #[cfg(feature = "local")]
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -204,7 +160,7 @@ async fn main() -> Result<()> {
     log::info!("Starting opencode gui (development mode with hot-reload)");
     log::info!("Run with: dx serve --hot-patch");
 
-    let env = setup_app_env().await?;
+    let env = AppEnv::new();
 
     // Use subsecond to enable hot-reloading
     // Note: run_app must be wrapped in subsecond::call for hot-patching to work
@@ -217,9 +173,6 @@ async fn main() -> Result<()> {
         })
     })
     .await;
-
-    // Cleanup when dev server stops
-    cleanup_process();
 
     Ok(())
 }
