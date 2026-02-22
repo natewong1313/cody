@@ -59,8 +59,7 @@ where
             .ctx
             .db
             .get_project(session.project_id)
-            .await
-            ?
+            .await?
             .ok_or(SessionRepoError::ProjectNotFound(session.project_id))?;
 
         let mut tx = self.ctx.db.begin_transaction().await?;
@@ -69,13 +68,13 @@ where
             .ctx
             .db
             .create_session(session.clone(), Some(&mut tx))
-            .await
-            ?;
+            .await?;
 
+        let project_dir = Some(project.dir.as_str());
         if let Err(e) = self
             .ctx
             .harness
-            .create_session(session.clone(), Some(project.dir.as_str()))
+            .create_session(session.clone(), project_dir)
             .await
         {
             tx.rollback()?;

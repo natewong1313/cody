@@ -2,8 +2,8 @@ use chrono::Utc;
 use rusqlite::{Connection, OptionalExtension};
 
 use super::{assert_one_row_affected, check_returning_row_error, row_to_session};
-use crate::backend::db::DatabaseError;
 use crate::backend::Session;
+use crate::backend::db::DatabaseError;
 
 pub(super) fn list_sessions_by_project(
     conn: &Connection,

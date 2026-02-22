@@ -2,8 +2,8 @@ use chrono::Utc;
 use rusqlite::{Connection, OptionalExtension};
 
 use super::{assert_one_row_affected, check_returning_row_error, row_to_project};
-use crate::backend::db::DatabaseError;
 use crate::backend::Project;
+use crate::backend::db::DatabaseError;
 
 pub(super) fn list_projects(conn: &Connection) -> Result<Vec<Project>, DatabaseError> {
     let mut stmt = conn.prepare(

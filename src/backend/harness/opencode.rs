@@ -90,6 +90,16 @@ impl Harness for OpencodeHarness {
     }
 }
 
+#[cfg(test)]
+impl OpencodeHarness {
+    pub(crate) fn new_for_test(port: u32) -> Self {
+        Self {
+            proc: Arc::new(Mutex::new(None)),
+            opencode_client: OpencodeApiClient::new(port),
+        }
+    }
+}
+
 impl Drop for OpencodeHarness {
     fn drop(&mut self) {
         self.cleanup();
