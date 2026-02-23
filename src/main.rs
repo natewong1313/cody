@@ -1,29 +1,15 @@
 use crate::app::App;
+use egui::ViewportBuilder;
 use egui::{FontData, FontDefinitions, FontFamily};
 
-#[cfg(not(all(feature = "browser", target_arch = "wasm32")))]
-use egui::ViewportBuilder;
-
-#[cfg(not(all(feature = "browser", target_arch = "wasm32")))]
 use anyhow::Result;
-#[cfg(all(feature = "browser", target_arch = "wasm32"))]
-use eframe::web_sys::{self, HtmlCanvasElement};
-#[cfg(all(feature = "browser", target_arch = "wasm32"))]
-use wasm_bindgen::JsCast;
-#[cfg(all(feature = "browser", target_arch = "wasm32"))]
-use wasm_bindgen::prelude::*;
 
 mod actions;
 mod app;
-// #[cfg(all(feature = "browser", target_arch = "wasm32"))]
-// #[path = "backend_web.rs"]
-// mod backend;
-#[cfg(not(all(feature = "browser", target_arch = "wasm32")))]
 mod backend;
 mod components;
 mod opencode;
 mod pages;
-#[cfg(not(all(feature = "browser", target_arch = "wasm32")))]
 mod query;
 mod theme;
 
@@ -121,7 +107,6 @@ fn configure_egui(cc: &eframe::CreationContext<'_>) {
     }
 }
 
-#[cfg(not(all(feature = "browser", target_arch = "wasm32")))]
 fn run_app(env: AppEnv) -> eframe::Result {
     let backend_client = env.backend_client;
     let opts = eframe::NativeOptions {
@@ -142,7 +127,6 @@ fn run_app(env: AppEnv) -> eframe::Result {
 }
 
 #[cfg(not(feature = "local"))]
-#[cfg(not(all(feature = "browser", target_arch = "wasm32")))]
 #[tokio::main]
 async fn main() -> Result<()> {
     env_logger::Builder::from_default_env()
@@ -164,7 +148,6 @@ async fn main() -> Result<()> {
 }
 
 #[cfg(feature = "local")]
-#[cfg(not(all(feature = "browser", target_arch = "wasm32")))]
 #[tokio::main]
 async fn main() -> Result<()> {
     env_logger::Builder::from_default_env()
@@ -191,41 +174,3 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
-
-#[cfg(all(feature = "browser", target_arch = "wasm32"))]
-#[wasm_bindgen(start)]
-pub fn wasm_start() -> Result<(), JsValue> {
-    console_error_panic_hook::set_once();
-    eframe::WebLogger::init(log::LevelFilter::Debug).ok();
-
-    wasm_bindgen_futures::spawn_local(async {
-        let web_options = eframe::WebOptions::default();
-        let runner = eframe::WebRunner::new();
-        let window = web_sys::window().expect("window not available");
-        let document = window.document().expect("document not available");
-        let canvas: HtmlCanvasElement = document
-            .get_element_by_id("the_canvas_id")
-            .expect("canvas element with id 'the_canvas_id' not found")
-            .dyn_into()
-            .expect("element with id 'the_canvas_id' is not a canvas");
-        let result = runner
-            .start(
-                canvas,
-                web_options,
-                Box::new(|cc| {
-                    configure_egui(cc);
-                    Ok(Box::new(App::new()))
-                }),
-            )
-            .await;
-
-        if let Err(err) = result {
-            log::error!("Failed to start web app: {err:?}");
-        }
-    });
-
-    Ok(())
-}
-
-#[cfg(all(feature = "browser", target_arch = "wasm32"))]
-fn main() {}

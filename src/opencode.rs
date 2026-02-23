@@ -1,20 +1,14 @@
+use libc::SIGTERM;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-
-#[cfg(not(target_arch = "wasm32"))]
-use libc::SIGTERM;
-#[cfg(not(target_arch = "wasm32"))]
 use std::os::unix::process::CommandExt;
-#[cfg(not(target_arch = "wasm32"))]
 use std::process::{Child, Command};
 
-#[cfg(not(target_arch = "wasm32"))]
 pub struct OpencodeProcess {
     proc_handle: Child,
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 impl OpencodeProcess {
     pub fn start(port: u32) -> anyhow::Result<Self> {
         let proc = Command::new("opencode")

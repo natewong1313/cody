@@ -6,7 +6,6 @@ edition = "2024"
 [features]
 default = []
 local = ["dioxus-devtools", "dep:subsecond"]
-browser = []
 
 [dependencies]
 anyhow = "1.0.100"
@@ -35,18 +34,10 @@ egui_dock = "0.18.0"
 thiserror = "2.0.18"
 chrono = { version = "0.4.43", features = ["serde"] }
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# Native-only dependencies
 env_logger = "0.11.8"
 libc = "0.2.180"
 tokio = { version = "1.49.0", features = ["rt", "rt-multi-thread", "macros"] }
 rusqlite = { version = "0.38.0", features = ["bundled", "chrono", "uuid"] }
 rusqlite_migration = "2.4.1"
 rfd = "0.17"
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-console_error_panic_hook = "0.1.7"
-getrandom = { version = "0.3.4", features = ["wasm_js"] }
-getrandom_02 = { package = "getrandom", version = "0.2.17", features = ["js"] }
-tokio = { version = "1.49.0", features = ["rt", "macros", "time", "sync", "io-util"] }
-wasm-bindgen = "0.2.105"
-wasm-bindgen-futures = "0.4.55"

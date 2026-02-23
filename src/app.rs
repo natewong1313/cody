@@ -8,10 +8,8 @@ use crate::{
     opencode::{OpencodeApiClient, OpencodeSession},
     pages::{PageAction, PageContext, PagesRouter},
 };
-use egui_inbox::UiInbox;
-
-#[cfg(not(all(feature = "browser", target_arch = "wasm32")))]
 use crate::{backend::rpc::BackendRpcClient, query::QueryClient};
+use egui_inbox::UiInbox;
 
 #[cfg(feature = "local")]
 use subsecond;
@@ -25,12 +23,10 @@ pub struct App {
     session_inbox: UiInbox<Result<OpencodeSession, String>>,
     pub current_sessions: HashMap<String, OpencodeSession>,
 
-    #[cfg(not(all(feature = "browser", target_arch = "wasm32")))]
     query_client: QueryClient,
 }
 
 impl App {
-    #[cfg(not(all(feature = "browser", target_arch = "wasm32")))]
     pub fn new(backend_client: BackendRpcClient) -> Self {
         let (action_sender, action_reciever) = channel();
         Self {
@@ -42,20 +38,6 @@ impl App {
             session_inbox: UiInbox::new(),
             current_sessions: HashMap::new(),
             query_client: QueryClient::new(backend_client),
-        }
-    }
-
-    #[cfg(all(feature = "browser", target_arch = "wasm32"))]
-    pub fn new() -> Self {
-        let (action_sender, action_reciever) = channel();
-        Self {
-            pages_router: PagesRouter::new(),
-
-            action_sender,
-            action_reciever,
-
-            session_inbox: UiInbox::new(),
-            current_sessions: HashMap::new(),
         }
     }
 }
@@ -76,7 +58,6 @@ impl eframe::App for App {
         let mut page_ctx = PageContext {
             action_sender: &self.action_sender,
             current_sessions: &self.current_sessions,
-            #[cfg(not(all(feature = "browser", target_arch = "wasm32")))]
             query: &mut self.query_client,
         };
 
