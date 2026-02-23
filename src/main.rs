@@ -7,17 +7,17 @@ use egui::ViewportBuilder;
 #[cfg(not(all(feature = "browser", target_arch = "wasm32")))]
 use anyhow::Result;
 #[cfg(all(feature = "browser", target_arch = "wasm32"))]
+use eframe::web_sys::{self, HtmlCanvasElement};
+#[cfg(all(feature = "browser", target_arch = "wasm32"))]
 use wasm_bindgen::JsCast;
 #[cfg(all(feature = "browser", target_arch = "wasm32"))]
 use wasm_bindgen::prelude::*;
-#[cfg(all(feature = "browser", target_arch = "wasm32"))]
-use eframe::web_sys::{self, HtmlCanvasElement};
 
 mod actions;
 mod app;
-#[cfg(all(feature = "browser", target_arch = "wasm32"))]
-#[path = "backend_web.rs"]
-mod backend;
+// #[cfg(all(feature = "browser", target_arch = "wasm32"))]
+// #[path = "backend_web.rs"]
+// mod backend;
 #[cfg(not(all(feature = "browser", target_arch = "wasm32")))]
 mod backend;
 mod components;
@@ -28,11 +28,13 @@ mod query;
 mod theme;
 
 #[derive(Clone)]
-struct AppEnv {}
+struct AppEnv {
+    backend_client: backend::rpc::BackendRpcClient,
+}
 
 impl AppEnv {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(backend_client: backend::rpc::BackendRpcClient) -> Self {
+        Self { backend_client }
     }
 }
 
@@ -120,7 +122,8 @@ fn configure_egui(cc: &eframe::CreationContext<'_>) {
 }
 
 #[cfg(not(all(feature = "browser", target_arch = "wasm32")))]
-fn run_app(_env: AppEnv) -> eframe::Result {
+fn run_app(env: AppEnv) -> eframe::Result {
+    let backend_client = env.backend_client;
     let opts = eframe::NativeOptions {
         viewport: ViewportBuilder::default()
             .with_inner_size([800.0, 800.0])
@@ -133,7 +136,7 @@ fn run_app(_env: AppEnv) -> eframe::Result {
         opts,
         Box::new(move |cc| {
             configure_egui(cc);
-            Ok(Box::new(App::new()))
+            Ok(Box::new(App::new(backend_client.clone())))
         }),
     )
 }
@@ -150,7 +153,10 @@ async fn main() -> Result<()> {
 
     log::info!("Starting opencode gui (production mode)");
 
-    let env = AppEnv::new();
+    let backend_client = backend::rpc::start_local_backend_rpc()
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to start backend RPC: {e}"))?;
+    let env = AppEnv::new(backend_client);
 
     run_app(env).map_err(|e| anyhow::anyhow!("Application error: {}", e))?;
 
@@ -170,7 +176,10 @@ async fn main() -> Result<()> {
     log::info!("Starting opencode gui (development mode with hot-reload)");
     log::info!("Run with: dx serve --hot-patch");
 
-    let env = AppEnv::new();
+    let backend_client = backend::rpc::start_local_backend_rpc()
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to start backend RPC: {e}"))?;
+    let env = AppEnv::new(backend_client);
 
     dioxus_devtools::serve_subsecond_with_args(env, |app_env| async move {
         subsecond::call(move || {

@@ -29,6 +29,8 @@ pub enum PageAction {
 pub struct PageContext<'a> {
     pub action_sender: &'a Sender<PageAction>,
     pub current_sessions: &'a HashMap<String, OpencodeSession>,
+    #[cfg(not(all(feature = "browser", target_arch = "wasm32")))]
+    pub query: &'a mut crate::query::QueryClient,
 }
 
 pub struct PagesRouter {
