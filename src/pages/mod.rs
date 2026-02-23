@@ -28,7 +28,6 @@ pub enum PageAction {
 
 pub struct PageContext<'a> {
     pub action_sender: &'a Sender<PageAction>,
-    pub current_sessions: &'a HashMap<String, OpencodeSession>,
     pub query: &'a mut crate::query::QueryClient,
 }
 

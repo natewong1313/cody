@@ -6,7 +6,6 @@ use egui_inbox::UiInbox;
 
 pub struct ActionContext<'a> {
     pub pages_router: &'a mut PagesRouter,
-    pub session_inbox: &'a UiInbox<Result<OpencodeSession, String>>,
 }
 
 pub fn handle_action(ctx: &mut ActionContext<'_>, action: PageAction) {

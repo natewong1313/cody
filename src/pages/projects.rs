@@ -1,4 +1,4 @@
-use crate::backend::{Project, Session};
+use crate::backend::Project;
 use crate::components::button::{ButtonSize, ButtonVariant, StyledButton};
 use crate::components::dir_button::DirButton;
 use crate::components::project_card::ProjectCard;
@@ -50,31 +50,40 @@ impl ProjectsPage {
                     .inner_margin(0.0),
             )
             .show(ctx, |ui| {
-                ui.label("it worked");
-                // page_ctx.live_query.poll(ui);
-                //
-                // match page_ctx.live_query.projects() {
-                //     Loadable::Idle | Loadable::Loading => {
-                //         ui.centered_and_justified(|ui| {
-                //             ui.label(
-                //                 RichText::new("Loading projects...")
-                //                     .color(BG_500)
-                //                     .size(16.0),
-                //             );
-                //         });
-                //     }
-                //     Loadable::Error(error) => {
-                //         ui.centered_and_justified(|ui| {
-                //             ui.label(RichText::new(error).color(egui::Color32::RED).size(14.0));
-                //         });
-                //     }
-                //     Loadable::Ready(projects) if projects.is_empty() => {
-                //         self.render_no_projects_screen(ui);
-                //     }
-                //     Loadable::Ready(projects) => {
-                //         self.render_projects_screen(ui, page_ctx, &projects);
-                //     }
-                // }
+                let loading = page_ctx.query.projects_loading();
+                let projects = page_ctx.query.projects().to_vec();
+                let error = page_ctx.query.projects_error().map(str::to_owned);
+
+                if projects.is_empty() && loading {
+                    ui.centered_and_justified(|ui| {
+                        ui.label(
+                            RichText::new("Loading projects...")
+                                .color(BG_500)
+                                .size(16.0),
+                        );
+                    });
+                    return;
+                }
+
+                if projects.is_empty() {
+                    if let Some(error) = error {
+                        ui.centered_and_justified(|ui| {
+                            ui.label(RichText::new(error).color(egui::Color32::RED).size(14.0));
+                        });
+                        ui.add_space(8.0);
+                        ui.centered_and_justified(|ui| {
+                            if StyledButton::new("Retry").show(ui).clicked() {
+                                page_ctx.query.refresh_projects();
+                            }
+                        });
+                        return;
+                    }
+
+                    self.render_no_projects_screen(ui);
+                    return;
+                }
+
+                self.render_projects_screen(ui, page_ctx, &projects);
             });
 
         if self.modal_open {
@@ -263,34 +272,17 @@ impl ProjectsPage {
     }
 
     fn on_create_project_click(&mut self, page_ctx: &mut super::PageContext) {
+        let now = Utc::now().naive_utc();
         let project_id = Uuid::new_v4();
         let project = Project {
             id: project_id,
             name: self.form_fields.name.clone(),
             dir: self.form_fields.dir.clone(),
-            created_at: Utc::now().naive_utc(),
-            updated_at: Utc::now().naive_utc(),
-        };
-        let session = Session {
-            id: Uuid::new_v4(),
-            project_id: project_id,
-            show_in_gui: true,
-            name: "".to_string(),
-            created_at: Utc::now().naive_utc(),
-            updated_at: Utc::now().naive_utc(),
-        };
-        let session2 = Session {
-            id: Uuid::new_v4(),
-            project_id: project_id,
-            show_in_gui: true,
-            name: "".to_string(),
-            created_at: Utc::now().naive_utc(),
-            updated_at: Utc::now().naive_utc(),
+            created_at: now,
+            updated_at: now,
         };
 
-        // page_ctx.live_query.create_project(project);
-        // page_ctx.live_query.create_session(session);
-        // page_ctx.live_query.create_session(session2);
+        page_ctx.query.create_project(project);
 
         self.reset_form();
     }

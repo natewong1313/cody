@@ -20,9 +20,8 @@ pub struct App {
     pub action_sender: Sender<PageAction>,
     action_reciever: Receiver<PageAction>,
 
-    session_inbox: UiInbox<Result<OpencodeSession, String>>,
-    pub current_sessions: HashMap<String, OpencodeSession>,
-
+    // session_inbox: UiInbox<Result<OpencodeSession, String>>,
+    // pub current_sessions: HashMap<String, OpencodeSession>,
     query_client: QueryClient,
 }
 
@@ -35,8 +34,6 @@ impl App {
             action_sender,
             action_reciever,
 
-            session_inbox: UiInbox::new(),
-            current_sessions: HashMap::new(),
             query_client: QueryClient::new(backend_client),
         }
     }
@@ -50,14 +47,12 @@ impl eframe::App for App {
         while let Ok(action) = self.action_reciever.try_recv() {
             let mut action_ctx = ActionContext {
                 pages_router: &mut self.pages_router,
-                session_inbox: &self.session_inbox,
             };
             handle_action(&mut action_ctx, action);
         }
 
         let mut page_ctx = PageContext {
             action_sender: &self.action_sender,
-            current_sessions: &self.current_sessions,
             query: &mut self.query_client,
         };
 
