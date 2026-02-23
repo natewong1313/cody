@@ -8,7 +8,7 @@ use crate::backend::{
     harness::Harness,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Session {
     pub id: Uuid,
     pub project_id: Uuid,

@@ -4,6 +4,7 @@ use crate::backend::{
     harness::opencode::OpencodeHarness,
     state::StateError,
 };
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::watch;
 use uuid::Uuid;
@@ -16,9 +17,10 @@ mod data;
 mod db;
 mod harness;
 mod local;
+pub mod rpc;
 mod state;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error, Serialize, Deserialize)]
 pub enum BackendError {
     #[error("internal error: {0}")]
     Internal(String),
@@ -51,24 +53,6 @@ impl From<StateError> for BackendError {
         Self::Internal(err.to_string())
     }
 }
-
-// #[derive(Clone)]
-// pub enum BackendEvent {
-//     ProjectsLoaded(Vec<Project>),
-// }
-
-// // We'll need to make this a trait at some point when we add wasm
-// #[derive(Clone)]
-// pub struct BackendEventSender {
-//     sender: broadcast::Sender<BackendEvent>,
-// }
-//
-// impl BackendEventSender {
-//     fn new() -> Self {
-//         let (sender, _) = broadcast::channel(16);
-//         Self { sender }
-//     }
-// }
 
 pub struct BackendContext<D>
 where

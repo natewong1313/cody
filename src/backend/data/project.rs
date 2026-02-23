@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::backend::{BackendContext, db::DatabaseError};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Project {
     pub id: Uuid,
     pub name: String,
