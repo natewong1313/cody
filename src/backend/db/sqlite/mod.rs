@@ -90,28 +90,28 @@ impl Sqlite {
         f(&conn)
     }
 
-    pub async fn create_project(&self, project: Project) -> Result<Project, DatabaseError> {
-        <Self as Database>::create_project(self, project, None).await
+    pub fn create_project(&self, project: Project) -> Result<Project, DatabaseError> {
+        <Self as Database>::create_project(self, project, None)
     }
 
-    pub async fn update_project(&self, project: Project) -> Result<Project, DatabaseError> {
-        <Self as Database>::update_project(self, project, None).await
+    pub fn update_project(&self, project: Project) -> Result<Project, DatabaseError> {
+        <Self as Database>::update_project(self, project, None)
     }
 
-    pub async fn delete_project(&self, project_id: uuid::Uuid) -> Result<(), DatabaseError> {
-        <Self as Database>::delete_project(self, project_id, None).await
+    pub fn delete_project(&self, project_id: uuid::Uuid) -> Result<(), DatabaseError> {
+        <Self as Database>::delete_project(self, project_id, None)
     }
 
-    pub async fn create_session(&self, session: Session) -> Result<Session, DatabaseError> {
-        <Self as Database>::create_session(self, session, None).await
+    pub fn create_session(&self, session: Session) -> Result<Session, DatabaseError> {
+        <Self as Database>::create_session(self, session, None)
     }
 
-    pub async fn update_session(&self, session: Session) -> Result<Session, DatabaseError> {
-        <Self as Database>::update_session(self, session, None).await
+    pub fn update_session(&self, session: Session) -> Result<Session, DatabaseError> {
+        <Self as Database>::update_session(self, session, None)
     }
 
-    pub async fn delete_session(&self, session_id: uuid::Uuid) -> Result<(), DatabaseError> {
-        <Self as Database>::delete_session(self, session_id, None).await
+    pub fn delete_session(&self, session_id: uuid::Uuid) -> Result<(), DatabaseError> {
+        <Self as Database>::delete_session(self, session_id, None)
     }
 }
 
@@ -168,7 +168,7 @@ impl Database for Sqlite {
     where
         Self: 'a;
 
-    async fn begin_transaction(&self) -> Result<Self::Transaction<'_>, DatabaseError> {
+    fn begin_transaction(&self) -> Result<Self::Transaction<'_>, DatabaseError> {
         let conn = self.conn.lock().map_err(|_| DatabaseError::PoisonedLock)?;
         conn.execute_batch("BEGIN IMMEDIATE;")?;
         Ok(SqliteTransaction {
@@ -177,15 +177,15 @@ impl Database for Sqlite {
         })
     }
 
-    async fn list_projects(&self) -> Result<Vec<Project>, DatabaseError> {
+    fn list_projects(&self) -> Result<Vec<Project>, DatabaseError> {
         self.with_conn(projects::list_projects)
     }
 
-    async fn get_project(&self, project_id: uuid::Uuid) -> Result<Option<Project>, DatabaseError> {
+    fn get_project(&self, project_id: uuid::Uuid) -> Result<Option<Project>, DatabaseError> {
         self.with_conn(|conn| projects::get_project(conn, project_id))
     }
 
-    async fn create_project(
+    fn create_project(
         &self,
         project: Project,
         tx: Option<&mut Self::Transaction<'_>>,
@@ -193,7 +193,7 @@ impl Database for Sqlite {
         self.with_optional_tx_conn(tx, |conn| projects::create_project(conn, &project))
     }
 
-    async fn update_project(
+    fn update_project(
         &self,
         project: Project,
         tx: Option<&mut Self::Transaction<'_>>,
@@ -201,7 +201,7 @@ impl Database for Sqlite {
         self.with_optional_tx_conn(tx, |conn| projects::update_project(conn, &project))
     }
 
-    async fn delete_project(
+    fn delete_project(
         &self,
         project_id: uuid::Uuid,
         tx: Option<&mut Self::Transaction<'_>>,
@@ -209,18 +209,18 @@ impl Database for Sqlite {
         self.with_optional_tx_conn(tx, |conn| projects::delete_project(conn, project_id))
     }
 
-    async fn list_sessions_by_project(
+    fn list_sessions_by_project(
         &self,
         project_id: uuid::Uuid,
     ) -> Result<Vec<Session>, DatabaseError> {
         self.with_conn(|conn| sessions::list_sessions_by_project(conn, project_id))
     }
 
-    async fn get_session(&self, session_id: uuid::Uuid) -> Result<Option<Session>, DatabaseError> {
+    fn get_session(&self, session_id: uuid::Uuid) -> Result<Option<Session>, DatabaseError> {
         self.with_conn(|conn| sessions::get_session(conn, session_id))
     }
 
-    async fn create_session(
+    fn create_session(
         &self,
         session: Session,
         tx: Option<&mut Self::Transaction<'_>>,
@@ -228,7 +228,7 @@ impl Database for Sqlite {
         self.with_optional_tx_conn(tx, |conn| sessions::create_session(conn, &session))
     }
 
-    async fn update_session(
+    fn update_session(
         &self,
         session: Session,
         tx: Option<&mut Self::Transaction<'_>>,
@@ -236,7 +236,7 @@ impl Database for Sqlite {
         self.with_optional_tx_conn(tx, |conn| sessions::update_session(conn, &session))
     }
 
-    async fn delete_session(
+    fn delete_session(
         &self,
         session_id: uuid::Uuid,
         tx: Option<&mut Self::Transaction<'_>>,

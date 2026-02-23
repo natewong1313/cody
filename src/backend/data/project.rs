@@ -1,7 +1,10 @@
 use chrono::NaiveDateTime;
 use thiserror::Error;
+use tonic::Status;
 use uuid::Uuid;
 
+use super::proto_utils::{format_naive_datetime, parse_naive_datetime, parse_uuid};
+use crate::backend::grpc::project::ProjectModel;
 use crate::backend::{BackendContext, db::DatabaseError};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -17,6 +20,40 @@ pub struct Project {
 pub enum ProjectRepoError {
     #[error("database error: {0}")]
     Database(#[from] DatabaseError),
+}
+
+impl From<ProjectRepoError> for tonic::Status {
+    fn from(err: ProjectRepoError) -> Self {
+        match err {
+            ProjectRepoError::Database(e) => tonic::Status::internal(e.to_string()),
+        }
+    }
+}
+
+impl From<Project> for ProjectModel {
+    fn from(project: Project) -> Self {
+        Self {
+            id: project.id.to_string(),
+            name: project.name,
+            dir: project.dir,
+            created_at: format_naive_datetime(project.created_at),
+            updated_at: format_naive_datetime(project.updated_at),
+        }
+    }
+}
+
+impl TryFrom<ProjectModel> for Project {
+    type Error = Status;
+
+    fn try_from(model: ProjectModel) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: parse_uuid("project.id", &model.id)?,
+            name: model.name,
+            dir: model.dir,
+            created_at: parse_naive_datetime("project.created_at", &model.created_at)?,
+            updated_at: parse_naive_datetime("project.updated_at", &model.updated_at)?,
+        })
+    }
 }
 
 pub struct ProjectRepo<D>
@@ -35,23 +72,23 @@ where
     }
 
     pub async fn list(&self) -> Result<Vec<Project>, ProjectRepoError> {
-        Ok(self.ctx.db.list_projects().await?)
+        Ok(self.ctx.db.list_projects()?)
     }
 
     pub async fn get(&self, id: &Uuid) -> Result<Option<Project>, ProjectRepoError> {
-        Ok(self.ctx.db.get_project(*id).await?)
+        Ok(self.ctx.db.get_project(*id)?)
     }
 
     pub async fn create(&self, project: &Project) -> Result<Project, ProjectRepoError> {
-        Ok(self.ctx.db.create_project(project.clone(), None).await?)
+        Ok(self.ctx.db.create_project(project.clone(), None)?)
     }
 
     pub async fn update(&self, project: &Project) -> Result<Project, ProjectRepoError> {
-        Ok(self.ctx.db.update_project(project.clone(), None).await?)
+        Ok(self.ctx.db.update_project(project.clone(), None)?)
     }
 
     pub async fn delete(&self, project_id: &Uuid) -> Result<(), ProjectRepoError> {
-        self.ctx.db.delete_project(*project_id, None).await?;
+        self.ctx.db.delete_project(*project_id, None)?;
         Ok(())
     }
 }

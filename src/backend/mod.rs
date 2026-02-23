@@ -15,6 +15,7 @@ pub use local::{LocalBackend, LocalBackendStartupError};
 
 mod data;
 mod db;
+mod grpc;
 mod harness;
 mod local;
 pub mod rpc;

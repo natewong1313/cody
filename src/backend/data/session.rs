@@ -1,10 +1,13 @@
 use chrono::NaiveDateTime;
 use thiserror::Error;
+use tonic::Status;
 use uuid::Uuid;
 
+use super::proto_utils::{format_naive_datetime, parse_naive_datetime, parse_uuid};
 use crate::backend::{
     BackendContext,
     db::{DatabaseError, DatabaseTransaction},
+    grpc::session::SessionModel,
     harness::Harness,
 };
 
@@ -28,6 +31,46 @@ pub enum SessionRepoError {
     Harness(String),
 }
 
+impl From<SessionRepoError> for tonic::Status {
+    fn from(err: SessionRepoError) -> Self {
+        match err {
+            SessionRepoError::Database(e) => tonic::Status::internal(e.to_string()),
+            SessionRepoError::ProjectNotFound(id) => {
+                tonic::Status::not_found(format!("project not found: {id}"))
+            }
+            SessionRepoError::Harness(message) => tonic::Status::unavailable(message),
+        }
+    }
+}
+
+impl From<Session> for SessionModel {
+    fn from(session: Session) -> Self {
+        Self {
+            id: session.id.to_string(),
+            project_id: session.project_id.to_string(),
+            show_in_gui: session.show_in_gui,
+            name: session.name,
+            created_at: format_naive_datetime(session.created_at),
+            updated_at: format_naive_datetime(session.updated_at),
+        }
+    }
+}
+
+impl TryFrom<SessionModel> for Session {
+    type Error = Status;
+
+    fn try_from(model: SessionModel) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: parse_uuid("session.id", &model.id)?,
+            project_id: parse_uuid("session.project_id", &model.project_id)?,
+            show_in_gui: model.show_in_gui,
+            name: model.name,
+            created_at: parse_naive_datetime("session.created_at", &model.created_at)?,
+            updated_at: parse_naive_datetime("session.updated_at", &model.updated_at)?,
+        })
+    }
+}
+
 pub struct SessionRepo<D>
 where
     D: crate::backend::db::Database,
@@ -47,28 +90,23 @@ where
         &self,
         project_id: &Uuid,
     ) -> Result<Vec<Session>, SessionRepoError> {
-        Ok(self.ctx.db.list_sessions_by_project(*project_id).await?)
+        Ok(self.ctx.db.list_sessions_by_project(*project_id)?)
     }
 
     pub async fn get(&self, id: &Uuid) -> Result<Option<Session>, SessionRepoError> {
-        Ok(self.ctx.db.get_session(*id).await?)
+        Ok(self.ctx.db.get_session(*id)?)
     }
 
     pub async fn create(&self, session: &Session) -> Result<Session, SessionRepoError> {
         let project = self
             .ctx
             .db
-            .get_project(session.project_id)
-            .await?
+            .get_project(session.project_id)?
             .ok_or(SessionRepoError::ProjectNotFound(session.project_id))?;
 
-        let mut tx = self.ctx.db.begin_transaction().await?;
+        let mut tx = self.ctx.db.begin_transaction()?;
 
-        let created = self
-            .ctx
-            .db
-            .create_session(session.clone(), Some(&mut tx))
-            .await?;
+        let created = self.ctx.db.create_session(session.clone(), Some(&mut tx))?;
 
         let project_dir = Some(project.dir.as_str());
         if let Err(e) = self
@@ -82,15 +120,16 @@ where
         }
 
         tx.commit()?;
+
         Ok(created)
     }
 
     pub async fn update(&self, session: &Session) -> Result<Session, SessionRepoError> {
-        Ok(self.ctx.db.update_session(session.clone(), None).await?)
+        Ok(self.ctx.db.update_session(session.clone(), None)?)
     }
 
     pub async fn delete(&self, session_id: &Uuid) -> Result<(), SessionRepoError> {
-        self.ctx.db.delete_session(*session_id, None).await?;
+        self.ctx.db.delete_session(*session_id, None)?;
         Ok(())
     }
 }

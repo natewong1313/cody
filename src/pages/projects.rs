@@ -50,40 +50,40 @@ impl ProjectsPage {
                     .inner_margin(0.0),
             )
             .show(ctx, |ui| {
-                let loading = page_ctx.query.projects_loading();
-                let projects = page_ctx.query.projects().to_vec();
-                let error = page_ctx.query.projects_error().map(str::to_owned);
-
-                if projects.is_empty() && loading {
-                    ui.centered_and_justified(|ui| {
-                        ui.label(
-                            RichText::new("Loading projects...")
-                                .color(BG_500)
-                                .size(16.0),
-                        );
-                    });
-                    return;
-                }
-
-                if projects.is_empty() {
-                    if let Some(error) = error {
-                        ui.centered_and_justified(|ui| {
-                            ui.label(RichText::new(error).color(egui::Color32::RED).size(14.0));
-                        });
-                        ui.add_space(8.0);
-                        ui.centered_and_justified(|ui| {
-                            if StyledButton::new("Retry").show(ui).clicked() {
-                                page_ctx.query.refresh_projects();
-                            }
-                        });
-                        return;
-                    }
-
-                    self.render_no_projects_screen(ui);
-                    return;
-                }
-
-                self.render_projects_screen(ui, page_ctx, &projects);
+                // let loading = page_ctx.query.projects_loading();
+                // let projects = page_ctx.query.projects().to_vec();
+                // let error = page_ctx.query.projects_error().map(str::to_owned);
+                //
+                // if projects.is_empty() && loading {
+                //     ui.centered_and_justified(|ui| {
+                //         ui.label(
+                //             RichText::new("Loading projects...")
+                //                 .color(BG_500)
+                //                 .size(16.0),
+                //         );
+                //     });
+                //     return;
+                // }
+                //
+                // if projects.is_empty() {
+                //     if let Some(error) = error {
+                //         ui.centered_and_justified(|ui| {
+                //             ui.label(RichText::new(error).color(egui::Color32::RED).size(14.0));
+                //         });
+                //         ui.add_space(8.0);
+                //         ui.centered_and_justified(|ui| {
+                //             if StyledButton::new("Retry").show(ui).clicked() {
+                //                 page_ctx.query.refresh_projects();
+                //             }
+                //         });
+                //         return;
+                //     }
+                //
+                //     self.render_no_projects_screen(ui);
+                //     return;
+                // }
+                //
+                // self.render_projects_screen(ui, page_ctx, &projects);
             });
 
         if self.modal_open {
@@ -282,7 +282,7 @@ impl ProjectsPage {
             updated_at: now,
         };
 
-        page_ctx.query.create_project(project);
+        // page_ctx.query.create_project(project);
 
         self.reset_form();
     }
