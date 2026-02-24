@@ -145,27 +145,21 @@ impl ProjectPage {
                     .inner_margin(0.0),
             )
             .show(ctx, |ui| {
-                // page_ctx.live_query.poll(ui);
-                //
-                // let sessions_state = page_ctx.live_query.sessions_by_project(project_id);
-                // if let Loadable::Ready(sessions) = &sessions_state {
-                //     self.sync_session_tabs(sessions);
-                // }
-                //
-                // match page_ctx.live_query.project(project_id) {
-                //     Loadable::Ready(Some(project)) => {
-                //         self.render_project(ui, page_ctx, &project, &sessions_state);
-                //     }
-                //     Loadable::Ready(None) => {
-                //         ui.label("Project not found");
-                //     }
-                //     Loadable::Idle | Loadable::Loading => {
-                //         ui.label("Loading project...");
-                //     }
-                //     Loadable::Error(error) => {
-                //         ui.label(RichText::new(error).color(egui::Color32::RED));
-                //     }
-                // }
+                match page_ctx.query.use_sessions_by_project(ui, project_id) {
+                    crate::query::QueryState::Loading => {
+                        ui.label(RichText::new("Loading sessions...").color(BG_500));
+                    }
+                    crate::query::QueryState::Error(error) => {
+                        ui.label(RichText::new(error).color(egui::Color32::RED));
+                    }
+                    crate::query::QueryState::Data(sessions) if sessions.is_empty() => {
+                        ui.label(RichText::new("No sessions yet").color(BG_500));
+                    }
+                    crate::query::QueryState::Data(sessions) => {
+                        self.sync_session_tabs(&sessions);
+                        self.render_sessions_dock(ui, &sessions);
+                    }
+                }
             });
     }
 

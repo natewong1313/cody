@@ -132,7 +132,10 @@ fn init_tracing() {
         .or_else(|_| EnvFilter::try_new(default_filter))
         .unwrap_or_else(|_| EnvFilter::new("info"));
 
-    if let Err(err) = tracing_subscriber::fmt().with_env_filter(env_filter).try_init() {
+    if let Err(err) = tracing_subscriber::fmt()
+        .with_env_filter(env_filter)
+        .try_init()
+    {
         eprintln!("tracing already initialized (continuing): {err}");
     }
 }

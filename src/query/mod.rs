@@ -1,12 +1,17 @@
 use egui::Ui;
 use tonic::transport::Endpoint;
+use uuid::Uuid;
 
 use crate::{
     BACKEND_ADDR,
-    query::project::{Projects, ProjectsState},
+    query::{
+        project::{Projects, ProjectsState},
+        session::{Sessions, SessionsState},
+    },
 };
 
 mod project;
+mod session;
 
 #[derive(Debug, Clone)]
 pub enum QueryState<T> {
@@ -17,6 +22,7 @@ pub enum QueryState<T> {
 
 pub struct QueryClient {
     projects: Projects,
+    sessions: Sessions,
 }
 
 impl QueryClient {
@@ -26,11 +32,16 @@ impl QueryClient {
             .connect_lazy();
         let projects = Projects::new(backend_channel.clone());
         projects.listen_updates();
+        let sessions = Sessions::new(backend_channel);
 
-        Self { projects }
+        Self { projects, sessions }
     }
 
     pub fn use_projects(&mut self, ui: &Ui) -> ProjectsState {
         self.projects.subscribe_state(ui)
+    }
+
+    pub fn use_sessions_by_project(&mut self, ui: &Ui, project_id: Uuid) -> SessionsState {
+        self.sessions.subscribe_state(ui, project_id)
     }
 }

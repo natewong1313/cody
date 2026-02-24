@@ -1,4 +1,4 @@
-use crate::backend::Project;
+use crate::backend::{Project, Session};
 use crate::components::button::{ButtonSize, ButtonVariant, StyledButton};
 use crate::components::dir_button::DirButton;
 use crate::components::project_card::ProjectCard;
@@ -269,7 +269,23 @@ impl ProjectsPage {
             updated_at: now,
         };
 
-        page_ctx.mutations.create_project(project);
+        let session = Session {
+            id: Uuid::new_v4(),
+            project_id,
+            show_in_gui: true,
+            name: "New Session".to_string(),
+            created_at: now,
+            updated_at: now,
+        };
+
+        page_ctx
+            .mutations
+            .create_project_with_initial_session(project, session);
+
+        page_ctx
+            .action_sender
+            .send(PageAction::Navigate(Route::Project { id: project_id }))
+            .ok();
 
         self.reset_form();
     }

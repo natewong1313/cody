@@ -29,6 +29,9 @@ pub(in crate::backend) mod proto_session {
     tonic::include_proto!("session");
 }
 use proto_session::session_server::SessionServer;
+pub use proto_session::{
+    ListSessionsByProjectReply, ListSessionsByProjectRequest, session_client::SessionClient,
+};
 
 pub struct BackendContext<D>
 where
