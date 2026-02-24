@@ -16,12 +16,15 @@ mod repo;
 mod service;
 mod state;
 
-pub mod proto_project {
+pub(in crate::backend) mod proto_project {
     tonic::include_proto!("project");
 }
 use proto_project::project_server::ProjectServer;
+pub use proto_project::{
+    SubscribeProjectsReply, SubscribeProjectsRequest, project_client::ProjectClient,
+};
 
-pub mod proto_session {
+pub(in crate::backend) mod proto_session {
     tonic::include_proto!("session");
 }
 use proto_session::session_server::SessionServer;

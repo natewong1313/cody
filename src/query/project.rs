@@ -3,12 +3,7 @@ use egui_inbox::UiInbox;
 use futures::StreamExt;
 use tonic::{Request, transport::Channel};
 
-use crate::backend::{
-    Project,
-    proto_project::{
-        SubscribeProjectsReply, SubscribeProjectsRequest, project_client::ProjectClient,
-    },
-};
+use crate::backend::{Project, ProjectClient, SubscribeProjectsReply, SubscribeProjectsRequest};
 
 use super::QueryState;
 

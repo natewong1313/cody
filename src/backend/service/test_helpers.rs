@@ -11,8 +11,8 @@ use crate::backend::{
     db::sqlite::Sqlite,
     harness::opencode::OpencodeHarness,
     proto_project::ProjectModel,
-    repo::{project::ProjectRepo, session::SessionRepo},
     proto_session::SessionModel,
+    repo::{project::ProjectRepo, session::SessionRepo},
 };
 
 pub fn closed_port() -> u32 {
