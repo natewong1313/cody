@@ -1,6 +1,7 @@
 use crate::app::App;
 use egui::ViewportBuilder;
 use egui::{FontData, FontDefinitions, FontFamily};
+use tracing_subscriber::EnvFilter;
 
 use anyhow::Result;
 
@@ -125,14 +126,21 @@ fn run_app(env: AppEnv) -> eframe::Result {
     )
 }
 
+fn init_tracing() {
+    tracing_log::LogTracer::init().expect("failed to initialize log tracer");
+
+    let default_filter = "info,cody=debug,winit=warn,tracing::span=warn";
+    let env_filter = EnvFilter::try_from_default_env()
+        .or_else(|_| EnvFilter::try_new(default_filter))
+        .unwrap_or_else(|_| EnvFilter::new("info"));
+
+    tracing_subscriber::fmt().with_env_filter(env_filter).init();
+}
+
 #[cfg(not(feature = "local"))]
 #[tokio::main]
 async fn main() -> Result<()> {
-    env_logger::Builder::from_default_env()
-        .filter_level(log::LevelFilter::Info)
-        .filter(Some("winit"), log::LevelFilter::Warn)
-        .filter(Some("tracing::span"), log::LevelFilter::Warn)
-        .init();
+    init_tracing();
 
     log::info!("Starting opencode gui (production mode)");
 
@@ -150,11 +158,7 @@ async fn main() -> Result<()> {
 #[cfg(feature = "local")]
 #[tokio::main]
 async fn main() -> Result<()> {
-    env_logger::Builder::from_default_env()
-        .filter_level(log::LevelFilter::Debug)
-        .filter(Some("winit"), log::LevelFilter::Warn)
-        .filter(Some("tracing::span"), log::LevelFilter::Warn)
-        .init();
+    init_tracing();
 
     log::info!("Starting opencode gui (development mode with hot-reload)");
     log::info!("Run with: dx serve --hot-patch");
