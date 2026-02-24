@@ -17,7 +17,6 @@ mod data;
 mod db;
 mod grpc;
 mod harness;
-mod local;
 pub mod proto_utils;
 mod state;
 
