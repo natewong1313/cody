@@ -12,7 +12,6 @@ use uuid::Uuid;
 pub use data::project::Project;
 pub use data::session::Session;
 pub use grpc::spawn_backend;
-pub use local::{LocalBackend, LocalBackendStartupError};
 
 mod data;
 mod db;
@@ -20,7 +19,6 @@ mod grpc;
 mod harness;
 mod local;
 pub mod proto_utils;
-pub mod rpc;
 mod state;
 
 #[derive(Debug, Clone, thiserror::Error, Serialize, Deserialize)]
