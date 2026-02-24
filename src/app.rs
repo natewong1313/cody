@@ -1,64 +1,58 @@
-use std::{
-    collections::HashMap,
-    sync::mpsc::{Receiver, Sender, channel},
-};
+use std::sync::mpsc::{Receiver, Sender, channel};
 
+use crate::BACKEND_ADDR;
+use crate::query::QueryClient;
 use crate::{
     actions::{ActionContext, handle_action},
-    live_query::LiveQueryClient,
-    opencode::{OpencodeApiClient, OpencodeSession},
     pages::{PageAction, PageContext, PagesRouter},
 };
-use egui_inbox::UiInbox;
 
 #[cfg(feature = "local")]
 use subsecond;
+use tonic::transport::{Channel, Endpoint};
 
 pub struct App {
-    pub api_client: OpencodeApiClient,
-    pub live_query: LiveQueryClient,
+    backend_channel: Channel,
+    query_client: QueryClient,
     pages_router: PagesRouter,
 
     pub action_sender: Sender<PageAction>,
     action_reciever: Receiver<PageAction>,
-
-    session_inbox: UiInbox<Result<OpencodeSession, String>>,
-    pub current_sessions: HashMap<String, OpencodeSession>,
 }
 
 impl App {
-    pub fn new(api_client: OpencodeApiClient, live_query: LiveQueryClient) -> Self {
+    pub fn new() -> Self {
         let (action_sender, action_reciever) = channel();
+        let backend_channel = Endpoint::from_shared(format!("http://{}", BACKEND_ADDR))
+            .unwrap()
+            .connect_lazy();
+        let query_client = QueryClient::new();
         Self {
-            api_client,
-            live_query,
+            backend_channel,
+            query_client,
             pages_router: PagesRouter::new(),
 
             action_sender,
             action_reciever,
-
-            session_inbox: UiInbox::new(),
-            current_sessions: HashMap::new(),
         }
     }
 }
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.query_client.connect(ctx);
+        // self.query_client.load_projects_if_needed();
+        // self.query_client.poll(ctx);
+
         while let Ok(action) = self.action_reciever.try_recv() {
             let mut action_ctx = ActionContext {
                 pages_router: &mut self.pages_router,
-                api_client: &self.api_client,
-                session_inbox: &self.session_inbox,
             };
             handle_action(&mut action_ctx, action);
         }
 
         let mut page_ctx = PageContext {
-            api_client: &self.api_client,
-            live_query: &self.live_query,
             action_sender: &self.action_sender,
-            current_sessions: &self.current_sessions,
         };
 
         // Wrap rendering in subsecond::call() for hot-reloading support

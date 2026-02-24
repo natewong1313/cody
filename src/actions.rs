@@ -6,19 +6,17 @@ use egui_inbox::UiInbox;
 
 pub struct ActionContext<'a> {
     pub pages_router: &'a mut PagesRouter,
-    pub api_client: &'a OpencodeApiClient,
-    pub session_inbox: &'a UiInbox<Result<OpencodeSession, String>>,
 }
 
 pub fn handle_action(ctx: &mut ActionContext<'_>, action: PageAction) {
     match action {
         PageAction::Navigate(page) => handle_navigate(ctx.pages_router, page),
-        PageAction::CreateSession => handle_create_session(ctx.api_client, ctx.session_inbox),
-        PageAction::SendMessage {
-            session_id,
-            message,
-            model,
-        } => handle_send_message(ctx.api_client, session_id, message, model),
+        // PageAction::CreateSession => handle_create_session(ctx.api_client, ctx.session_inbox),
+        // PageAction::SendMessage {
+        //     session_id,
+        //     message,
+        //     model,
+        // } => handle_send_message(ctx.api_client, session_id, message, model),
     }
 }
 

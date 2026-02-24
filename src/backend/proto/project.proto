@@ -1,0 +1,50 @@
+syntax = "proto3";
+package project;
+
+service Project {
+    rpc ListProjects (ListProjectsRequest) returns (ListProjectsReply);
+    rpc GetProject(GetProjectRequest) returns (GetProjectReply);
+    rpc CreateProject(CreateProjectRequest) returns (CreateProjectReply);
+    rpc UpdateProject(UpdateProjectRequest) returns (UpdateProjectReply);
+    rpc DeleteProject(DeleteProjectRequest) returns (DeleteProjectReply);
+    rpc SubscribeProjects(SubscribeProjectsRequest) returns (stream SubscribeProjectsReply);
+}
+
+message ProjectModel {
+  string id = 1;
+  string name = 2;
+  string dir = 3;
+  string created_at = 4;
+  string updated_at = 5;
+}
+
+message ListProjectsRequest {}
+message ListProjectsReply {
+  repeated ProjectModel projects = 1;
+}
+message GetProjectRequest {
+  string project_id = 1;
+}
+message GetProjectReply {
+  ProjectModel project = 1;
+}
+message CreateProjectRequest {
+  ProjectModel project = 1;
+}
+message CreateProjectReply {
+  ProjectModel project = 1;
+}
+message UpdateProjectRequest {
+  ProjectModel project = 1;
+}
+message UpdateProjectReply {
+  ProjectModel project = 1;
+}
+message DeleteProjectRequest {
+  string project_id = 1;
+}
+message DeleteProjectReply {}
+message SubscribeProjectsRequest {}
+message SubscribeProjectsReply {
+  repeated ProjectModel projects = 1;
+}

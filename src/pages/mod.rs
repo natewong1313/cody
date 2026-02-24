@@ -1,6 +1,5 @@
 use crate::{
-    live_query::LiveQueryClient,
-    opencode::{ModelSelection, OpencodeApiClient, OpencodeSession},
+    opencode::{ModelSelection, OpencodeSession},
     pages::project::ProjectPage,
     pages::projects::ProjectsPage,
 };
@@ -19,19 +18,16 @@ pub enum Route {
 
 pub enum PageAction {
     Navigate(Route),
-    CreateSession,
-    SendMessage {
-        session_id: String,
-        message: String,
-        model: Option<ModelSelection>,
-    },
+    // CreateSession,
+    // SendMessage {
+    //     session_id: String,
+    //     message: String,
+    //     model: Option<ModelSelection>,
+    // },
 }
 
 pub struct PageContext<'a> {
-    pub api_client: &'a OpencodeApiClient,
-    pub live_query: &'a LiveQueryClient,
     pub action_sender: &'a Sender<PageAction>,
-    pub current_sessions: &'a HashMap<String, OpencodeSession>,
 }
 
 pub struct PagesRouter {

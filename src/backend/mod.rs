@@ -1,95 +1,115 @@
-use self::harness::{Harness, OpencodeHarness};
-use crate::backend::db::Database;
-use chrono::NaiveDateTime;
-use rusqlite::Row;
-use uuid::Uuid;
+use crate::backend::{
+    db::{Database, DatabaseStartupError, sqlite::Sqlite},
+    harness::{Harness, opencode::OpencodeHarness},
+    repo::{project::ProjectRepo, session::SessionRepo},
+};
+use std::{net::SocketAddr, sync::Arc};
+use tokio::{sync::watch, task::JoinHandle};
+use tonic::transport::Server;
 
-pub mod data;
+pub use repo::project::Project;
+pub use repo::session::Session;
 mod db;
-mod db_migrations;
 mod harness;
-mod opencode_client;
-pub mod rpc;
+pub mod proto_utils;
+mod repo;
+mod service;
+mod state;
 
-#[derive(Clone)]
-pub struct BackendServer {
-    db: Database,
+pub mod project {
+    tonic::include_proto!("project");
+}
+use project::project_server::ProjectServer;
+
+pub mod session {
+    tonic::include_proto!("session");
+}
+use session::session_server::SessionServer;
+
+pub mod grpc {
+    pub use super::project;
+    pub use super::session;
+}
+
+pub struct BackendContext<D>
+where
+    D: Database,
+{
+    db: Arc<D>,
     harness: OpencodeHarness,
-    sender: BackendEventSender,
 }
 
-#[derive(Debug, Clone)]
-pub enum BackendEvent {
-    // Projects(Vec<Project>),
-    // Sessions(Vec<Session>),
-    ProjectUpserted(Project),
-    ProjectDeleted(Uuid),
-    SessionUpserted(Session),
-    SessionDeleted(Uuid),
-}
-type BackendEventSender = tokio::sync::broadcast::Sender<BackendEvent>;
-
-/// The parent TARPC server, rpc routes are in rpc.rs
-impl BackendServer {
-    pub fn new(sender: BackendEventSender) -> Self {
+impl<D> Clone for BackendContext<D>
+where
+    D: Database,
+{
+    fn clone(&self) -> Self {
         Self {
-            db: Database::new().expect("failed to create database"),
-            harness: OpencodeHarness::new().expect("failed to initialize opencode harness"),
-            sender,
+            db: Arc::clone(&self.db),
+            harness: self.harness.clone(),
         }
     }
+}
 
-    pub fn subscribe(&self) -> tokio::sync::broadcast::Receiver<BackendEvent> {
-        self.sender.subscribe()
-    }
-
-    pub(super) fn emit_event(&self, event: BackendEvent) {
-        if let Err(e) = self.sender.send(event) {
-            eprintln!("error emitting event {:?}", e);
-        };
+impl<D> BackendContext<D>
+where
+    D: Database,
+{
+    fn new(db: D, harness: OpencodeHarness) -> Self {
+        Self {
+            db: Arc::new(db),
+            harness,
+        }
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Project {
-    pub id: Uuid,
-    pub name: String,
-    pub dir: String,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
+pub struct BackendService {
+    project_repo: ProjectRepo<Sqlite>,
+    projects_sender: watch::Sender<Vec<Project>>,
+    session_repo: SessionRepo<Sqlite>,
 }
 
-impl Project {
-    pub fn from_row(row: &Row) -> Result<Self, rusqlite::Error> {
+#[derive(thiserror::Error, Debug)]
+pub enum BackendServiceError {
+    #[error("Database initialization failed: {0}")]
+    Database(#[from] DatabaseStartupError),
+    #[error("Harness initialization failed: {0}")]
+    Harness(String),
+}
+
+impl BackendService {
+    pub fn new() -> Result<Self, BackendServiceError> {
+        let db = Sqlite::new()?;
+        let harness =
+            OpencodeHarness::new().map_err(|e| BackendServiceError::Harness(e.to_string()))?;
+        let ctx = BackendContext::new(db, harness);
+
+        let project_repo = ProjectRepo::new(ctx.clone());
+        let (projects_sender, _) = watch::channel(Vec::new());
+        let session_repo = SessionRepo::new(ctx.clone());
+
         Ok(Self {
-            id: row.get(0)?,
-            name: row.get(1)?,
-            dir: row.get(2)?,
-            created_at: row.get(3)?,
-            updated_at: row.get(4)?,
+            project_repo,
+            projects_sender,
+            session_repo,
         })
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Session {
-    pub id: Uuid,
-    pub project_id: Uuid,
-    pub show_in_gui: bool,
-    pub name: String,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
-}
+pub fn spawn_backend(
+    addr: SocketAddr,
+) -> Result<JoinHandle<Result<(), tonic::transport::Error>>, BackendServiceError> {
+    let backend = Arc::new(BackendService::new()?);
 
-impl Session {
-    pub fn from_row(row: &Row) -> Result<Self, rusqlite::Error> {
-        Ok(Self {
-            id: row.get(0)?,
-            project_id: row.get(1)?,
-            show_in_gui: row.get(2)?,
-            name: row.get(3)?,
-            created_at: row.get(4)?,
-            updated_at: row.get(5)?,
-        })
-    }
+    let project_service = ProjectServer::new(backend.clone());
+    let session_service = SessionServer::new(backend);
+
+    Ok(tokio::spawn(async move {
+        log::info!("gRPC backend listening on {addr}");
+        Server::builder()
+            .add_service(project_service)
+            .add_service(session_service)
+            .serve(addr)
+            .await
+    }))
 }

@@ -1,64 +1,112 @@
-use crate::{
-    app::App,
-    live_query::LiveQueryClient,
-    opencode::{OpencodeApiClient, OpencodeProcess},
-};
+use crate::app::App;
+use egui::ViewportBuilder;
+use egui::{FontData, FontDefinitions, FontFamily};
+
 use anyhow::Result;
-use egui::{FontData, FontDefinitions, FontFamily, ViewportBuilder};
-use std::sync::Mutex;
 
 mod actions;
 mod app;
 mod backend;
 mod components;
-mod live_query;
 mod opencode;
 mod pages;
+mod query;
 mod theme;
-// mod ui_tests;
 
-const PORT: u32 = 6767;
+pub const BACKEND_ADDR: &str = "[::1]:50051";
 
-/// Application environment/state that gets passed to the hot-reload server
 #[derive(Clone)]
-struct AppEnv {
-    port: u32,
-    api_client: OpencodeApiClient,
-}
+struct AppEnv {}
 
-/// Global process handle for cleanup (stored separately since it's not Clone)
-static PROCESS_HANDLE: Mutex<Option<OpencodeProcess>> = Mutex::new(None);
-
-/// Setup the application environment (runs once before hot-reloading starts)
-async fn setup_app_env() -> Result<AppEnv> {
-    log::info!("Setting up application environment...");
-
-    let process = OpencodeProcess::start(PORT)
-        .map_err(|e| anyhow::anyhow!("Failed to start opencode server: {}", e))?;
-    let api_client = OpencodeApiClient::new(PORT);
-
-    // Store process handle globally for cleanup
-    *PROCESS_HANDLE.lock().unwrap() = Some(process);
-
-    log::info!("Application environment setup complete");
-
-    Ok(AppEnv {
-        port: PORT,
-        api_client,
-    })
-}
-
-/// Cleanup function to stop the opencode process
-fn cleanup_process() {
-    let mut handle = PROCESS_HANDLE.lock().unwrap();
-    if let Some(process) = handle.take() {
-        log::info!("Stopping opencode process...");
-        process.stop();
+impl AppEnv {
+    pub fn new() -> Self {
+        Self {}
     }
 }
 
-/// Run the application with hot-reloading support
-/// This function gets called by subsecond when a hot-patch is applied
+fn configure_egui(cc: &eframe::CreationContext<'_>) {
+    let mut fonts = FontDefinitions::default();
+
+    fonts.font_data.insert(
+        "JetBrainsMono-Regular".to_owned(),
+        FontData::from_static(include_bytes!(
+            "../assets/JetBrainsMono/JetBrainsMonoNerdFont-Regular.ttf"
+        ))
+        .into(),
+    );
+    fonts.font_data.insert(
+        "JetBrainsMono-Bold".to_owned(),
+        FontData::from_static(include_bytes!(
+            "../assets/JetBrainsMono/JetBrainsMonoNerdFont-Bold.ttf"
+        ))
+        .into(),
+    );
+    fonts.font_data.insert(
+        "JetBrainsMono-Italic".to_owned(),
+        FontData::from_static(include_bytes!(
+            "../assets/JetBrainsMono/JetBrainsMonoNerdFont-Italic.ttf"
+        ))
+        .into(),
+    );
+    fonts.font_data.insert(
+        "JetBrainsMono-BoldItalic".to_owned(),
+        FontData::from_static(include_bytes!(
+            "../assets/JetBrainsMono/JetBrainsMonoNerdFont-BoldItalic.ttf"
+        ))
+        .into(),
+    );
+    fonts.font_data.insert(
+        "JetBrainsMono-Medium".to_owned(),
+        FontData::from_static(include_bytes!(
+            "../assets/JetBrainsMono/JetBrainsMonoNerdFont-Medium.ttf"
+        ))
+        .into(),
+    );
+    fonts.font_data.insert(
+        "JetBrainsMono-MediumItalic".to_owned(),
+        FontData::from_static(include_bytes!(
+            "../assets/JetBrainsMono/JetBrainsMonoNerdFont-MediumItalic.ttf"
+        ))
+        .into(),
+    );
+
+    fonts
+        .families
+        .entry(FontFamily::Proportional)
+        .or_default()
+        .insert(0, "JetBrainsMono-Regular".to_owned());
+    fonts
+        .families
+        .entry(FontFamily::Monospace)
+        .or_default()
+        .insert(0, "JetBrainsMono-Regular".to_owned());
+
+    fonts.font_data.insert(
+        "phosphor".into(),
+        egui_phosphor::Variant::Regular.font_data().into(),
+    );
+    fonts
+        .families
+        .entry(FontFamily::Name("phosphor".into()))
+        .or_default()
+        .push("phosphor".into());
+
+    cc.egui_ctx.set_fonts(fonts);
+    egui_extras::install_image_loaders(&cc.egui_ctx);
+
+    #[cfg(feature = "local")]
+    {
+        use std::sync::Arc;
+
+        let ctx = cc.egui_ctx.clone();
+        subsecond::register_handler(Arc::new(move || {
+            log::debug!("Hot-reload patch received, requesting repaint");
+            ctx.request_repaint();
+        }));
+        log::info!("Subsecond hot-reload handler registered");
+    }
+}
+
 fn run_app(env: AppEnv) -> eframe::Result {
     let opts = eframe::NativeOptions {
         viewport: ViewportBuilder::default()
@@ -71,105 +119,15 @@ fn run_app(env: AppEnv) -> eframe::Result {
         "opencode gui",
         opts,
         Box::new(move |cc| {
-            let live_query = LiveQueryClient::new();
-
-            // Load JetBrains Mono Nerd Font
-            let mut fonts = FontDefinitions::default();
-
-            fonts.font_data.insert(
-                "JetBrainsMono-Regular".to_owned(),
-                FontData::from_static(include_bytes!(
-                    "../assets/JetBrainsMono/JetBrainsMonoNerdFont-Regular.ttf"
-                ))
-                .into(),
-            );
-            fonts.font_data.insert(
-                "JetBrainsMono-Bold".to_owned(),
-                FontData::from_static(include_bytes!(
-                    "../assets/JetBrainsMono/JetBrainsMonoNerdFont-Bold.ttf"
-                ))
-                .into(),
-            );
-            fonts.font_data.insert(
-                "JetBrainsMono-Italic".to_owned(),
-                FontData::from_static(include_bytes!(
-                    "../assets/JetBrainsMono/JetBrainsMonoNerdFont-Italic.ttf"
-                ))
-                .into(),
-            );
-            fonts.font_data.insert(
-                "JetBrainsMono-BoldItalic".to_owned(),
-                FontData::from_static(include_bytes!(
-                    "../assets/JetBrainsMono/JetBrainsMonoNerdFont-BoldItalic.ttf"
-                ))
-                .into(),
-            );
-            fonts.font_data.insert(
-                "JetBrainsMono-Medium".to_owned(),
-                FontData::from_static(include_bytes!(
-                    "../assets/JetBrainsMono/JetBrainsMonoNerdFont-Medium.ttf"
-                ))
-                .into(),
-            );
-            fonts.font_data.insert(
-                "JetBrainsMono-MediumItalic".to_owned(),
-                FontData::from_static(include_bytes!(
-                    "../assets/JetBrainsMono/JetBrainsMonoNerdFont-MediumItalic.ttf"
-                ))
-                .into(),
-            );
-
-            // Set JetBrains Mono as the primary text font
-            fonts
-                .families
-                .entry(FontFamily::Proportional)
-                .or_default()
-                .insert(0, "JetBrainsMono-Regular".to_owned());
-            fonts
-                .families
-                .entry(FontFamily::Monospace)
-                .or_default()
-                .insert(0, "JetBrainsMono-Regular".to_owned());
-
-            // Register Phosphor icons as a dedicated font family so icons
-            // aren't shadowed by Nerd Font PUA glyphs in the same range
-            fonts.font_data.insert(
-                "phosphor".into(),
-                egui_phosphor::Variant::Regular.font_data().into(),
-            );
-            fonts
-                .families
-                .entry(FontFamily::Name("phosphor".into()))
-                .or_default()
-                .push("phosphor".into());
-
-            cc.egui_ctx.set_fonts(fonts);
-
-            egui_extras::install_image_loaders(&cc.egui_ctx);
-
-            // Register handler to repaint UI when hot-reload patches arrive
-            #[cfg(feature = "local")]
-            {
-                use std::sync::Arc;
-
-                let ctx = cc.egui_ctx.clone();
-                subsecond::register_handler(Arc::new(move || {
-                    log::debug!("Hot-reload patch received, requesting repaint");
-                    ctx.request_repaint();
-                }));
-                log::info!("Subsecond hot-reload handler registered");
-            }
-
-            Ok(Box::new(App::new(env.api_client.clone(), live_query)))
+            configure_egui(cc);
+            Ok(Box::new(App::new()))
         }),
     )
 }
 
-/// Production main entry point (no hot-reloading)
 #[cfg(not(feature = "local"))]
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize logging, filter out winit spam
     env_logger::Builder::from_default_env()
         .filter_level(log::LevelFilter::Info)
         .filter(Some("winit"), log::LevelFilter::Warn)
@@ -178,22 +136,20 @@ async fn main() -> Result<()> {
 
     log::info!("Starting opencode gui (production mode)");
 
-    let env = setup_app_env().await?;
+    let grpc_addr = BACKEND_ADDR.parse()?;
+    let _backend_task = backend::spawn_backend(grpc_addr)
+        .map_err(|e| anyhow::anyhow!("Failed to start backend gRPC server: {e}"))?;
 
-    // Run the app directly without hot-reloading
+    let env = AppEnv::new();
+
     run_app(env).map_err(|e| anyhow::anyhow!("Application error: {}", e))?;
-
-    // Cleanup
-    cleanup_process();
 
     Ok(())
 }
 
-/// Development main entry point with hot-reloading
 #[cfg(feature = "local")]
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize logging with debug level for development, but filter out winit spam
     env_logger::Builder::from_default_env()
         .filter_level(log::LevelFilter::Debug)
         .filter(Some("winit"), log::LevelFilter::Warn)
@@ -203,22 +159,22 @@ async fn main() -> Result<()> {
     log::info!("Starting opencode gui (development mode with hot-reload)");
     log::info!("Run with: dx serve --hot-patch");
 
-    let env = setup_app_env().await?;
+    let grpc_addr = BACKEND_ADDR.parse()?;
+    let _backend_task = backend::spawn_backend(grpc_addr)
+        .map_err(|e| anyhow::anyhow!("Failed to start backend gRPC server: {e}"))?;
 
-    // Use subsecond to enable hot-reloading
-    // Note: run_app must be wrapped in subsecond::call for hot-patching to work
+    // let backend_client = backend::rpc::start_local_backend_rpc()
+    //     .await
+    //     .map_err(|e| anyhow::anyhow!("Failed to start backend RPC: {e}"))?;
+    let env = AppEnv::new();
+
     dioxus_devtools::serve_subsecond_with_args(env, |app_env| async move {
-        // Clone the environment for each hot-reload iteration
-        // subsecond::call may be invoked multiple times during hot-reloading
         subsecond::call(move || {
             let env_clone = app_env.clone();
             run_app(env_clone)
         })
     })
     .await;
-
-    // Cleanup when dev server stops
-    cleanup_process();
 
     Ok(())
 }

@@ -1,0 +1,48 @@
+syntax = "proto3";
+package session;
+
+service Session {
+    rpc ListSessionsByProject (ListSessionsByProjectRequest) returns (ListSessionsByProjectReply);
+    rpc GetSession(GetSessionRequest) returns (GetSessionReply);
+    rpc CreateSession(CreateSessionRequest) returns (CreateSessionReply);
+    rpc UpdateSession(UpdateSessionRequest) returns (UpdateSessionReply);
+    rpc DeleteSession(DeleteSessionRequest) returns (DeleteSessionReply);
+}
+
+message SessionModel {
+  string id = 1;
+  string project_id = 2;
+  bool show_in_gui = 3;
+  string name = 4;
+  string created_at = 5;
+  string updated_at = 6;
+}
+
+message ListSessionsByProjectRequest {
+  string project_id = 1;
+}
+message ListSessionsByProjectReply {
+  repeated SessionModel sessions = 1;
+}
+message GetSessionRequest {
+  string session_id = 1;
+}
+message GetSessionReply {
+  SessionModel session = 1;
+}
+message CreateSessionRequest {
+  SessionModel session = 1;
+}
+message CreateSessionReply {
+  SessionModel session = 1;
+}
+message UpdateSessionRequest {
+  SessionModel session = 1;
+}
+message UpdateSessionReply {
+  SessionModel session = 1;
+}
+message DeleteSessionRequest {
+  string session_id = 1;
+}
+message DeleteSessionReply {}

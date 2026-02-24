@@ -1,13 +1,17 @@
 # cody
 
-
-## Setup
-You'll need dioxus-cli since we use the Subsecond hot reloading package.
+### Installation
 ```shell
 cargo install dioxus-cli
 ```
 
-Then you can run the app with
+### Development
+Run with hot reloading
 ```shell
 dx serve --hot-patch --features local
+```
+
+Run tests with
+```shell
+cargo test
 ```
