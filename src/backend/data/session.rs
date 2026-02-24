@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::backend::{
     BackendContext,
-    db::{DatabaseError, DatabaseTransaction},
+    db::DatabaseError,
     grpc,
     harness::Harness,
     proto_utils::{format_naive_datetime, parse_naive_datetime, parse_uuid},
@@ -104,10 +104,6 @@ where
             .get_project(session.project_id)?
             .ok_or(SessionRepoError::ProjectNotFound(session.project_id))?;
 
-        let mut tx = self.ctx.db.begin_transaction()?;
-
-        let created = self.ctx.db.create_session(session.clone(), Some(&mut tx))?;
-
         let project_dir = Some(project.dir.as_str());
         if let Err(e) = self
             .ctx
@@ -115,21 +111,18 @@ where
             .create_session(session.clone(), project_dir)
             .await
         {
-            tx.rollback()?;
             return Err(SessionRepoError::Harness(e.to_string()));
         }
 
-        tx.commit()?;
-
-        Ok(created)
+        Ok(self.ctx.db.create_session(session.clone())?)
     }
 
     pub async fn update(&self, session: &Session) -> Result<Session, SessionRepoError> {
-        Ok(self.ctx.db.update_session(session.clone(), None)?)
+        Ok(self.ctx.db.update_session(session.clone())?)
     }
 
     pub async fn delete(&self, session_id: &Uuid) -> Result<(), SessionRepoError> {
-        self.ctx.db.delete_session(*session_id, None)?;
+        self.ctx.db.delete_session(*session_id)?;
         Ok(())
     }
 }

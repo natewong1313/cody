@@ -1,6 +1,6 @@
 use crate::backend::data::{project::Project, session::Session};
 use crate::backend::db::sqlite::Sqlite;
-use crate::backend::db::{Database, DatabaseTransaction};
+use crate::backend::db::Database;
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -446,92 +446,6 @@ async fn test_session_show_in_gui_default() {
 
     let created = db.create_session(session).unwrap();
     assert_eq!(created.show_in_gui, false);
-}
-
-#[tokio::test]
-async fn test_transaction_commit_persists_writes() {
-    let db = Sqlite::new_in_memory().unwrap();
-
-    let mut tx = db.begin_transaction().unwrap();
-
-    let project = create_test_project("Project Tx", "/tx/dir");
-    let mut created_project =
-        <Sqlite as Database>::create_project(&db, project, Some(&mut tx)).unwrap();
-
-    created_project.name = "Project Tx Updated".to_string();
-    let updated_project =
-        <Sqlite as Database>::update_project(&db, created_project, Some(&mut tx)).unwrap();
-
-    let session = create_test_session(updated_project.id, "Session Tx", true);
-    let mut created_session =
-        <Sqlite as Database>::create_session(&db, session, Some(&mut tx)).unwrap();
-
-    created_session.name = "Session Tx Updated".to_string();
-    let updated_session =
-        <Sqlite as Database>::update_session(&db, created_session, Some(&mut tx)).unwrap();
-
-    <Sqlite as Database>::delete_session(&db, updated_session.id, Some(&mut tx)).unwrap();
-    <Sqlite as Database>::delete_project(&db, updated_project.id, Some(&mut tx)).unwrap();
-
-    tx.commit().unwrap();
-    drop(tx);
-
-    let project_result = db.get_project(updated_project.id).unwrap();
-    let session_result = db.get_session(updated_session.id).unwrap();
-    assert!(project_result.is_none());
-    assert!(session_result.is_none());
-}
-
-#[tokio::test]
-async fn test_transaction_rollback_discards_writes() {
-    let db = Sqlite::new_in_memory().unwrap();
-
-    let mut tx = db.begin_transaction().unwrap();
-
-    let project = create_test_project("Rollback Project", "/rollback/dir");
-    let created_project =
-        <Sqlite as Database>::create_project(&db, project, Some(&mut tx)).unwrap();
-
-    let session = create_test_session(created_project.id, "Rollback Session", true);
-    let created_session =
-        <Sqlite as Database>::create_session(&db, session, Some(&mut tx)).unwrap();
-
-    tx.rollback().unwrap();
-    drop(tx);
-
-    let project_result = db.get_project(created_project.id).unwrap();
-    let session_result = db.get_session(created_session.id).unwrap();
-    assert!(project_result.is_none());
-    assert!(session_result.is_none());
-}
-
-#[tokio::test]
-async fn test_transaction_drop_without_finish_rolls_back() {
-    let db = Sqlite::new_in_memory().unwrap();
-
-    let project_id = {
-        let mut tx = db.begin_transaction().unwrap();
-        let project = create_test_project("Drop Rollback", "/drop/rollback");
-        let created = <Sqlite as Database>::create_project(&db, project, Some(&mut tx)).unwrap();
-        created.id
-    };
-
-    let project_result = db.get_project(project_id).unwrap();
-    assert!(project_result.is_none());
-}
-
-#[tokio::test]
-async fn test_transaction_finish_methods_are_idempotent() {
-    let db = Sqlite::new_in_memory().unwrap();
-
-    let mut tx = db.begin_transaction().unwrap();
-    tx.commit().unwrap();
-    tx.commit().unwrap();
-    drop(tx);
-
-    let mut tx = db.begin_transaction().unwrap();
-    tx.rollback().unwrap();
-    tx.rollback().unwrap();
 }
 
 #[tokio::test]

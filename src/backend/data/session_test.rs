@@ -258,7 +258,7 @@ async fn create_returns_project_not_found_when_project_missing() {
 }
 
 #[tokio::test]
-async fn create_rolls_back_when_harness_fails() {
+async fn create_does_not_persist_when_harness_fails() {
     let (project_repo, session_repo) = test_repos(closed_port());
     let project = project_repo
         .create(&test_project("p", "/tmp/p"))
