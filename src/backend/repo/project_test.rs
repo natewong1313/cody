@@ -4,10 +4,10 @@ use uuid::Uuid;
 
 use crate::backend::{
     BackendContext,
-    repo::project::{Project, ProjectRepo, ProjectRepoError},
     db::sqlite::Sqlite,
     grpc::project::ProjectModel,
     harness::opencode::OpencodeHarness,
+    repo::project::{Project, ProjectRepo, ProjectRepoError},
 };
 
 fn test_project(name: &str, dir: &str) -> Project {
@@ -66,7 +66,10 @@ fn project_proto_deserialize_from_model() {
 
     let project = Project::try_from(model).expect("valid project model should deserialize");
 
-    assert_eq!(project.id, Uuid::parse_str("11111111-2222-3333-4444-555555555555").expect("uuid should parse"));
+    assert_eq!(
+        project.id,
+        Uuid::parse_str("11111111-2222-3333-4444-555555555555").expect("uuid should parse")
+    );
     assert_eq!(project.name, "proj");
     assert_eq!(project.dir, "/tmp/proj");
     assert_eq!(project.created_at, fixed_datetime());

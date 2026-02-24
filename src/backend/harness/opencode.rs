@@ -5,8 +5,8 @@ use thiserror::Error;
 
 use crate::backend::harness::Harness;
 use crate::backend::{
-    repo::session::Session,
     harness::opencode_client::{OpencodeApiClient, OpencodeCreateSessionRequest},
+    repo::session::Session,
 };
 
 #[derive(Error, Debug)]

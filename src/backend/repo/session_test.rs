@@ -8,13 +8,13 @@ use uuid::Uuid;
 
 use crate::backend::{
     BackendContext, Project,
+    db::sqlite::Sqlite,
+    grpc::session::SessionModel,
+    harness::opencode::OpencodeHarness,
     repo::{
         project::ProjectRepo,
         session::{Session, SessionRepo, SessionRepoError},
     },
-    db::sqlite::Sqlite,
-    grpc::session::SessionModel,
-    harness::opencode::OpencodeHarness,
 };
 
 fn test_project(name: &str, dir: &str) -> Project {
@@ -90,8 +90,14 @@ fn session_proto_deserialize_from_model() {
 
     let session = Session::try_from(model).expect("valid session model should deserialize");
 
-    assert_eq!(session.id, Uuid::parse_str("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee").expect("uuid should parse"));
-    assert_eq!(session.project_id, Uuid::parse_str("11111111-2222-3333-4444-555555555555").expect("uuid should parse"));
+    assert_eq!(
+        session.id,
+        Uuid::parse_str("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee").expect("uuid should parse")
+    );
+    assert_eq!(
+        session.project_id,
+        Uuid::parse_str("11111111-2222-3333-4444-555555555555").expect("uuid should parse")
+    );
     assert!(!session.show_in_gui);
     assert_eq!(session.name, "sess");
     assert_eq!(session.created_at, fixed_datetime());

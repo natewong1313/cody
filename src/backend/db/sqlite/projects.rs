@@ -3,8 +3,8 @@ use tokio_rusqlite::rusqlite::{Connection, OptionalExtension, Row};
 use uuid::Uuid;
 
 use super::{assert_one_row_affected, check_returning_row_error};
-use crate::backend::db::DatabaseError;
 use crate::backend::Project;
+use crate::backend::db::DatabaseError;
 
 pub fn row_to_project(row: &Row) -> Result<Project, tokio_rusqlite::rusqlite::Error> {
     Ok(Project {

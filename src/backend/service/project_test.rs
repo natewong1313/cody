@@ -5,8 +5,7 @@ use uuid::Uuid;
 use crate::backend::{
     project::{
         CreateProjectRequest, DeleteProjectRequest, GetProjectRequest, ListProjectsRequest,
-        SubscribeProjectsRequest, UpdateProjectRequest,
-        project_server::Project as ProjectService,
+        SubscribeProjectsRequest, UpdateProjectRequest, project_server::Project as ProjectService,
     },
     service::test_helpers::{closed_port, test_backend, test_project, valid_project_model},
 };

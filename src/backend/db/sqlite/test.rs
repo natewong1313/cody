@@ -1,6 +1,6 @@
-use crate::backend::repo::{project::Project, session::Session};
-use crate::backend::db::sqlite::Sqlite;
 use crate::backend::db::Database;
+use crate::backend::db::sqlite::Sqlite;
+use crate::backend::repo::{project::Project, session::Session};
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -264,7 +264,10 @@ async fn test_list_sessions_by_project() {
     let created1 = db.create_session(session1).await.unwrap();
     let created2 = db.create_session(session2).await.unwrap();
 
-    let sessions = db.list_sessions_by_project(created_project.id).await.unwrap();
+    let sessions = db
+        .list_sessions_by_project(created_project.id)
+        .await
+        .unwrap();
     assert_eq!(sessions.len(), 2);
     assert_eq!(sessions[0].id, created2.id);
     assert_eq!(sessions[1].id, created1.id);
@@ -301,7 +304,10 @@ async fn test_list_sessions_ordered_by_updated_at_desc() {
     updated1.name = "Updated Session 1".to_string();
     db.update_session(updated1).await.unwrap();
 
-    let sessions = db.list_sessions_by_project(created_project.id).await.unwrap();
+    let sessions = db
+        .list_sessions_by_project(created_project.id)
+        .await
+        .unwrap();
     assert_eq!(sessions.len(), 3);
     assert_eq!(sessions[0].id, created1.id);
     assert_eq!(sessions[1].id, created3.id);
@@ -424,10 +430,16 @@ async fn test_multiple_projects_and_sessions() {
     let projects = db.list_projects().await.unwrap();
     assert_eq!(projects.len(), 2);
 
-    let sessions1 = db.list_sessions_by_project(created_project1.id).await.unwrap();
+    let sessions1 = db
+        .list_sessions_by_project(created_project1.id)
+        .await
+        .unwrap();
     assert_eq!(sessions1.len(), 5);
 
-    let sessions2 = db.list_sessions_by_project(created_project2.id).await.unwrap();
+    let sessions2 = db
+        .list_sessions_by_project(created_project2.id)
+        .await
+        .unwrap();
     assert_eq!(sessions2.len(), 3);
 }
 
@@ -543,11 +555,17 @@ async fn test_session_isolation_between_projects() {
     let created_session1 = db.create_session(session1).await.unwrap();
     let created_session2 = db.create_session(session2).await.unwrap();
 
-    let sessions1 = db.list_sessions_by_project(created_project1.id).await.unwrap();
+    let sessions1 = db
+        .list_sessions_by_project(created_project1.id)
+        .await
+        .unwrap();
     assert_eq!(sessions1.len(), 1);
     assert_eq!(sessions1[0].id, created_session1.id);
 
-    let sessions2 = db.list_sessions_by_project(created_project2.id).await.unwrap();
+    let sessions2 = db
+        .list_sessions_by_project(created_project2.id)
+        .await
+        .unwrap();
     assert_eq!(sessions2.len(), 1);
     assert_eq!(sessions2[0].id, created_session2.id);
 }

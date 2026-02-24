@@ -53,6 +53,7 @@ impl eframe::App for App {
 
         let mut page_ctx = PageContext {
             action_sender: &self.action_sender,
+            query: &mut self.query_client,
         };
 
         // Wrap rendering in subsecond::call() for hot-reloading support

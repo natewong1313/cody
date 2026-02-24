@@ -1,3 +1,5 @@
+use std::sync::{Arc, RwLock};
+
 use egui::{Context, Ui};
 use egui_inbox::UiInbox;
 use futures::StreamExt;
@@ -10,27 +12,26 @@ use crate::{
     BACKEND_ADDR,
     backend::{
         Project,
-        project::{SubscribeProjectsRequest, project_client::ProjectClient},
+        project::{
+            SubscribeProjectsReply, SubscribeProjectsRequest, project_client::ProjectClient,
+        },
     },
 };
 
-pub enum QueryUIMessage {
-    ProjectsLoaded(Result<Vec<Project>, String>),
-    ProjectCreated(Result<Project, String>),
+#[derive(Debug, Clone)]
+pub enum QueryState<T> {
+    Loading,
+    Error(String),
+    Data(T),
 }
+
+type Projects = Vec<Project>;
 
 pub struct QueryClient {
-    backend_channel: Channel,
-    updates_inbox: UiInbox<QueryUIMessage>,
-    egui_ctx: Option<egui::Context>,
-    projects: Vec<Project>,
-    projects_status: Option<ProjectsStatus>,
-}
-
-pub enum ProjectsStatus {
-    Pending,
-    Error,
-    Data(Vec<Project>),
+    egui_ctx: Arc<RwLock<Option<Context>>>,
+    // projects_state: Arc<RwLock<QueryState<Projects>>>,
+    projects_state: QueryState<Projects>,
+    projects_state_inbox: UiInbox<QueryState<Projects>>,
 }
 
 impl QueryClient {
@@ -38,140 +39,69 @@ impl QueryClient {
         let backend_channel = Endpoint::from_shared(format!("http://{}", BACKEND_ADDR))
             .unwrap()
             .connect_lazy();
-        QueryClient::spawn_projects_listener(&backend_channel);
+        let egui_ctx = Arc::new(RwLock::new(None));
+
+        let projects_state_inbox = UiInbox::new();
+        QueryClient::spawn_projects_listener(backend_channel, &projects_state_inbox);
+
         Self {
-            backend_channel,
-            updates_inbox: UiInbox::new(),
-            egui_ctx: None,
-            projects: Vec::new(),
-            projects_status: None,
+            egui_ctx,
+            projects_state: QueryState::Loading,
+            projects_state_inbox,
         }
     }
 
-    pub fn connect(&mut self, ctx: &egui::Context) {
-        self.egui_ctx = Some(ctx.clone());
+    pub fn connect(&self, ctx: &Context) {
+        *self.egui_ctx.write().expect("egui_ctx lock poisoned") = Some(ctx.clone());
     }
 
-    fn spawn_projects_listener(backend_channel: &Channel) {
-        let channel = backend_channel.clone();
+    fn spawn_projects_listener(backend_channel: Channel, inbox: &UiInbox<QueryState<Projects>>) {
+        let sender = inbox.sender().clone();
         tokio::spawn(async move {
-            let stream_result = ProjectClient::new(channel)
+            let mut stream = match ProjectClient::new(backend_channel)
                 .subscribe_projects(Request::new(SubscribeProjectsRequest {}))
                 .await
-                .map(|resp| resp.into_inner());
-            match stream_result {
-                Ok(mut stream) => {
-                    while let Some(next) = stream.next().await {
-                        let mapped = next.map_err(|e| e.to_string()).and_then(|reply| {
-                            reply
-                                .projects
-                                .into_iter()
-                                .map(Project::try_from)
-                                .collect::<Result<Vec<_>, _>>()
-                                .map_err(|e| e.to_string())
-                        });
-                        let _ = "";
-                        // let _ = sender.send(QueryUIMessage::ProjectsLoaded(mapped));
-                    }
-                }
+            {
+                Ok(resp) => resp.into_inner(),
                 Err(e) => {
-                    let _ = "";
-                    // let _ = sender.send(QueryUIMessage::ProjectsLoaded(Err(e.to_string())));
+                    sender.send(QueryState::Error(e.to_string()));
+                    return;
                 }
+            };
+
+            while let Some(next) = stream.next().await {
+                match next
+                    .map_err(|e| e.to_string())
+                    .and_then(QueryClient::map_projects)
+                {
+                    Ok(projects) => {
+                        sender.send(QueryState::Data(projects));
+                    }
+                    Err(e) => {
+                        sender.send(QueryState::Error(e.to_string()));
+                    }
+                };
             }
+
+            sender.send(QueryState::Error(
+                "projects stream closed unexpectedly".to_string(),
+            ));
         });
     }
 
-    pub fn use_projects(&mut self, ui: &mut Ui) -> ProjectsStatus {
-        ProjectsStatus::Pending
+    pub fn use_projects(&mut self, ui: &Ui) -> QueryState<Projects> {
+        if let Some(projects_update) = self.projects_state_inbox.read(ui).last() {
+            self.projects_state = projects_update;
+        }
+        self.projects_state.clone()
     }
 
-    //
-    // pub fn poll(&mut self, ctx: &Context) {
-    //     for msg in self.updates_inbox.read(ctx) {
-    //         match msg {
-    //             QueryUIMessage::ProjectsLoaded(result) => {
-    //                 self.projects_in_flight = false;
-    //                 self.projects_loading = false;
-    //
-    //                 match result {
-    //                     Ok(projects) => {
-    //                         self.projects = projects;
-    //                         self.projects_error = None;
-    //                     }
-    //                     Err(message) => {
-    //                         self.projects_error = Some(message);
-    //                     }
-    //                 }
-    //             }
-    //             QueryUIMessage::ProjectCreated(result) => match result {
-    //                 Ok(project) => {
-    //                     self.projects.retain(|p| p.id != project.id);
-    //                     self.projects.push(project);
-    //                     self.projects
-    //                         .sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
-    //                     self.projects_error = None;
-    //                 }
-    //                 Err(message) => {
-    //                     self.projects_error = Some(message);
-    //                 }
-    //             },
-    //         }
-    //     }
-    // }
-    //
-    // pub fn load_projects_if_needed(&mut self) {
-    //     if self.projects_in_flight || self.projects_loading || !self.projects.is_empty() {
-    //         return;
-    //     }
-    //
-    //     self.projects_in_flight = true;
-    //     self.projects_loading = true;
-    //     self.projects_error = None;
-    //
-    //     let client = self.backend.clone();
-    //     let sender = self.updates_inbox.sender();
-    //     tokio::spawn(async move {
-    //         let result = client
-    //             .list_projects(context::current())
-    //             .await
-    //             .map_err(|e| e.to_string())
-    //             .and_then(|r| r.map_err(|e| e.to_string()));
-    //
-    //         let _ = sender.send(QueryUIMessage::ProjectsLoaded(result));
-    //     });
-    // }
-    //
-    // pub fn projects(&self) -> &[Project] {
-    //     &self.projects
-    // }
-    //
-    // pub fn projects_loading(&self) -> bool {
-    //     self.projects_loading
-    // }
-    //
-    // pub fn projects_error(&self) -> Option<&str> {
-    //     self.projects_error.as_deref()
-    // }
-    //
-    // pub fn refresh_projects(&mut self) {
-    //     self.projects.clear();
-    //     self.projects_loading = false;
-    //     self.projects_in_flight = false;
-    // }
-    //
-    // pub fn create_project(&mut self, project: Project) {
-    //     let client = self.backend.clone();
-    //     let sender = self.updates_inbox.sender();
-    //
-    //     tokio::spawn(async move {
-    //         let result = client
-    //             .create_project(context::current(), project)
-    //             .await
-    //             .map_err(|e| e.to_string())
-    //             .and_then(|r| r.map_err(|e| e.to_string()));
-    //
-    //         let _ = sender.send(QueryUIMessage::ProjectCreated(result));
-    //     });
-    // }
+    fn map_projects(reply: SubscribeProjectsReply) -> Result<Vec<Project>, String> {
+        reply
+            .projects
+            .into_iter()
+            .map(Project::try_from)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())
+    }
 }
