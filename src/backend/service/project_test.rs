@@ -1,10 +1,11 @@
+use futures::StreamExt;
 use tonic::{Code, Request};
 use uuid::Uuid;
 
 use crate::backend::{
     project::{
         CreateProjectRequest, DeleteProjectRequest, GetProjectRequest, ListProjectsRequest,
-        UpdateProjectRequest,
+        SubscribeProjectsRequest, UpdateProjectRequest,
         project_server::Project as ProjectService,
     },
     service::test_helpers::{closed_port, test_backend, test_project, valid_project_model},
@@ -140,4 +141,35 @@ async fn create_and_delete_project_happy_path() {
         .project;
 
     assert!(fetched.is_none());
+}
+
+#[tokio::test]
+async fn subscribe_project_returns_snapshot_once() {
+    let backend = test_backend(closed_port());
+    let seeded = test_project("proj", "/tmp/proj");
+    backend
+        .project_repo
+        .create(&seeded)
+        .await
+        .expect("seed create should succeed");
+
+    let response = backend
+        .subscribe_project(Request::new(SubscribeProjectsRequest {}))
+        .await
+        .expect("subscribe_project should succeed");
+
+    let mut stream = response.into_inner();
+
+    let first = stream
+        .next()
+        .await
+        .expect("stream should yield first item")
+        .expect("first item should be ok");
+
+    assert_eq!(first.projects.len(), 1);
+    assert_eq!(first.projects[0].id, seeded.id.to_string());
+    assert_eq!(first.projects[0].name, "proj");
+    assert_eq!(first.projects[0].dir, "/tmp/proj");
+
+    assert!(stream.next().await.is_none(), "scaffold stream should end");
 }

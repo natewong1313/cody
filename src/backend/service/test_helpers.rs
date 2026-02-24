@@ -8,10 +8,10 @@ use uuid::Uuid;
 
 use crate::backend::{
     BackendContext, BackendService, Project, Session,
-    data::{project::ProjectRepo, session::SessionRepo},
     db::sqlite::Sqlite,
     harness::opencode::OpencodeHarness,
     project::ProjectModel,
+    repo::{project::ProjectRepo, session::SessionRepo},
     session::SessionModel,
 };
 

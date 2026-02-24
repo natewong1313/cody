@@ -7,6 +7,7 @@ service Project {
     rpc CreateProject(CreateProjectRequest) returns (CreateProjectReply);
     rpc UpdateProject(UpdateProjectRequest) returns (UpdateProjectReply);
     rpc DeleteProject(DeleteProjectRequest) returns (DeleteProjectReply);
+    rpc SubscribeProjects(SubscribeProjectsRequest) returns (stream SubscribeProjectsReply);
 }
 
 message ProjectModel {
@@ -43,3 +44,7 @@ message DeleteProjectRequest {
   string project_id = 1;
 }
 message DeleteProjectReply {}
+message SubscribeProjectsRequest {}
+message SubscribeProjectsReply {
+  repeated ProjectModel projects = 1;
+}

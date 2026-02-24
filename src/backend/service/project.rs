@@ -1,4 +1,6 @@
-use std::sync::Arc;
+use std::{pin::Pin, sync::Arc};
+
+use futures::{Stream, StreamExt, stream};
 use tonic::{Request, Response, Status};
 
 use super::required_field;
@@ -15,6 +17,9 @@ use crate::backend::{
 
 #[tonic::async_trait]
 impl ProjectService for Arc<BackendService> {
+    type SubscribeProjectsStream =
+        Pin<Box<dyn Stream<Item = Result<SubscribeProjectsReply, Status>> + Send + 'static>>;
+
     async fn list_projects(
         &self,
         _request: Request<ListProjectsRequest>,
@@ -48,6 +53,9 @@ impl ProjectService for Arc<BackendService> {
 
         let created = self.project_repo.create(&project).await?;
 
+        let current_projects = self.project_repo.list().await?;
+        self.projects_sender.send(current_projects).unwrap();
+
         Ok(Response::new(CreateProjectReply {
             project: Some(created.into()),
         }))
@@ -63,6 +71,9 @@ impl ProjectService for Arc<BackendService> {
 
         let updated = self.project_repo.update(&project).await?;
 
+        let current_projects = self.project_repo.list().await?;
+        self.projects_sender.send(current_projects).unwrap();
+
         Ok(Response::new(UpdateProjectReply {
             project: Some(updated.into()),
         }))
@@ -75,6 +86,36 @@ impl ProjectService for Arc<BackendService> {
         let project_id = parse_uuid("project_id", &request.into_inner().project_id)?;
         self.project_repo.delete(&project_id).await?;
 
+        let current_projects = self.project_repo.list().await?;
+        self.projects_sender.send(current_projects).unwrap();
+
         Ok(Response::new(DeleteProjectReply {}))
+    }
+
+    async fn subscribe_projects(
+        &self,
+        _request: Request<SubscribeProjectsRequest>,
+    ) -> Result<Response<Self::SubscribeProjectsStream>, Status> {
+        let projects = self.project_repo.list().await?;
+        let initial_reply = SubscribeProjectsReply {
+            projects: projects.into_iter().map(Into::into).collect(),
+        };
+        let receiver = self.projects_sender.subscribe();
+        let initial = stream::once(async move { Ok(initial_reply) });
+        let updates = stream::unfold(receiver, |mut receiver| async move {
+            if let Err(_) = receiver.changed().await {
+                return None;
+            }
+            let reply = SubscribeProjectsReply {
+                projects: receiver
+                    .borrow_and_update()
+                    .iter()
+                    .cloned()
+                    .map(Into::into)
+                    .collect(),
+            };
+            Some((Ok(reply), receiver))
+        });
+        Ok(Response::new(Box::pin(initial.chain(updates))))
     }
 }

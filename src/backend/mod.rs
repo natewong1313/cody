@@ -1,18 +1,18 @@
 use crate::backend::{
-    repo::{project::ProjectRepo, session::SessionRepo},
     db::{Database, DatabaseStartupError, sqlite::Sqlite},
     harness::{Harness, opencode::OpencodeHarness},
+    repo::{project::ProjectRepo, session::SessionRepo},
 };
 use std::{net::SocketAddr, sync::Arc};
-use tokio::task::JoinHandle;
+use tokio::{sync::watch, task::JoinHandle};
 use tonic::transport::Server;
 
 pub use repo::project::Project;
 pub use repo::session::Session;
-mod repo;
 mod db;
 mod harness;
 pub mod proto_utils;
+mod repo;
 mod service;
 mod state;
 
@@ -65,6 +65,7 @@ where
 
 pub struct BackendService {
     project_repo: ProjectRepo<Sqlite>,
+    projects_sender: watch::Sender<Vec<Project>>,
     session_repo: SessionRepo<Sqlite>,
 }
 
@@ -84,10 +85,12 @@ impl BackendService {
         let ctx = BackendContext::new(db, harness);
 
         let project_repo = ProjectRepo::new(ctx.clone());
+        let (projects_sender, _) = watch::channel(Vec::new());
         let session_repo = SessionRepo::new(ctx.clone());
 
         Ok(Self {
             project_repo,
+            projects_sender,
             session_repo,
         })
     }
