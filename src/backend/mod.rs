@@ -1,57 +1,34 @@
 use crate::backend::{
-    data::{project::ProjectRepoError, session::SessionRepoError},
-    db::Database,
-    harness::opencode::OpencodeHarness,
-    state::StateError,
+    data::{project::ProjectRepo, session::SessionRepo},
+    db::{Database, DatabaseStartupError, sqlite::Sqlite},
+    harness::{Harness, opencode::OpencodeHarness},
 };
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use tokio::sync::watch;
-use uuid::Uuid;
+use std::{net::SocketAddr, sync::Arc};
+use tokio::task::JoinHandle;
+use tonic::transport::Server;
 
 pub use data::project::Project;
 pub use data::session::Session;
-pub use grpc::spawn_backend;
-
 mod data;
 mod db;
-mod grpc;
 mod harness;
 pub mod proto_utils;
+mod service;
 mod state;
 
-#[derive(Debug, Clone, thiserror::Error, Serialize, Deserialize)]
-pub enum BackendError {
-    #[error("internal error: {0}")]
-    Internal(String),
-    #[error("project not found: {0}")]
-    ProjectNotFound(Uuid),
-    #[error("not found")]
-    NotFound,
-    #[error("backend unavailable: {0}")]
-    Unavailable(String),
+pub mod project {
+    tonic::include_proto!("project");
 }
+use project::project_server::ProjectServer;
 
-impl From<ProjectRepoError> for BackendError {
-    fn from(err: ProjectRepoError) -> Self {
-        Self::Internal(err.to_string())
-    }
+pub mod session {
+    tonic::include_proto!("session");
 }
+use session::session_server::SessionServer;
 
-impl From<SessionRepoError> for BackendError {
-    fn from(err: SessionRepoError) -> Self {
-        match err {
-            SessionRepoError::ProjectNotFound(id) => Self::ProjectNotFound(id),
-            SessionRepoError::Harness(message) => Self::Unavailable(message),
-            SessionRepoError::Database(e) => Self::Internal(e.to_string()),
-        }
-    }
-}
-
-impl From<StateError> for BackendError {
-    fn from(err: StateError) -> Self {
-        Self::Internal(err.to_string())
-    }
+pub mod grpc {
+    pub use super::project;
+    pub use super::session;
 }
 
 pub struct BackendContext<D>
@@ -86,31 +63,50 @@ where
     }
 }
 
-pub trait Backend {
-    async fn subscribe_projects(&self) -> Result<watch::Receiver<Vec<Project>>, BackendError>;
-    async fn subscribe_project(
-        &self,
-        project_id: Uuid,
-    ) -> Result<watch::Receiver<Option<Project>>, BackendError>;
-    async fn subscribe_sessions_by_project(
-        &self,
-        project_id: Uuid,
-    ) -> Result<watch::Receiver<Vec<Session>>, BackendError>;
-    async fn subscribe_session(
-        &self,
-        session_id: Uuid,
-    ) -> Result<watch::Receiver<Option<Session>>, BackendError>;
-    async fn list_projects(&self) -> Result<Vec<Project>, BackendError>;
-    async fn get_project(&self, project_id: Uuid) -> Result<Option<Project>, BackendError>;
-    async fn create_project(&self, project: Project) -> Result<Project, BackendError>;
-    async fn update_project(&self, project: Project) -> Result<Project, BackendError>;
-    async fn delete_project(&self, project_id: Uuid) -> Result<(), BackendError>;
-    async fn list_sessions_by_project(
-        &self,
-        project_id: Uuid,
-    ) -> Result<Vec<Session>, BackendError>;
-    async fn get_session(&self, session_id: Uuid) -> Result<Option<Session>, BackendError>;
-    async fn create_session(&self, session: Session) -> Result<Session, BackendError>;
-    async fn update_session(&self, session: Session) -> Result<Session, BackendError>;
-    async fn delete_session(&self, session_id: Uuid) -> Result<(), BackendError>;
+pub struct BackendService {
+    project_repo: ProjectRepo<Sqlite>,
+    session_repo: SessionRepo<Sqlite>,
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum BackendServiceError {
+    #[error("Database initialization failed: {0}")]
+    Database(#[from] DatabaseStartupError),
+    #[error("Harness initialization failed: {0}")]
+    Harness(String),
+}
+
+impl BackendService {
+    pub fn new() -> Result<Self, BackendServiceError> {
+        let db = Sqlite::new()?;
+        let harness =
+            OpencodeHarness::new().map_err(|e| BackendServiceError::Harness(e.to_string()))?;
+        let ctx = BackendContext::new(db, harness);
+
+        let project_repo = ProjectRepo::new(ctx.clone());
+        let session_repo = SessionRepo::new(ctx.clone());
+
+        Ok(Self {
+            project_repo,
+            session_repo,
+        })
+    }
+}
+
+pub fn spawn_backend(
+    addr: SocketAddr,
+) -> Result<JoinHandle<Result<(), tonic::transport::Error>>, BackendServiceError> {
+    let backend = Arc::new(BackendService::new()?);
+
+    let project_service = ProjectServer::new(backend.clone());
+    let session_service = SessionServer::new(backend);
+
+    Ok(tokio::spawn(async move {
+        log::info!("gRPC backend listening on {addr}");
+        Server::builder()
+            .add_service(project_service)
+            .add_service(session_service)
+            .serve(addr)
+            .await
+    }))
 }

@@ -1,7 +1,7 @@
 use egui::Context;
 use egui_inbox::UiInbox;
 
-use crate::backend::{Project, rpc::BackendRpcClient};
+use crate::backend::Project;
 
 pub enum QueryUIMessage {
     ProjectsLoaded(Result<Vec<Project>, String>),
@@ -9,7 +9,6 @@ pub enum QueryUIMessage {
 }
 
 pub struct QueryClient {
-    backend: BackendRpcClient,
     updates_inbox: UiInbox<QueryUIMessage>,
     projects: Vec<Project>,
     projects_loading: bool,
@@ -18,9 +17,8 @@ pub struct QueryClient {
 }
 
 impl QueryClient {
-    pub fn new(backend: BackendRpcClient) -> Self {
+    pub fn new() -> Self {
         Self {
-            backend,
             updates_inbox: UiInbox::new(),
             projects: Vec::new(),
             projects_loading: false,

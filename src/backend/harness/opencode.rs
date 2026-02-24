@@ -105,15 +105,3 @@ impl Drop for OpencodeHarness {
         self.cleanup();
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//
-//     #[test]
-//     fn test_creation_flow() {
-//         let harness = OpencodeHarness::new();
-//         assert_eq!(harness.is_ok(), true);
-//         assert_eq!(harness.unwrap().cleanup().is_ok(), true);
-//     }
-// }

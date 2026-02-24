@@ -50,6 +50,7 @@ impl ProjectsPage {
                     .inner_margin(0.0),
             )
             .show(ctx, |ui| {
+                ui.label("hello world");
                 // let loading = page_ctx.query.projects_loading();
                 // let projects = page_ctx.query.projects().to_vec();
                 // let error = page_ctx.query.projects_error().map(str::to_owned);

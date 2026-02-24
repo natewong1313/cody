@@ -14,9 +14,7 @@ mod query;
 mod theme;
 
 #[derive(Clone)]
-struct AppEnv {
-    // backend_client: backend::rpc::BackendRpcClient,
-}
+struct AppEnv {}
 
 impl AppEnv {
     pub fn new() -> Self {

@@ -1,32 +1,34 @@
-use std::{
-    collections::HashMap,
-    sync::mpsc::{Receiver, Sender, channel},
-};
+use std::sync::mpsc::{Receiver, Sender, channel};
 
+use crate::query::QueryClient;
 use crate::{
     actions::{ActionContext, handle_action},
-    opencode::{OpencodeApiClient, OpencodeSession},
     pages::{PageAction, PageContext, PagesRouter},
 };
-use crate::{backend::rpc::BackendRpcClient, query::QueryClient};
-use egui_inbox::UiInbox;
 
 #[cfg(feature = "local")]
 use subsecond;
+use tonic::transport::{Channel, Endpoint};
+
+const BACKEND_ENDPOINT: &str = "http://127.0.0.1:50051";
 
 pub struct App {
+    backend_channel: Channel,
+    query_client: QueryClient,
     pages_router: PagesRouter,
 
     pub action_sender: Sender<PageAction>,
     action_reciever: Receiver<PageAction>,
-    // session_inbox: UiInbox<Result<OpencodeSession, String>>,
-    // pub current_sessions: HashMap<String, OpencodeSession>,
 }
 
 impl App {
     pub fn new() -> Self {
         let (action_sender, action_reciever) = channel();
+        let query_client = QueryClient::new();
+        let backend_channel = Endpoint::from_static(BACKEND_ENDPOINT).connect_lazy();
         Self {
+            backend_channel,
+            query_client,
             pages_router: PagesRouter::new(),
 
             action_sender,

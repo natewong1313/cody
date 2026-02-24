@@ -13,7 +13,6 @@ dioxus-devtools = { version = "0.7", optional = true, features = ["serve"] }
 eframe = { version = "0.33.3", features = ["wgpu"] }
 egui = "0.33.3"
 subsecond = { version = "0.7", optional = true }
-egui-dropdown = "0.14.0"
 egui_flex = "0.5.0"
 egui_inbox = "0.10.0"
 log = "0.4"
@@ -23,18 +22,14 @@ serde_json = "1.0.149"
 eventsource-stream = "0.2.3"
 futures = "0.3"
 egui_kittest = { version = "0.33.3", features = ["snapshot", "wgpu"] }
-tarpc = { version = "0.37.0", features = ["tokio1"] }
 uuid = { version = "1.20.0", features = ["v4", "js", "serde"] }
 egui_form = { version = "0.7.0", features = ["validator_garde"] }
 garde = { version = "0.22", features = ["derive"] }
-crossbeam-channel = "0.5.15"
 egui-phosphor = "0.11.0"
 egui_extras = { version = "0.33.3", features = ["image", "svg"] }
 egui_dock = "0.18.0"
 thiserror = "2.0.18"
 chrono = { version = "0.4.43", features = ["serde"] }
-
-# Native-only dependencies
 env_logger = "0.11.8"
 libc = "0.2.180"
 tokio = { version = "1.49.0", features = ["rt", "rt-multi-thread", "macros"] }
