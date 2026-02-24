@@ -1,5 +1,4 @@
 pub mod project;
-mod proto_utils;
 pub mod session;
 
 #[cfg(test)]

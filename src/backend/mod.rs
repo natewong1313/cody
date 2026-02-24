@@ -18,6 +18,7 @@ mod db;
 mod grpc;
 mod harness;
 mod local;
+pub mod proto_utils;
 pub mod rpc;
 mod state;
 

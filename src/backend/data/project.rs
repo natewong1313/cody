@@ -3,9 +3,12 @@ use thiserror::Error;
 use tonic::Status;
 use uuid::Uuid;
 
-use super::proto_utils::{format_naive_datetime, parse_naive_datetime, parse_uuid};
-use crate::backend::grpc::project::ProjectModel;
-use crate::backend::{BackendContext, db::DatabaseError};
+use crate::backend::{
+    BackendContext,
+    db::DatabaseError,
+    grpc,
+    proto_utils::{format_naive_datetime, parse_naive_datetime, parse_uuid},
+};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Project {
@@ -30,7 +33,7 @@ impl From<ProjectRepoError> for tonic::Status {
     }
 }
 
-impl From<Project> for ProjectModel {
+impl From<Project> for grpc::project::ProjectModel {
     fn from(project: Project) -> Self {
         Self {
             id: project.id.to_string(),
@@ -42,10 +45,10 @@ impl From<Project> for ProjectModel {
     }
 }
 
-impl TryFrom<ProjectModel> for Project {
+impl TryFrom<grpc::project::ProjectModel> for Project {
     type Error = Status;
 
-    fn try_from(model: ProjectModel) -> Result<Self, Self::Error> {
+    fn try_from(model: grpc::project::ProjectModel) -> Result<Self, Self::Error> {
         Ok(Self {
             id: parse_uuid("project.id", &model.id)?,
             name: model.name,

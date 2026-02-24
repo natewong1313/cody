@@ -3,12 +3,12 @@ use thiserror::Error;
 use tonic::Status;
 use uuid::Uuid;
 
-use super::proto_utils::{format_naive_datetime, parse_naive_datetime, parse_uuid};
 use crate::backend::{
     BackendContext,
     db::{DatabaseError, DatabaseTransaction},
-    grpc::session::SessionModel,
+    grpc,
     harness::Harness,
+    proto_utils::{format_naive_datetime, parse_naive_datetime, parse_uuid},
 };
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -43,7 +43,7 @@ impl From<SessionRepoError> for tonic::Status {
     }
 }
 
-impl From<Session> for SessionModel {
+impl From<Session> for grpc::session::SessionModel {
     fn from(session: Session) -> Self {
         Self {
             id: session.id.to_string(),
@@ -56,10 +56,10 @@ impl From<Session> for SessionModel {
     }
 }
 
-impl TryFrom<SessionModel> for Session {
+impl TryFrom<grpc::session::SessionModel> for Session {
     type Error = Status;
 
-    fn try_from(model: SessionModel) -> Result<Self, Self::Error> {
+    fn try_from(model: grpc::session::SessionModel) -> Result<Self, Self::Error> {
         Ok(Self {
             id: parse_uuid("session.id", &model.id)?,
             project_id: parse_uuid("session.project_id", &model.project_id)?,
