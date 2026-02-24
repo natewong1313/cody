@@ -1,8 +1,18 @@
-use egui::Context;
+use egui::{Context, Ui};
 use egui_inbox::UiInbox;
-use tonic::transport::{Channel, Endpoint};
+use futures::StreamExt;
+use tonic::{
+    Request,
+    transport::{Channel, Endpoint},
+};
 
-use crate::{BACKEND_ADDR, backend::Project};
+use crate::{
+    BACKEND_ADDR,
+    backend::{
+        Project,
+        project::{SubscribeProjectsRequest, project_client::ProjectClient},
+    },
+};
 
 pub enum QueryUIMessage {
     ProjectsLoaded(Result<Vec<Project>, String>),
@@ -12,13 +22,12 @@ pub enum QueryUIMessage {
 pub struct QueryClient {
     backend_channel: Channel,
     updates_inbox: UiInbox<QueryUIMessage>,
+    egui_ctx: Option<egui::Context>,
     projects: Vec<Project>,
-    projects_loading: bool,
-    projects_error: Option<String>,
-    projects_in_flight: bool,
+    projects_status: Option<ProjectsStatus>,
 }
 
-pub enum ProjectsQuery {
+pub enum ProjectsStatus {
     Pending,
     Error,
     Data(Vec<Project>),
@@ -29,15 +38,54 @@ impl QueryClient {
         let backend_channel = Endpoint::from_shared(format!("http://{}", BACKEND_ADDR))
             .unwrap()
             .connect_lazy();
+        QueryClient::spawn_projects_listener(&backend_channel);
         Self {
             backend_channel,
             updates_inbox: UiInbox::new(),
+            egui_ctx: None,
             projects: Vec::new(),
-            projects_loading: false,
-            projects_error: None,
-            projects_in_flight: false,
+            projects_status: None,
         }
     }
+
+    pub fn connect(&mut self, ctx: &egui::Context) {
+        self.egui_ctx = Some(ctx.clone());
+    }
+
+    fn spawn_projects_listener(backend_channel: &Channel) {
+        let channel = backend_channel.clone();
+        tokio::spawn(async move {
+            let stream_result = ProjectClient::new(channel)
+                .subscribe_projects(Request::new(SubscribeProjectsRequest {}))
+                .await
+                .map(|resp| resp.into_inner());
+            match stream_result {
+                Ok(mut stream) => {
+                    while let Some(next) = stream.next().await {
+                        let mapped = next.map_err(|e| e.to_string()).and_then(|reply| {
+                            reply
+                                .projects
+                                .into_iter()
+                                .map(Project::try_from)
+                                .collect::<Result<Vec<_>, _>>()
+                                .map_err(|e| e.to_string())
+                        });
+                        let _ = "";
+                        // let _ = sender.send(QueryUIMessage::ProjectsLoaded(mapped));
+                    }
+                }
+                Err(e) => {
+                    let _ = "";
+                    // let _ = sender.send(QueryUIMessage::ProjectsLoaded(Err(e.to_string())));
+                }
+            }
+        });
+    }
+
+    pub fn use_projects(&mut self, ui: &mut Ui) -> ProjectsStatus {
+        ProjectsStatus::Pending
+    }
+
     //
     // pub fn poll(&mut self, ctx: &Context) {
     //     for msg in self.updates_inbox.read(ctx) {
