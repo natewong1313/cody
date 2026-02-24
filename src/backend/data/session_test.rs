@@ -1,8 +1,9 @@
-use chrono::Utc;
+use chrono::{NaiveDateTime, Utc};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpListener,
 };
+use tonic::Code;
 use uuid::Uuid;
 
 use crate::backend::{
@@ -12,6 +13,7 @@ use crate::backend::{
         session::{Session, SessionRepo, SessionRepoError},
     },
     db::sqlite::Sqlite,
+    grpc::session::SessionModel,
     harness::opencode::OpencodeHarness,
 };
 
@@ -43,6 +45,105 @@ fn test_repos(port: u32) -> (ProjectRepo<Sqlite>, SessionRepo<Sqlite>) {
     let harness = OpencodeHarness::new_for_test(port);
     let ctx = BackendContext::new(db, harness);
     (ProjectRepo::new(ctx.clone()), SessionRepo::new(ctx))
+}
+
+fn fixed_datetime() -> NaiveDateTime {
+    NaiveDateTime::parse_from_str("2025-01-02 03:04:05.123456", "%Y-%m-%d %H:%M:%S%.f")
+        .expect("fixed datetime should parse")
+}
+
+#[test]
+fn session_proto_serialize_to_model() {
+    let id = Uuid::parse_str("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee").expect("uuid should parse");
+    let project_id =
+        Uuid::parse_str("11111111-2222-3333-4444-555555555555").expect("uuid should parse");
+    let ts = fixed_datetime();
+    let session = Session {
+        id,
+        project_id,
+        show_in_gui: true,
+        name: "sess".to_string(),
+        created_at: ts,
+        updated_at: ts,
+    };
+
+    let model: SessionModel = session.into();
+
+    assert_eq!(model.id, "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+    assert_eq!(model.project_id, "11111111-2222-3333-4444-555555555555");
+    assert!(model.show_in_gui);
+    assert_eq!(model.name, "sess");
+    assert_eq!(model.created_at, "2025-01-02 03:04:05.123456");
+    assert_eq!(model.updated_at, "2025-01-02 03:04:05.123456");
+}
+
+#[test]
+fn session_proto_deserialize_from_model() {
+    let model = SessionModel {
+        id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee".to_string(),
+        project_id: "11111111-2222-3333-4444-555555555555".to_string(),
+        show_in_gui: false,
+        name: "sess".to_string(),
+        created_at: "2025-01-02 03:04:05.123456".to_string(),
+        updated_at: "2025-01-02 03:04:05.123456".to_string(),
+    };
+
+    let session = Session::try_from(model).expect("valid session model should deserialize");
+
+    assert_eq!(session.id, Uuid::parse_str("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee").expect("uuid should parse"));
+    assert_eq!(session.project_id, Uuid::parse_str("11111111-2222-3333-4444-555555555555").expect("uuid should parse"));
+    assert!(!session.show_in_gui);
+    assert_eq!(session.name, "sess");
+    assert_eq!(session.created_at, fixed_datetime());
+    assert_eq!(session.updated_at, fixed_datetime());
+}
+
+#[test]
+fn session_proto_deserialize_rejects_invalid_id() {
+    let model = SessionModel {
+        id: "not-a-uuid".to_string(),
+        project_id: "11111111-2222-3333-4444-555555555555".to_string(),
+        show_in_gui: true,
+        name: "sess".to_string(),
+        created_at: "2025-01-02 03:04:05.123456".to_string(),
+        updated_at: "2025-01-02 03:04:05.123456".to_string(),
+    };
+
+    let err = Session::try_from(model).expect_err("invalid session id should fail");
+    assert_eq!(err.code(), Code::InvalidArgument);
+    assert!(err.message().contains("session.id"));
+}
+
+#[test]
+fn session_proto_deserialize_rejects_invalid_project_id() {
+    let model = SessionModel {
+        id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee".to_string(),
+        project_id: "not-a-uuid".to_string(),
+        show_in_gui: true,
+        name: "sess".to_string(),
+        created_at: "2025-01-02 03:04:05.123456".to_string(),
+        updated_at: "2025-01-02 03:04:05.123456".to_string(),
+    };
+
+    let err = Session::try_from(model).expect_err("invalid project id should fail");
+    assert_eq!(err.code(), Code::InvalidArgument);
+    assert!(err.message().contains("session.project_id"));
+}
+
+#[test]
+fn session_proto_deserialize_rejects_invalid_datetime() {
+    let model = SessionModel {
+        id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee".to_string(),
+        project_id: "11111111-2222-3333-4444-555555555555".to_string(),
+        show_in_gui: true,
+        name: "sess".to_string(),
+        created_at: "not-a-datetime".to_string(),
+        updated_at: "2025-01-02 03:04:05.123456".to_string(),
+    };
+
+    let err = Session::try_from(model).expect_err("invalid datetime should fail");
+    assert_eq!(err.code(), Code::InvalidArgument);
+    assert!(err.message().contains("session.created_at"));
 }
 
 fn closed_port() -> u32 {
