@@ -127,14 +127,14 @@ fn run_app(env: AppEnv) -> eframe::Result {
 }
 
 fn init_tracing() {
-    tracing_log::LogTracer::init().expect("failed to initialize log tracer");
-
-    let default_filter = "info,cody=debug,winit=warn,tracing::span=warn";
+    let default_filter = "warn,cody=debug";
     let env_filter = EnvFilter::try_from_default_env()
         .or_else(|_| EnvFilter::try_new(default_filter))
         .unwrap_or_else(|_| EnvFilter::new("info"));
 
-    tracing_subscriber::fmt().with_env_filter(env_filter).init();
+    if let Err(err) = tracing_subscriber::fmt().with_env_filter(env_filter).try_init() {
+        eprintln!("tracing already initialized (continuing): {err}");
+    }
 }
 
 #[cfg(not(feature = "local"))]
