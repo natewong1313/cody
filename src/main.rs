@@ -13,6 +13,8 @@ mod pages;
 mod query;
 mod theme;
 
+pub const BACKEND_ADDR: &str = "[::1]:50051";
+
 #[derive(Clone)]
 struct AppEnv {}
 
@@ -134,7 +136,7 @@ async fn main() -> Result<()> {
 
     log::info!("Starting opencode gui (production mode)");
 
-    let grpc_addr = "127.0.0.1:50051".parse()?;
+    let grpc_addr = BACKEND_ADDR.parse()?;
     let _backend_task = backend::spawn_backend(grpc_addr)
         .map_err(|e| anyhow::anyhow!("Failed to start backend gRPC server: {e}"))?;
 
@@ -157,7 +159,7 @@ async fn main() -> Result<()> {
     log::info!("Starting opencode gui (development mode with hot-reload)");
     log::info!("Run with: dx serve --hot-patch");
 
-    let grpc_addr = "127.0.0.1:50051".parse()?;
+    let grpc_addr = BACKEND_ADDR.parse()?;
     let _backend_task = backend::spawn_backend(grpc_addr)
         .map_err(|e| anyhow::anyhow!("Failed to start backend gRPC server: {e}"))?;
 

@@ -1,7 +1,8 @@
 use egui::Context;
 use egui_inbox::UiInbox;
+use tonic::transport::{Channel, Endpoint};
 
-use crate::backend::Project;
+use crate::{BACKEND_ADDR, backend::Project};
 
 pub enum QueryUIMessage {
     ProjectsLoaded(Result<Vec<Project>, String>),
@@ -9,6 +10,7 @@ pub enum QueryUIMessage {
 }
 
 pub struct QueryClient {
+    backend_channel: Channel,
     updates_inbox: UiInbox<QueryUIMessage>,
     projects: Vec<Project>,
     projects_loading: bool,
@@ -16,9 +18,19 @@ pub struct QueryClient {
     projects_in_flight: bool,
 }
 
+pub enum ProjectsQuery {
+    Pending,
+    Error,
+    Data(Vec<Project>),
+}
+
 impl QueryClient {
     pub fn new() -> Self {
+        let backend_channel = Endpoint::from_shared(format!("http://{}", BACKEND_ADDR))
+            .unwrap()
+            .connect_lazy();
         Self {
+            backend_channel,
             updates_inbox: UiInbox::new(),
             projects: Vec::new(),
             projects_loading: false,

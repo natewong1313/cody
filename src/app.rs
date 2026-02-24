@@ -1,5 +1,6 @@
 use std::sync::mpsc::{Receiver, Sender, channel};
 
+use crate::BACKEND_ADDR;
 use crate::query::QueryClient;
 use crate::{
     actions::{ActionContext, handle_action},
@@ -9,8 +10,6 @@ use crate::{
 #[cfg(feature = "local")]
 use subsecond;
 use tonic::transport::{Channel, Endpoint};
-
-const BACKEND_ENDPOINT: &str = "http://127.0.0.1:50051";
 
 pub struct App {
     backend_channel: Channel,
@@ -24,8 +23,10 @@ pub struct App {
 impl App {
     pub fn new() -> Self {
         let (action_sender, action_reciever) = channel();
+        let backend_channel = Endpoint::from_shared(format!("http://{}", BACKEND_ADDR))
+            .unwrap()
+            .connect_lazy();
         let query_client = QueryClient::new();
-        let backend_channel = Endpoint::from_static(BACKEND_ENDPOINT).connect_lazy();
         Self {
             backend_channel,
             query_client,
