@@ -11,6 +11,7 @@ pub use repo::project::Project;
 pub use repo::session::Session;
 mod db;
 mod harness;
+pub mod mutations;
 pub mod proto_utils;
 mod repo;
 mod service;

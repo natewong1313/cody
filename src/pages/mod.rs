@@ -1,4 +1,5 @@
 use crate::{
+    backend::mutations::MutationsClient,
     opencode::{ModelSelection, OpencodeSession},
     pages::project::ProjectPage,
     pages::projects::ProjectsPage,
@@ -30,6 +31,7 @@ pub enum PageAction {
 pub struct PageContext<'a> {
     pub action_sender: &'a Sender<PageAction>,
     pub query: &'a mut QueryClient,
+    pub mutations: &'a MutationsClient,
 }
 
 pub struct PagesRouter {

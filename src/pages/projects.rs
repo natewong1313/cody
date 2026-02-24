@@ -269,7 +269,7 @@ impl ProjectsPage {
             updated_at: now,
         };
 
-        // page_ctx.query.create_project(project);
+        page_ctx.mutations.create_project(project);
 
         self.reset_form();
     }

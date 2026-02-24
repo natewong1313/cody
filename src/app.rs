@@ -1,6 +1,7 @@
 use std::sync::mpsc::{Receiver, Sender, channel};
 
 use crate::BACKEND_ADDR;
+use crate::backend::mutations::MutationsClient;
 use crate::query::QueryClient;
 use crate::{
     actions::{ActionContext, handle_action},
@@ -14,6 +15,7 @@ use tonic::transport::{Channel, Endpoint};
 pub struct App {
     backend_channel: Channel,
     query_client: QueryClient,
+    mutations_client: MutationsClient,
     pages_router: PagesRouter,
 
     pub action_sender: Sender<PageAction>,
@@ -27,9 +29,11 @@ impl App {
             .unwrap()
             .connect_lazy();
         let query_client = QueryClient::new();
+        let mutations_client = MutationsClient::new(backend_channel.clone());
         Self {
             backend_channel,
             query_client,
+            mutations_client,
             pages_router: PagesRouter::new(),
 
             action_sender,
@@ -50,6 +54,7 @@ impl eframe::App for App {
         let mut page_ctx = PageContext {
             action_sender: &self.action_sender,
             query: &mut self.query_client,
+            mutations: &self.mutations_client,
         };
 
         // Wrap rendering in subsecond::call() for hot-reloading support
