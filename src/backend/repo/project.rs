@@ -6,7 +6,7 @@ use uuid::Uuid;
 use crate::backend::{
     BackendContext,
     db::DatabaseError,
-    grpc,
+    proto_project,
     proto_utils::{format_naive_datetime, parse_naive_datetime, parse_uuid},
 };
 
@@ -33,7 +33,7 @@ impl From<ProjectRepoError> for tonic::Status {
     }
 }
 
-impl From<Project> for grpc::project::ProjectModel {
+impl From<Project> for proto_project::ProjectModel {
     fn from(project: Project) -> Self {
         Self {
             id: project.id.to_string(),
@@ -45,10 +45,10 @@ impl From<Project> for grpc::project::ProjectModel {
     }
 }
 
-impl TryFrom<grpc::project::ProjectModel> for Project {
+impl TryFrom<proto_project::ProjectModel> for Project {
     type Error = Status;
 
-    fn try_from(model: grpc::project::ProjectModel) -> Result<Self, Self::Error> {
+    fn try_from(model: proto_project::ProjectModel) -> Result<Self, Self::Error> {
         Ok(Self {
             id: parse_uuid("project.id", &model.id)?,
             name: model.name,

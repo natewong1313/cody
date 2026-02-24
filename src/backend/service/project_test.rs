@@ -3,7 +3,7 @@ use tonic::{Code, Request};
 use uuid::Uuid;
 
 use crate::backend::{
-    project::{
+    proto_project::{
         CreateProjectRequest, DeleteProjectRequest, GetProjectRequest, ListProjectsRequest,
         SubscribeProjectsRequest, UpdateProjectRequest, project_server::Project as ProjectService,
     },

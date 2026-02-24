@@ -6,8 +6,8 @@ use uuid::Uuid;
 use crate::backend::{
     BackendContext,
     db::DatabaseError,
-    grpc,
     harness::Harness,
+    proto_session,
     proto_utils::{format_naive_datetime, parse_naive_datetime, parse_uuid},
 };
 
@@ -43,7 +43,7 @@ impl From<SessionRepoError> for tonic::Status {
     }
 }
 
-impl From<Session> for grpc::session::SessionModel {
+impl From<Session> for proto_session::SessionModel {
     fn from(session: Session) -> Self {
         Self {
             id: session.id.to_string(),
@@ -56,10 +56,10 @@ impl From<Session> for grpc::session::SessionModel {
     }
 }
 
-impl TryFrom<grpc::session::SessionModel> for Session {
+impl TryFrom<proto_session::SessionModel> for Session {
     type Error = Status;
 
-    fn try_from(model: grpc::session::SessionModel) -> Result<Self, Self::Error> {
+    fn try_from(model: proto_session::SessionModel) -> Result<Self, Self::Error> {
         Ok(Self {
             id: parse_uuid("session.id", &model.id)?,
             project_id: parse_uuid("session.project_id", &model.project_id)?,

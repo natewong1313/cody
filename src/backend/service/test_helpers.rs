@@ -10,9 +10,9 @@ use crate::backend::{
     BackendContext, BackendService, Project, Session,
     db::sqlite::Sqlite,
     harness::opencode::OpencodeHarness,
-    project::ProjectModel,
+    proto_project::ProjectModel,
     repo::{project::ProjectRepo, session::SessionRepo},
-    session::SessionModel,
+    proto_session::SessionModel,
 };
 
 pub fn closed_port() -> u32 {

@@ -2,14 +2,14 @@ use tonic::{Code, Request};
 use uuid::Uuid;
 
 use crate::backend::{
-    service::test_helpers::{
-        closed_port, spawn_fake_opencode_server, test_backend, test_project, test_session,
-        valid_session_model,
-    },
-    session::{
+    proto_session::{
         CreateSessionRequest, DeleteSessionRequest, GetSessionRequest,
         ListSessionsByProjectRequest, UpdateSessionRequest,
         session_server::Session as SessionService,
+    },
+    service::test_helpers::{
+        closed_port, spawn_fake_opencode_server, test_backend, test_project, test_session,
+        valid_session_model,
     },
 };
 

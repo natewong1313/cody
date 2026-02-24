@@ -16,20 +16,15 @@ mod repo;
 mod service;
 mod state;
 
-pub mod project {
+pub mod proto_project {
     tonic::include_proto!("project");
 }
-use project::project_server::ProjectServer;
+use proto_project::project_server::ProjectServer;
 
-pub mod session {
+pub mod proto_session {
     tonic::include_proto!("session");
 }
-use session::session_server::SessionServer;
-
-pub mod grpc {
-    pub use super::project;
-    pub use super::session;
-}
+use proto_session::session_server::SessionServer;
 
 pub struct BackendContext<D>
 where

@@ -9,8 +9,8 @@ use uuid::Uuid;
 use crate::backend::{
     BackendContext, Project,
     db::sqlite::Sqlite,
-    grpc::session::SessionModel,
     harness::opencode::OpencodeHarness,
+    proto_session::SessionModel,
     repo::{
         project::ProjectRepo,
         session::{Session, SessionRepo, SessionRepoError},

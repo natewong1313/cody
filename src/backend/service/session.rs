@@ -4,13 +4,13 @@ use tonic::{Request, Response, Status};
 use super::required_field;
 use crate::backend::{
     BackendService, Session,
-    proto_utils::parse_uuid,
-    session::session_server::Session as SessionService,
-    session::{
+    proto_session::{
         CreateSessionReply, CreateSessionRequest, DeleteSessionReply, DeleteSessionRequest,
         GetSessionReply, GetSessionRequest, ListSessionsByProjectReply,
         ListSessionsByProjectRequest, UpdateSessionReply, UpdateSessionRequest,
+        session_server::Session as SessionService,
     },
+    proto_utils::parse_uuid,
 };
 
 #[tonic::async_trait]

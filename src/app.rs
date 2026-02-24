@@ -40,10 +40,6 @@ impl App {
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        self.query_client.connect(ctx);
-        // self.query_client.load_projects_if_needed();
-        // self.query_client.poll(ctx);
-
         while let Ok(action) = self.action_reciever.try_recv() {
             let mut action_ctx = ActionContext {
                 pages_router: &mut self.pages_router,

@@ -5,8 +5,8 @@ use uuid::Uuid;
 use crate::backend::{
     BackendContext,
     db::sqlite::Sqlite,
-    grpc::project::ProjectModel,
     harness::opencode::OpencodeHarness,
+    proto_project::ProjectModel,
     repo::project::{Project, ProjectRepo, ProjectRepoError},
 };
 

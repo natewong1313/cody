@@ -6,7 +6,7 @@ use tonic::{Request, Response, Status};
 use super::required_field;
 use crate::backend::{
     BackendService, Project,
-    project::{
+    proto_project::{
         CreateProjectReply, CreateProjectRequest, DeleteProjectReply, DeleteProjectRequest,
         GetProjectReply, GetProjectRequest, ListProjectsReply, ListProjectsRequest,
         SubscribeProjectsReply, SubscribeProjectsRequest, UpdateProjectReply, UpdateProjectRequest,
