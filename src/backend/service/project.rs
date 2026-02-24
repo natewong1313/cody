@@ -4,11 +4,11 @@ use tonic::{Request, Response, Status};
 use super::required_field;
 use crate::backend::{
     BackendService, Project,
-    project::project_server::Project as ProjectService,
     project::{
         CreateProjectReply, CreateProjectRequest, DeleteProjectReply, DeleteProjectRequest,
         GetProjectReply, GetProjectRequest, ListProjectsReply, ListProjectsRequest,
-        UpdateProjectReply, UpdateProjectRequest,
+        SubscribeProjectsReply, SubscribeProjectsRequest, UpdateProjectReply, UpdateProjectRequest,
+        project_server::Project as ProjectService,
     },
     proto_utils::parse_uuid,
 };

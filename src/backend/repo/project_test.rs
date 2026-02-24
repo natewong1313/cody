@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::backend::{
     BackendContext,
-    data::project::{Project, ProjectRepo, ProjectRepoError},
+    repo::project::{Project, ProjectRepo, ProjectRepoError},
     db::sqlite::Sqlite,
     grpc::project::ProjectModel,
     harness::opencode::OpencodeHarness,

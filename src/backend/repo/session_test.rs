@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::backend::{
     BackendContext, Project,
-    data::{
+    repo::{
         project::ProjectRepo,
         session::{Session, SessionRepo, SessionRepoError},
     },

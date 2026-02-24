@@ -1,4 +1,4 @@
-use crate::backend::data::session::Session;
+use crate::backend::repo::session::Session;
 
 pub mod opencode;
 mod opencode_client;

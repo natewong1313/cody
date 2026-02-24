@@ -1,4 +1,4 @@
-use crate::backend::data::{project::Project, session::Session};
+use crate::backend::repo::{project::Project, session::Session};
 use crate::backend::db::sqlite::Sqlite;
 use crate::backend::db::Database;
 use chrono::Utc;

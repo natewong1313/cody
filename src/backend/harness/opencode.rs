@@ -5,7 +5,7 @@ use thiserror::Error;
 
 use crate::backend::harness::Harness;
 use crate::backend::{
-    data::session::Session,
+    repo::session::Session,
     harness::opencode_client::{OpencodeApiClient, OpencodeCreateSessionRequest},
 };
 

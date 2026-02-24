@@ -1,5 +1,5 @@
 use crate::backend::{
-    data::{project::ProjectRepo, session::SessionRepo},
+    repo::{project::ProjectRepo, session::SessionRepo},
     db::{Database, DatabaseStartupError, sqlite::Sqlite},
     harness::{Harness, opencode::OpencodeHarness},
 };
@@ -7,9 +7,9 @@ use std::{net::SocketAddr, sync::Arc};
 use tokio::task::JoinHandle;
 use tonic::transport::Server;
 
-pub use data::project::Project;
-pub use data::session::Session;
-mod data;
+pub use repo::project::Project;
+pub use repo::session::Session;
+mod repo;
 mod db;
 mod harness;
 pub mod proto_utils;
