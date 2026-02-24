@@ -75,23 +75,23 @@ where
     }
 
     pub async fn list(&self) -> Result<Vec<Project>, ProjectRepoError> {
-        Ok(self.ctx.db.list_projects()?)
+        Ok(self.ctx.db.list_projects().await?)
     }
 
     pub async fn get(&self, id: &Uuid) -> Result<Option<Project>, ProjectRepoError> {
-        Ok(self.ctx.db.get_project(*id)?)
+        Ok(self.ctx.db.get_project(*id).await?)
     }
 
     pub async fn create(&self, project: &Project) -> Result<Project, ProjectRepoError> {
-        Ok(self.ctx.db.create_project(project.clone())?)
+        Ok(self.ctx.db.create_project(project.clone()).await?)
     }
 
     pub async fn update(&self, project: &Project) -> Result<Project, ProjectRepoError> {
-        Ok(self.ctx.db.update_project(project.clone())?)
+        Ok(self.ctx.db.update_project(project.clone()).await?)
     }
 
     pub async fn delete(&self, project_id: &Uuid) -> Result<(), ProjectRepoError> {
-        self.ctx.db.delete_project(*project_id)?;
+        self.ctx.db.delete_project(*project_id).await?;
         Ok(())
     }
 }

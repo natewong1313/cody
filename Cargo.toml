@@ -38,12 +38,12 @@ chrono = { version = "0.4.43", features = ["serde"] }
 env_logger = "0.11.8"
 libc = "0.2.180"
 tokio = { version = "1.49.0", features = ["rt", "rt-multi-thread", "macros"] }
-rusqlite = { version = "0.38.0", features = ["bundled", "chrono", "uuid"] }
-rusqlite_migration = "2.4.1"
+rusqlite_migration = "2.3.0"
 rfd = "0.17"
 tonic = "0.14.5"
 prost = "0.14.3"
 tonic-prost = "0.14.5"
+tokio-rusqlite = { version = "0.7.0", features = ["bundled", "chrono", "uuid"] }
 
 [build-dependencies]
 tonic-prost-build = "0.14.5"

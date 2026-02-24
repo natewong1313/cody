@@ -1,12 +1,12 @@
 use chrono::Utc;
-use rusqlite::{Connection, OptionalExtension, Row};
+use tokio_rusqlite::rusqlite::{Connection, OptionalExtension, Row};
 use uuid::Uuid;
 
 use super::{assert_one_row_affected, check_returning_row_error};
-use crate::backend::Session;
 use crate::backend::db::DatabaseError;
+use crate::backend::Session;
 
-pub fn row_to_session(row: &Row) -> Result<Session, rusqlite::Error> {
+pub fn row_to_session(row: &Row) -> Result<Session, tokio_rusqlite::rusqlite::Error> {
     Ok(Session {
         id: row.get(0)?,
         project_id: row.get(1)?,

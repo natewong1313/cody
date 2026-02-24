@@ -259,10 +259,7 @@ where
     Fut: Future<Output = Result<T, BackendError>> + 'static,
     F: FnOnce() -> Fut + Send + 'static,
 {
-    let handle = tokio::runtime::Handle::current();
-    let result = tokio::task::spawn_blocking(move || handle.block_on(f()))
-        .await
-        .map_err(|e| Status::internal(format!("backend task join error: {e}")))?;
+    let result = f().await;
     result.map_err(map_backend_error)
 }
 async fn run_op_with<T, Fut, F>(backend: Arc<BackendService>, f: F) -> Result<T, Status>

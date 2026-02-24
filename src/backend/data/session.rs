@@ -90,18 +90,19 @@ where
         &self,
         project_id: &Uuid,
     ) -> Result<Vec<Session>, SessionRepoError> {
-        Ok(self.ctx.db.list_sessions_by_project(*project_id)?)
+        Ok(self.ctx.db.list_sessions_by_project(*project_id).await?)
     }
 
     pub async fn get(&self, id: &Uuid) -> Result<Option<Session>, SessionRepoError> {
-        Ok(self.ctx.db.get_session(*id)?)
+        Ok(self.ctx.db.get_session(*id).await?)
     }
 
     pub async fn create(&self, session: &Session) -> Result<Session, SessionRepoError> {
         let project = self
             .ctx
             .db
-            .get_project(session.project_id)?
+            .get_project(session.project_id)
+            .await?
             .ok_or(SessionRepoError::ProjectNotFound(session.project_id))?;
 
         let project_dir = Some(project.dir.as_str());
@@ -114,15 +115,15 @@ where
             return Err(SessionRepoError::Harness(e.to_string()));
         }
 
-        Ok(self.ctx.db.create_session(session.clone())?)
+        Ok(self.ctx.db.create_session(session.clone()).await?)
     }
 
     pub async fn update(&self, session: &Session) -> Result<Session, SessionRepoError> {
-        Ok(self.ctx.db.update_session(session.clone())?)
+        Ok(self.ctx.db.update_session(session.clone()).await?)
     }
 
     pub async fn delete(&self, session_id: &Uuid) -> Result<(), SessionRepoError> {
-        self.ctx.db.delete_session(*session_id)?;
+        self.ctx.db.delete_session(*session_id).await?;
         Ok(())
     }
 }
