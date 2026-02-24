@@ -1,11 +1,22 @@
 use chrono::Utc;
-use rusqlite::{Connection, OptionalExtension};
+use rusqlite::{Connection, OptionalExtension, Row};
+use uuid::Uuid;
 
-use super::{assert_one_row_affected, check_returning_row_error, row_to_project};
+use super::{assert_one_row_affected, check_returning_row_error};
 use crate::backend::Project;
 use crate::backend::db::DatabaseError;
 
-pub(super) fn list_projects(conn: &Connection) -> Result<Vec<Project>, DatabaseError> {
+pub fn row_to_project(row: &Row) -> Result<Project, rusqlite::Error> {
+    Ok(Project {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        dir: row.get(2)?,
+        created_at: row.get(3)?,
+        updated_at: row.get(4)?,
+    })
+}
+
+pub fn list_projects(conn: &Connection) -> Result<Vec<Project>, DatabaseError> {
     let mut stmt = conn.prepare(
         "SELECT id, name, dir, created_at, updated_at FROM projects ORDER BY updated_at DESC",
     )?;
@@ -15,20 +26,14 @@ pub(super) fn list_projects(conn: &Connection) -> Result<Vec<Project>, DatabaseE
     Ok(projects)
 }
 
-pub(super) fn get_project(
-    conn: &Connection,
-    project_id: uuid::Uuid,
-) -> Result<Option<Project>, DatabaseError> {
+pub fn get_project(conn: &Connection, project_id: Uuid) -> Result<Option<Project>, DatabaseError> {
     let mut stmt =
         conn.prepare("SELECT id, name, dir, created_at, updated_at FROM projects WHERE id = ?1")?;
     let project = stmt.query_row([project_id], row_to_project).optional()?;
     Ok(project)
 }
 
-pub(super) fn create_project(
-    conn: &Connection,
-    project: &Project,
-) -> Result<Project, DatabaseError> {
+pub fn create_project(conn: &Connection, project: &Project) -> Result<Project, DatabaseError> {
     let created = conn.query_row(
         "INSERT INTO projects (id, name, dir, created_at, updated_at)
          VALUES (?1, ?2, ?3, ?4, ?5)
@@ -45,10 +50,7 @@ pub(super) fn create_project(
     Ok(created)
 }
 
-pub(super) fn update_project(
-    conn: &Connection,
-    project: &Project,
-) -> Result<Project, DatabaseError> {
+pub fn update_project(conn: &Connection, project: &Project) -> Result<Project, DatabaseError> {
     let updated = conn
         .query_row(
             "UPDATE projects
@@ -67,10 +69,7 @@ pub(super) fn update_project(
     Ok(updated)
 }
 
-pub(super) fn delete_project(
-    conn: &Connection,
-    project_id: uuid::Uuid,
-) -> Result<(), DatabaseError> {
+pub fn delete_project(conn: &Connection, project_id: Uuid) -> Result<(), DatabaseError> {
     let rows = conn.execute("DELETE FROM projects WHERE id = ?1", [project_id])?;
     assert_one_row_affected("delete_project", rows)
 }

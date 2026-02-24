@@ -1,13 +1,25 @@
 use chrono::Utc;
-use rusqlite::{Connection, OptionalExtension};
+use rusqlite::{Connection, OptionalExtension, Row};
+use uuid::Uuid;
 
-use super::{assert_one_row_affected, check_returning_row_error, row_to_session};
+use super::{assert_one_row_affected, check_returning_row_error};
 use crate::backend::Session;
 use crate::backend::db::DatabaseError;
 
-pub(super) fn list_sessions_by_project(
+pub fn row_to_session(row: &Row) -> Result<Session, rusqlite::Error> {
+    Ok(Session {
+        id: row.get(0)?,
+        project_id: row.get(1)?,
+        show_in_gui: row.get(2)?,
+        name: row.get(3)?,
+        created_at: row.get(4)?,
+        updated_at: row.get(5)?,
+    })
+}
+
+pub fn list_sessions_by_project(
     conn: &Connection,
-    project_id: uuid::Uuid,
+    project_id: Uuid,
 ) -> Result<Vec<Session>, DatabaseError> {
     let mut stmt = conn.prepare(
         "SELECT id, project_id, show_in_gui, name, created_at, updated_at
@@ -21,10 +33,7 @@ pub(super) fn list_sessions_by_project(
     Ok(sessions)
 }
 
-pub(super) fn get_session(
-    conn: &Connection,
-    session_id: uuid::Uuid,
-) -> Result<Option<Session>, DatabaseError> {
+pub fn get_session(conn: &Connection, session_id: Uuid) -> Result<Option<Session>, DatabaseError> {
     let mut stmt = conn.prepare(
         "SELECT id, project_id, show_in_gui, name, created_at, updated_at
          FROM sessions
@@ -34,10 +43,7 @@ pub(super) fn get_session(
     Ok(session)
 }
 
-pub(super) fn create_session(
-    conn: &Connection,
-    session: &Session,
-) -> Result<Session, DatabaseError> {
+pub fn create_session(conn: &Connection, session: &Session) -> Result<Session, DatabaseError> {
     let created = conn.query_row(
         "INSERT INTO sessions (id, project_id, show_in_gui, name, created_at, updated_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)
@@ -55,10 +61,7 @@ pub(super) fn create_session(
     Ok(created)
 }
 
-pub(super) fn update_session(
-    conn: &Connection,
-    session: &Session,
-) -> Result<Session, DatabaseError> {
+pub fn update_session(conn: &Connection, session: &Session) -> Result<Session, DatabaseError> {
     let updated = conn
         .query_row(
             "UPDATE sessions
@@ -78,10 +81,7 @@ pub(super) fn update_session(
     Ok(updated)
 }
 
-pub(super) fn delete_session(
-    conn: &Connection,
-    session_id: uuid::Uuid,
-) -> Result<(), DatabaseError> {
+pub fn delete_session(conn: &Connection, session_id: Uuid) -> Result<(), DatabaseError> {
     let rows = conn.execute("DELETE FROM sessions WHERE id = ?1", [session_id])?;
     assert_one_row_affected("delete_session", rows)
 }
