@@ -19,22 +19,18 @@ pub struct App {
 
     pub action_sender: Sender<PageAction>,
     action_reciever: Receiver<PageAction>,
-
     // session_inbox: UiInbox<Result<OpencodeSession, String>>,
     // pub current_sessions: HashMap<String, OpencodeSession>,
-    query_client: QueryClient,
 }
 
 impl App {
-    pub fn new(backend_client: BackendRpcClient) -> Self {
+    pub fn new() -> Self {
         let (action_sender, action_reciever) = channel();
         Self {
             pages_router: PagesRouter::new(),
 
             action_sender,
             action_reciever,
-
-            query_client: QueryClient::new(backend_client),
         }
     }
 }
@@ -53,7 +49,6 @@ impl eframe::App for App {
 
         let mut page_ctx = PageContext {
             action_sender: &self.action_sender,
-            query: &mut self.query_client,
         };
 
         // Wrap rendering in subsecond::call() for hot-reloading support

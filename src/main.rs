@@ -15,12 +15,12 @@ mod theme;
 
 #[derive(Clone)]
 struct AppEnv {
-    backend_client: backend::rpc::BackendRpcClient,
+    // backend_client: backend::rpc::BackendRpcClient,
 }
 
 impl AppEnv {
-    pub fn new(backend_client: backend::rpc::BackendRpcClient) -> Self {
-        Self { backend_client }
+    pub fn new() -> Self {
+        Self {}
     }
 }
 
@@ -108,7 +108,6 @@ fn configure_egui(cc: &eframe::CreationContext<'_>) {
 }
 
 fn run_app(env: AppEnv) -> eframe::Result {
-    let backend_client = env.backend_client;
     let opts = eframe::NativeOptions {
         viewport: ViewportBuilder::default()
             .with_inner_size([800.0, 800.0])
@@ -121,7 +120,7 @@ fn run_app(env: AppEnv) -> eframe::Result {
         opts,
         Box::new(move |cc| {
             configure_egui(cc);
-            Ok(Box::new(App::new(backend_client.clone())))
+            Ok(Box::new(App::new()))
         }),
     )
 }
@@ -137,10 +136,11 @@ async fn main() -> Result<()> {
 
     log::info!("Starting opencode gui (production mode)");
 
-    let backend_client = backend::rpc::start_local_backend_rpc()
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to start backend RPC: {e}"))?;
-    let env = AppEnv::new(backend_client);
+    let grpc_addr = "127.0.0.1:50051".parse()?;
+    let _backend_task = backend::spawn_backend(grpc_addr)
+        .map_err(|e| anyhow::anyhow!("Failed to start backend gRPC server: {e}"))?;
+
+    let env = AppEnv::new();
 
     run_app(env).map_err(|e| anyhow::anyhow!("Application error: {}", e))?;
 
@@ -159,10 +159,14 @@ async fn main() -> Result<()> {
     log::info!("Starting opencode gui (development mode with hot-reload)");
     log::info!("Run with: dx serve --hot-patch");
 
-    let backend_client = backend::rpc::start_local_backend_rpc()
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to start backend RPC: {e}"))?;
-    let env = AppEnv::new(backend_client);
+    let grpc_addr = "127.0.0.1:50051".parse()?;
+    let _backend_task = backend::spawn_backend(grpc_addr)
+        .map_err(|e| anyhow::anyhow!("Failed to start backend gRPC server: {e}"))?;
+
+    // let backend_client = backend::rpc::start_local_backend_rpc()
+    //     .await
+    //     .map_err(|e| anyhow::anyhow!("Failed to start backend RPC: {e}"))?;
+    let env = AppEnv::new();
 
     dioxus_devtools::serve_subsecond_with_args(env, |app_env| async move {
         subsecond::call(move || {

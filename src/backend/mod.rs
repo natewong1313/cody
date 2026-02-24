@@ -11,6 +11,7 @@ use uuid::Uuid;
 
 pub use data::project::Project;
 pub use data::session::Session;
+pub use grpc::spawn_backend;
 pub use local::{LocalBackend, LocalBackendStartupError};
 
 mod data;

@@ -1,6 +1,5 @@
 use egui::Context;
 use egui_inbox::UiInbox;
-use tarpc::context;
 
 use crate::backend::{Project, rpc::BackendRpcClient};
 

@@ -1,13 +1,15 @@
-use std::{future::Future, sync::Arc};
-use tonic::{Request, Response, Status};
+use std::{net::SocketAddr, sync::Arc};
+use tokio::task::JoinHandle;
+use tonic::{Request, Response, Status, transport::Server};
 
 use crate::backend::{
-    BackendContext, BackendError, Project, Session,
+    BackendContext, Project, Session,
     data::{
         project::{ProjectRepo, ProjectRepoError},
         session::{SessionRepo, SessionRepoError},
     },
     db::{DatabaseStartupError, sqlite::Sqlite},
+    grpc::{project::project_server::ProjectServer, session::session_server::SessionServer},
     harness::{Harness, opencode::OpencodeHarness},
     proto_utils::parse_uuid,
 };
@@ -57,7 +59,7 @@ pub enum BackendStartupError {
 }
 
 impl BackendService {
-    pub async fn new() -> Result<Self, BackendStartupError> {
+    pub fn new() -> Result<Self, BackendStartupError> {
         let db = Sqlite::new()?;
         let harness =
             OpencodeHarness::new().map_err(|e| BackendStartupError::Harness(e.to_string()))?;
@@ -71,10 +73,6 @@ impl BackendService {
             session_repo,
         })
     }
-
-    pub fn shared(self) -> Arc<Self> {
-        Arc::new(self)
-    }
 }
 
 #[tonic::async_trait]
@@ -83,10 +81,7 @@ impl ProjectGrpc for Arc<BackendService> {
         &self,
         _request: Request<ListProjectsRequest>,
     ) -> Result<Response<ListProjectsReply>, Status> {
-        let projects = run_op_with(Arc::clone(self), |backend| async move {
-            Ok(backend.project_repo.list().await?)
-        })
-        .await?;
+        let projects = self.project_repo.list().await?;
 
         Ok(Response::new(ListProjectsReply {
             projects: projects.into_iter().map(Into::into).collect(),
@@ -98,10 +93,7 @@ impl ProjectGrpc for Arc<BackendService> {
         request: Request<GetProjectRequest>,
     ) -> Result<Response<GetProjectReply>, Status> {
         let project_id = parse_uuid("project_id", &request.into_inner().project_id)?;
-        let project = run_op_with(Arc::clone(self), move |backend| async move {
-            Ok(backend.project_repo.get(&project_id).await?)
-        })
-        .await?;
+        let project = self.project_repo.get(&project_id).await?;
 
         Ok(Response::new(GetProjectReply {
             project: project.map(Into::into),
@@ -116,10 +108,7 @@ impl ProjectGrpc for Arc<BackendService> {
         let model = required_field!(req, project);
         let project = Project::try_from(model)?;
 
-        let created = run_op_with(Arc::clone(self), move |backend| async move {
-            Ok(backend.project_repo.create(&project).await?)
-        })
-        .await?;
+        let created = self.project_repo.create(&project).await?;
 
         Ok(Response::new(CreateProjectReply {
             project: Some(created.into()),
@@ -134,10 +123,7 @@ impl ProjectGrpc for Arc<BackendService> {
         let model = required_field!(req, project);
         let project = Project::try_from(model)?;
 
-        let updated = run_op_with(Arc::clone(self), move |backend| async move {
-            Ok(backend.project_repo.update(&project).await?)
-        })
-        .await?;
+        let updated = self.project_repo.update(&project).await?;
 
         Ok(Response::new(UpdateProjectReply {
             project: Some(updated.into()),
@@ -149,11 +135,7 @@ impl ProjectGrpc for Arc<BackendService> {
         request: Request<DeleteProjectRequest>,
     ) -> Result<Response<DeleteProjectReply>, Status> {
         let project_id = parse_uuid("project_id", &request.into_inner().project_id)?;
-        run_op_with(Arc::clone(self), move |backend| async move {
-            backend.project_repo.delete(&project_id).await?;
-            Ok(())
-        })
-        .await?;
+        self.project_repo.delete(&project_id).await?;
 
         Ok(Response::new(DeleteProjectReply {}))
     }
@@ -166,10 +148,7 @@ impl SessionGrpc for Arc<BackendService> {
         request: Request<ListSessionsByProjectRequest>,
     ) -> Result<Response<ListSessionsByProjectReply>, Status> {
         let project_id = parse_uuid("project_id", &request.into_inner().project_id)?;
-        let sessions = run_op_with(Arc::clone(self), move |backend| async move {
-            Ok(backend.session_repo.list_by_project(&project_id).await?)
-        })
-        .await?;
+        let sessions = self.session_repo.list_by_project(&project_id).await?;
 
         Ok(Response::new(ListSessionsByProjectReply {
             sessions: sessions.into_iter().map(Into::into).collect(),
@@ -181,14 +160,10 @@ impl SessionGrpc for Arc<BackendService> {
         request: Request<GetSessionRequest>,
     ) -> Result<Response<GetSessionReply>, Status> {
         let session_id = parse_uuid("session_id", &request.into_inner().session_id)?;
-        let session = run_op_with(Arc::clone(self), move |backend| async move {
-            Ok(backend.session_repo.get(&session_id).await?)
-        })
-        .await?
-        .ok_or_else(|| Status::not_found(format!("session not found: {session_id}")))?;
+        let session = self.session_repo.get(&session_id).await?;
 
         Ok(Response::new(GetSessionReply {
-            session: Some(session.into()),
+            session: session.map(Into::into),
         }))
     }
 
@@ -200,10 +175,7 @@ impl SessionGrpc for Arc<BackendService> {
         let model = required_field!(req, session);
         let session = Session::try_from(model)?;
 
-        let created = run_op_with(Arc::clone(self), move |backend| async move {
-            Ok(backend.session_repo.create(&session).await?)
-        })
-        .await?;
+        let created = self.session_repo.create(&session).await?;
 
         Ok(Response::new(CreateSessionReply {
             session: Some(created.into()),
@@ -218,10 +190,7 @@ impl SessionGrpc for Arc<BackendService> {
         let model = required_field!(req, session);
         let session = Session::try_from(model)?;
 
-        let updated = run_op_with(Arc::clone(self), move |backend| async move {
-            Ok(backend.session_repo.update(&session).await?)
-        })
-        .await?;
+        let updated = self.session_repo.update(&session).await?;
 
         Ok(Response::new(UpdateSessionReply {
             session: Some(updated.into()),
@@ -233,40 +202,26 @@ impl SessionGrpc for Arc<BackendService> {
         request: Request<DeleteSessionRequest>,
     ) -> Result<Response<DeleteSessionReply>, Status> {
         let session_id = parse_uuid("session_id", &request.into_inner().session_id)?;
-        run_op_with(Arc::clone(self), move |backend| async move {
-            backend.session_repo.delete(&session_id).await?;
-            Ok(())
-        })
-        .await?;
+        self.session_repo.delete(&session_id).await?;
 
         Ok(Response::new(DeleteSessionReply {}))
     }
 }
 
-fn map_backend_error(err: BackendError) -> Status {
-    match err {
-        BackendError::NotFound => Status::not_found("not found"),
-        BackendError::ProjectNotFound(id) => Status::not_found(format!("project not found: {id}")),
-        BackendError::Unavailable(message) => Status::unavailable(message),
-        BackendError::Internal(message) => Status::internal(message),
-    }
-}
+pub fn spawn_backend(
+    addr: SocketAddr,
+) -> Result<JoinHandle<Result<(), tonic::transport::Error>>, BackendStartupError> {
+    let backend = Arc::new(BackendService::new()?);
 
-/// Helper functions for making sync db calls
-async fn run_op_async<T, Fut, F>(f: F) -> Result<T, Status>
-where
-    T: Send + 'static,
-    Fut: Future<Output = Result<T, BackendError>> + 'static,
-    F: FnOnce() -> Fut + Send + 'static,
-{
-    let result = f().await;
-    result.map_err(map_backend_error)
-}
-async fn run_op_with<T, Fut, F>(backend: Arc<BackendService>, f: F) -> Result<T, Status>
-where
-    T: Send + 'static,
-    Fut: Future<Output = Result<T, BackendError>> + 'static,
-    F: FnOnce(Arc<BackendService>) -> Fut + Send + 'static,
-{
-    run_op_async(move || f(backend)).await
+    let project_service = ProjectServer::new(backend.clone());
+    let session_service = SessionServer::new(backend);
+
+    Ok(tokio::spawn(async move {
+        log::info!("gRPC backend listening on {addr}");
+        Server::builder()
+            .add_service(project_service)
+            .add_service(session_service)
+            .serve(addr)
+            .await
+    }))
 }
