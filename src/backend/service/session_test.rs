@@ -3,9 +3,9 @@ use uuid::Uuid;
 
 use crate::backend::{
     proto_session::{
-        CreateSessionRequest, DeleteSessionRequest, GetSessionMessagesRequest, GetSessionRequest,
-        ListSessionsByProjectRequest, SendSessionMessageRequest, SessionMessageInput,
-        SessionMessagePartInput, UpdateSessionRequest, session_server::Session as SessionService,
+        CreateSessionRequest, DeleteSessionRequest, GetSessionRequest,
+        ListSessionsByProjectRequest, UpdateSessionRequest,
+        session_server::Session as SessionService,
     },
     service::test_helpers::{
         closed_port, spawn_fake_opencode_server, test_backend, test_project, test_session,
@@ -218,89 +218,6 @@ async fn update_and_delete_session_happy_path() {
         .session;
 
     assert!(fetched.is_none());
-
-    server.abort();
-}
-
-#[tokio::test]
-async fn send_session_message_happy_path() {
-    let (port, server) = spawn_fake_opencode_server().await;
-    let backend = test_backend(port);
-    let project = backend
-        .project_repo
-        .create(&test_project("proj", "/tmp/proj"))
-        .await
-        .expect("project create should succeed");
-
-    let session = backend
-        .create_session(Request::new(CreateSessionRequest {
-            session: Some(valid_session_model(project.id)),
-        }))
-        .await
-        .expect("create_session should succeed")
-        .into_inner()
-        .session
-        .expect("session should be present");
-
-    let reply = backend
-        .send_session_message(Request::new(SendSessionMessageRequest {
-            session_id: session.id,
-            input: Some(SessionMessageInput {
-                parts: vec![SessionMessagePartInput {
-                    text: "hello".to_string(),
-                    synthetic: false,
-                    ignored: false,
-                }],
-                message_id: String::new(),
-                agent: String::new(),
-                no_reply: false,
-                system: String::new(),
-                model: None,
-            }),
-        }))
-        .await
-        .expect("send_session_message should succeed")
-        .into_inner();
-
-    let message = reply.message.expect("message should be present");
-    assert_eq!(message.role, "assistant");
-    assert!(!message.parts.is_empty());
-
-    server.abort();
-}
-
-#[tokio::test]
-async fn get_session_messages_happy_path() {
-    let (port, server) = spawn_fake_opencode_server().await;
-    let backend = test_backend(port);
-    let project = backend
-        .project_repo
-        .create(&test_project("proj", "/tmp/proj"))
-        .await
-        .expect("project create should succeed");
-
-    let session = backend
-        .create_session(Request::new(CreateSessionRequest {
-            session: Some(valid_session_model(project.id)),
-        }))
-        .await
-        .expect("create_session should succeed")
-        .into_inner()
-        .session
-        .expect("session should be present");
-
-    let reply = backend
-        .get_session_messages(Request::new(GetSessionMessagesRequest {
-            session_id: session.id,
-            limit: None,
-        }))
-        .await
-        .expect("get_session_messages should succeed")
-        .into_inner();
-
-    assert!(reply.messages.len() >= 2);
-    assert!(reply.messages.iter().any(|m| m.role == "user"));
-    assert!(reply.messages.iter().any(|m| m.role == "assistant"));
 
     server.abort();
 }

@@ -16,7 +16,7 @@ use crate::backend::{
     harness::opencode::OpencodeHarness,
     proto_project::ProjectModel,
     proto_session::SessionModel,
-    repo::{project::ProjectRepo, session::SessionRepo},
+    repo::{message::MessageRepo, project::ProjectRepo, session::SessionRepo},
 };
 
 pub fn closed_port() -> u32 {
@@ -93,7 +93,9 @@ pub fn test_backend(port: u32) -> Arc<BackendService> {
         project_repo: ProjectRepo::new(ctx.clone()),
         projects_sender,
         project_sender_by_id: Mutex::new(HashMap::new()),
+        message_repo: MessageRepo::new(ctx.clone()),
         session_repo: SessionRepo::new(ctx),
+        message_sender_by_session_id: Mutex::new(HashMap::new()),
     })
 }
 

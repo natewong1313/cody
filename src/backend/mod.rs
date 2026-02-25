@@ -1,8 +1,9 @@
 use crate::backend::{
     db::{Database, DatabaseStartupError, sqlite::Sqlite},
     harness::{Harness, opencode::OpencodeHarness},
-    repo::{project::ProjectRepo, session::SessionRepo},
+    repo::{message::MessageRepo, project::ProjectRepo, session::SessionRepo},
 };
+use futures::StreamExt;
 use std::{
     collections::HashMap,
     net::SocketAddr,
@@ -36,6 +37,11 @@ use proto_session::session_server::SessionServer;
 pub use proto_session::{
     ListSessionsByProjectReply, ListSessionsByProjectRequest, session_client::SessionClient,
 };
+
+pub(crate) mod proto_message {
+    tonic::include_proto!("message");
+}
+use proto_message::message_server::MessageServer;
 
 pub struct BackendContext<D>
 where
@@ -74,6 +80,9 @@ pub struct BackendService {
     projects_sender: watch::Sender<Vec<Project>>,
     project_sender_by_id: Mutex<HashMap<Uuid, watch::Sender<Option<Project>>>>,
     session_repo: SessionRepo<Sqlite>,
+    message_repo: MessageRepo<Sqlite>,
+    message_sender_by_session_id:
+        Mutex<HashMap<Uuid, watch::Sender<Vec<proto_message::MessageModel>>>>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -95,14 +104,121 @@ impl BackendService {
         let (projects_sender, _) = watch::channel(Vec::new());
         let project_sender_by_id = Mutex::new(HashMap::new());
         let session_repo = SessionRepo::new(ctx.clone());
+        let message_repo = MessageRepo::new(ctx.clone());
 
         Ok(Self {
             project_repo,
             projects_sender,
             project_sender_by_id,
             session_repo,
+            message_repo,
+            message_sender_by_session_id: Mutex::new(HashMap::new()),
         })
     }
+
+    async fn publish_session_messages(&self, session_id: Uuid) {
+        let sender = match self.message_sender_by_session_id.lock() {
+            Ok(mut map) => map
+                .entry(session_id)
+                .or_insert_with(|| watch::channel(Vec::new()).0)
+                .clone(),
+            Err(_) => {
+                log::error!("message sender map lock poisoned");
+                return;
+            }
+        };
+
+        let messages = match self.message_repo.list_messages(&session_id, None).await {
+            Ok(messages) => messages,
+            Err(err) => {
+                log::error!("failed listing messages for {}: {}", session_id, err);
+                return;
+            }
+        };
+
+        let payload: Vec<proto_message::MessageModel> =
+            messages.into_iter().map(Into::into).collect();
+        sender.send_replace(payload);
+    }
+
+    async fn reconcile_subscribed_sessions(&self) {
+        let session_ids: Vec<Uuid> = match self.message_sender_by_session_id.lock() {
+            Ok(map) => map.keys().copied().collect(),
+            Err(_) => {
+                log::error!("message sender map lock poisoned");
+                return;
+            }
+        };
+
+        for session_id in session_ids {
+            match self
+                .message_repo
+                .reconcile_session_messages(&session_id, None)
+                .await
+            {
+                Ok(()) => self.publish_session_messages(session_id).await,
+                Err(err) => {
+                    log::warn!(
+                        "failed reconciling subscribed session {}: {}",
+                        session_id,
+                        err
+                    );
+                }
+            }
+        }
+    }
+}
+
+fn spawn_message_ingestor(backend: Arc<BackendService>) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        loop {
+            let stream_result = backend.message_repo.get_event_stream().await;
+            let mut stream = match stream_result {
+                Ok(stream) => stream,
+                Err(err) => {
+                    log::warn!("message ingestor stream connect failed: {}", err);
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    continue;
+                }
+            };
+
+            backend.reconcile_subscribed_sessions().await;
+
+            while let Some(event_result) = stream.next().await {
+                let event = match event_result {
+                    Ok(event) => event,
+                    Err(err) => {
+                        log::warn!("message ingestor stream error: {}", err);
+                        break;
+                    }
+                };
+
+                let parsed = serde_json::from_str::<harness::OpencodeGlobalEvent>(&event.data);
+                let parsed = match parsed {
+                    Ok(parsed) => parsed,
+                    Err(err) => {
+                        let payload_snippet: String = event.data.chars().take(200).collect();
+                        log::warn!(
+                            "ignoring unparseable opencode event: {}; payload={}",
+                            err,
+                            payload_snippet
+                        );
+                        continue;
+                    }
+                };
+
+                match backend.message_repo.ingest_event(parsed).await {
+                    Ok(Some(session_id)) => backend.publish_session_messages(session_id).await,
+                    Ok(None) => {}
+                    Err(err) => {
+                        log::error!("failed ingesting opencode event: {}", err);
+                    }
+                }
+            }
+
+            tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        }
+    })
 }
 
 pub fn spawn_backend(
@@ -111,14 +227,21 @@ pub fn spawn_backend(
     let backend = Arc::new(BackendService::new()?);
 
     let project_service = ProjectServer::new(backend.clone());
-    let session_service = SessionServer::new(backend);
+    let session_service = SessionServer::new(backend.clone());
+    let message_service = MessageServer::new(backend.clone());
+    let ingestor_handle = spawn_message_ingestor(backend);
 
     Ok(tokio::spawn(async move {
         log::info!("gRPC backend listening on {addr}");
-        Server::builder()
+        let result = Server::builder()
             .add_service(project_service)
             .add_service(session_service)
+            .add_service(message_service)
             .serve(addr)
-            .await
+            .await;
+
+        ingestor_handle.abort();
+        let _ = ingestor_handle.await;
+        result
     }))
 }
