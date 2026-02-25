@@ -5,7 +5,7 @@ use uuid::Uuid;
 use crate::{
     BACKEND_ADDR,
     query::{
-        project::{Projects, ProjectsState},
+        project::{ProjectState, Projects, ProjectsState},
         session::{Sessions, SessionsState},
     },
 };
@@ -39,6 +39,10 @@ impl QueryClient {
 
     pub fn use_projects(&mut self, ui: &Ui) -> ProjectsState {
         self.projects.subscribe_state(ui)
+    }
+
+    pub fn use_project(&mut self, ui: &Ui, project_id: Uuid) -> ProjectState {
+        self.projects.subscribe_project_state(ui, project_id)
     }
 
     pub fn use_sessions_by_project(&mut self, ui: &Ui, project_id: Uuid) -> SessionsState {

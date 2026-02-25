@@ -1,5 +1,8 @@
 use chrono::Utc;
-use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpListener,
@@ -70,6 +73,7 @@ pub fn test_backend(port: u32) -> Arc<BackendService> {
     Arc::new(BackendService {
         project_repo: ProjectRepo::new(ctx.clone()),
         projects_sender,
+        project_sender_by_id: Mutex::new(HashMap::new()),
         session_repo: SessionRepo::new(ctx),
     })
 }

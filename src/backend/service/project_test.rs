@@ -6,7 +6,8 @@ use uuid::Uuid;
 use crate::backend::{
     proto_project::{
         CreateProjectRequest, DeleteProjectRequest, GetProjectRequest, ListProjectsRequest,
-        SubscribeProjectsRequest, UpdateProjectRequest, project_server::Project as ProjectService,
+        SubscribeProjectRequest, SubscribeProjectsRequest, UpdateProjectRequest,
+        project_server::Project as ProjectService,
     },
     service::test_helpers::{closed_port, test_backend, test_project, valid_project_model},
 };
@@ -175,5 +176,103 @@ async fn subscribe_projects_returns_snapshot_once() {
     assert!(
         next_item.is_err(),
         "stream should stay open without emitting updates"
+    );
+}
+
+#[tokio::test]
+async fn subscribe_project_returns_current_snapshot_for_existing_project() {
+    let backend = test_backend(closed_port());
+    let seeded = test_project("proj", "/tmp/proj");
+    backend
+        .project_repo
+        .create(&seeded)
+        .await
+        .expect("seed create should succeed");
+
+    let response = backend
+        .subscribe_project(Request::new(SubscribeProjectRequest {
+            project_id: seeded.id.to_string(),
+        }))
+        .await
+        .expect("subscribe_project should succeed");
+
+    let mut stream = response.into_inner();
+    let first = stream
+        .next()
+        .await
+        .expect("stream should yield first item")
+        .expect("first item should be ok");
+
+    let project = first.project.expect("project should be present");
+    assert_eq!(project.id, seeded.id.to_string());
+    assert_eq!(project.name, seeded.name);
+    assert_eq!(project.dir, seeded.dir);
+}
+
+#[tokio::test]
+async fn subscribe_project_emits_update_and_delete_events() {
+    let backend = test_backend(closed_port());
+    let seeded = test_project("proj", "/tmp/proj");
+    let created = backend
+        .project_repo
+        .create(&seeded)
+        .await
+        .expect("seed create should succeed");
+
+    let response = backend
+        .subscribe_project(Request::new(SubscribeProjectRequest {
+            project_id: created.id.to_string(),
+        }))
+        .await
+        .expect("subscribe_project should succeed");
+    let mut stream = response.into_inner();
+
+    let _initial = stream
+        .next()
+        .await
+        .expect("stream should yield initial item")
+        .expect("initial item should be ok");
+
+    let mut updated_model = valid_project_model();
+    updated_model.id = created.id.to_string();
+    updated_model.name = "updated".to_string();
+    updated_model.dir = "/tmp/updated".to_string();
+    updated_model.created_at = created
+        .created_at
+        .format("%Y-%m-%d %H:%M:%S%.f")
+        .to_string();
+
+    backend
+        .update_project(Request::new(UpdateProjectRequest {
+            project: Some(updated_model),
+        }))
+        .await
+        .expect("update_project should succeed");
+
+    let update = timeout(Duration::from_millis(200), stream.next())
+        .await
+        .expect("stream should emit update")
+        .expect("stream should yield item")
+        .expect("update item should be ok");
+    let update_project = update.project.expect("updated project should be present");
+    assert_eq!(update_project.id, created.id.to_string());
+    assert_eq!(update_project.name, "updated");
+    assert_eq!(update_project.dir, "/tmp/updated");
+
+    backend
+        .delete_project(Request::new(DeleteProjectRequest {
+            project_id: created.id.to_string(),
+        }))
+        .await
+        .expect("delete_project should succeed");
+
+    let deleted = timeout(Duration::from_millis(200), stream.next())
+        .await
+        .expect("stream should emit delete")
+        .expect("stream should yield item")
+        .expect("delete item should be ok");
+    assert!(
+        deleted.project.is_none(),
+        "deleted project event should clear project details"
     );
 }

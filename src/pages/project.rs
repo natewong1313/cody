@@ -1,6 +1,7 @@
 use crate::backend::{Project, Session};
-use crate::components::button::{ButtonSize, StyledButton};
+use crate::components::button::{ButtonSize, ButtonVariant, StyledButton};
 use crate::pages::{PageAction, PageContext, Route};
+use crate::query::QueryState;
 use crate::theme::{
     BG_50, BG_500, BG_700, BG_800, BG_900, BG_950, FUCHSIA_500, RADIUS_MD, STROKE_WIDTH,
 };
@@ -25,6 +26,7 @@ struct SessionTabState {
 
 pub struct ProjectPage {
     project_id: Option<Uuid>,
+    redirected_missing_project: bool,
     session_tab_ids: Vec<Uuid>,
 
     session_tabs_tree: DockState<Uuid>,
@@ -122,6 +124,7 @@ impl ProjectPage {
         let session_tabs_tree = DockState::new(vec![]);
         Self {
             project_id: None,
+            redirected_missing_project: false,
             session_tab_ids: Vec::new(),
             session_tabs_tree,
             sessions_states: HashMap::new(),
@@ -138,6 +141,7 @@ impl ProjectPage {
             self.session_tab_ids.clear();
             self.session_tabs_tree = DockState::new(vec![]);
             self.sessions_states.clear();
+            self.redirected_missing_project = false;
         }
         self.project_id = Some(project_id);
 
@@ -147,20 +151,40 @@ impl ProjectPage {
                     .fill(BG_900)
                     .inner_margin(0.0),
             )
-            .show(ctx, |ui| {
-                match page_ctx.query.use_sessions_by_project(ui, project_id) {
-                    crate::query::QueryState::Loading => {
-                        ui.label(RichText::new("Loading sessions...").color(BG_500));
+            .show(ctx, |ui| match page_ctx.query.use_project(ui, project_id) {
+                QueryState::Loading => {
+                    ui.label(RichText::new("Loading project...").color(BG_500));
+                }
+                QueryState::Error(error) => {
+                    ui.label(RichText::new(error).color(egui::Color32::RED));
+                }
+                QueryState::Data(None) => {
+                    if !self.redirected_missing_project {
+                        page_ctx
+                            .action_sender
+                            .send(PageAction::Navigate(Route::Projects))
+                            .ok();
+                        self.redirected_missing_project = true;
                     }
-                    crate::query::QueryState::Error(error) => {
-                        ui.label(RichText::new(error).color(egui::Color32::RED));
-                    }
-                    crate::query::QueryState::Data(sessions) if sessions.is_empty() => {
-                        ui.label(RichText::new("No sessions yet").color(BG_500));
-                    }
-                    crate::query::QueryState::Data(sessions) => {
-                        self.sync_session_tabs(&sessions);
-                        self.render_sessions_dock(ui, &sessions);
+                }
+                QueryState::Data(Some(project)) => {
+                    self.redirected_missing_project = false;
+                    self.render_project(ui, page_ctx, &project);
+
+                    match page_ctx.query.use_sessions_by_project(ui, project_id) {
+                        QueryState::Loading => {
+                            ui.label(RichText::new("Loading sessions...").color(BG_500));
+                        }
+                        QueryState::Error(error) => {
+                            ui.label(RichText::new(error).color(egui::Color32::RED));
+                        }
+                        QueryState::Data(sessions) if sessions.is_empty() => {
+                            ui.label(RichText::new("No sessions yet").color(BG_500));
+                        }
+                        QueryState::Data(sessions) => {
+                            self.sync_session_tabs(&sessions);
+                            self.render_sessions_dock(ui, &sessions);
+                        }
                     }
                 }
             });
@@ -199,16 +223,9 @@ impl ProjectPage {
         self.session_tab_ids = next_tab_ids;
     }
 
-    fn render_project(
-        &mut self,
-        ui: &mut Ui,
-        page_ctx: &mut PageContext,
-        project: &Project,
-        // sessions_state: &Loadable<Vec<Session>>,
-    ) {
+    fn render_project(&mut self, ui: &mut Ui, page_ctx: &mut PageContext, project: &Project) {
         self.render_project_navbar(ui, page_ctx, project);
         ui.add_space(12.0);
-        // self.render_session(ui);
 
         // match sessions_state {
         //     Loadable::Idle | Loadable::Loading => {
@@ -239,7 +256,7 @@ impl ProjectPage {
                         StyledButton::new("")
                             .size(ButtonSize::Icon)
                             .icon_size(15.0)
-                            .variant(crate::components::button::ButtonVariant::Ghost)
+                            .variant(ButtonVariant::Ghost)
                             .icon(regular::SIDEBAR_SIMPLE),
                     );
 
@@ -310,19 +327,19 @@ impl ProjectPage {
         dock_style.buttons.add_tab_align = TabAddAlign::Left;
         dock_style.buttons.add_tab_color = inactive_text_color;
         dock_style.buttons.add_tab_active_color = active_text_color;
-        dock_style.buttons.add_tab_bg_fill = BG_800;
+        dock_style.buttons.add_tab_bg_fill = Color32::TRANSPARENT;
 
         dock_style.buttons.close_tab_color = inactive_text_color;
         dock_style.buttons.close_tab_active_color = active_text_color;
-        dock_style.buttons.close_tab_bg_fill = BG_900;
+        dock_style.buttons.close_tab_bg_fill = Color32::TRANSPARENT;
 
         dock_style.buttons.close_all_tabs_color = inactive_text_color;
         dock_style.buttons.close_all_tabs_active_color = active_text_color;
-        dock_style.buttons.close_all_tabs_bg_fill = BG_800;
+        dock_style.buttons.close_all_tabs_bg_fill = Color32::TRANSPARENT;
 
         dock_style.buttons.collapse_tabs_color = inactive_text_color;
         dock_style.buttons.collapse_tabs_active_color = active_text_color;
-        dock_style.buttons.collapse_tabs_bg_fill = BG_800;
+        dock_style.buttons.collapse_tabs_bg_fill = Color32::TRANSPARENT;
 
         DockArea::new(&mut self.session_tabs_tree)
             .style(dock_style)

@@ -4,6 +4,7 @@ package project;
 service Project {
     rpc ListProjects (ListProjectsRequest) returns (ListProjectsReply);
     rpc GetProject(GetProjectRequest) returns (GetProjectReply);
+    rpc SubscribeProject(SubscribeProjectRequest) returns (stream SubscribeProjectReply);
     rpc CreateProject(CreateProjectRequest) returns (CreateProjectReply);
     rpc UpdateProject(UpdateProjectRequest) returns (UpdateProjectReply);
     rpc DeleteProject(DeleteProjectRequest) returns (DeleteProjectReply);
@@ -26,6 +27,12 @@ message GetProjectRequest {
   string project_id = 1;
 }
 message GetProjectReply {
+  ProjectModel project = 1;
+}
+message SubscribeProjectRequest {
+  string project_id = 1;
+}
+message SubscribeProjectReply {
   ProjectModel project = 1;
 }
 message CreateProjectRequest {

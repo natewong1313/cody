@@ -3,9 +3,14 @@ use crate::backend::{
     harness::{Harness, opencode::OpencodeHarness},
     repo::{project::ProjectRepo, session::SessionRepo},
 };
-use std::{net::SocketAddr, sync::Arc};
+use std::{
+    collections::HashMap,
+    net::SocketAddr,
+    sync::{Arc, Mutex},
+};
 use tokio::{sync::watch, task::JoinHandle};
 use tonic::transport::Server;
+use uuid::Uuid;
 
 pub use repo::project::Project;
 pub use repo::session::Session;
@@ -21,7 +26,8 @@ pub(crate) mod proto_project {
 }
 use proto_project::project_server::ProjectServer;
 pub use proto_project::{
-    SubscribeProjectsReply, SubscribeProjectsRequest, project_client::ProjectClient,
+    SubscribeProjectReply, SubscribeProjectRequest, SubscribeProjectsReply,
+    SubscribeProjectsRequest, project_client::ProjectClient,
 };
 
 pub(crate) mod proto_session {
@@ -67,6 +73,7 @@ where
 pub struct BackendService {
     project_repo: ProjectRepo<Sqlite>,
     projects_sender: watch::Sender<Vec<Project>>,
+    project_sender_by_id: Mutex<HashMap<Uuid, watch::Sender<Option<Project>>>>,
     session_repo: SessionRepo<Sqlite>,
 }
 
@@ -87,11 +94,13 @@ impl BackendService {
 
         let project_repo = ProjectRepo::new(ctx.clone());
         let (projects_sender, _) = watch::channel(Vec::new());
+        let project_sender_by_id = Mutex::new(HashMap::new());
         let session_repo = SessionRepo::new(ctx.clone());
 
         Ok(Self {
             project_repo,
             projects_sender,
+            project_sender_by_id,
             session_repo,
         })
     }
