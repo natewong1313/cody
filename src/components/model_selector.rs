@@ -115,10 +115,10 @@ impl<'a> ModelSelector<'a> {
                 // Clamp focused index to filtered range
                 if filtered_count == 0 {
                     self.state.focused_index = None;
-                } else if let Some(idx) = self.state.focused_index {
-                    if idx >= filtered_count {
-                        self.state.focused_index = Some(filtered_count - 1);
-                    }
+                } else if let Some(idx) = self.state.focused_index
+                    && idx >= filtered_count
+                {
+                    self.state.focused_index = Some(filtered_count - 1);
                 }
 
                 // Setup keyboard listeners
@@ -156,7 +156,7 @@ impl<'a> ModelSelector<'a> {
 
         // Reset focused index when search text changes
         if self.state.search_text != prev_search {
-            self.state.focused_index = if self.state.filtered_models.len() > 0 {
+            self.state.focused_index = if !self.state.filtered_models.is_empty() {
                 Some(0)
             } else {
                 None
@@ -260,13 +260,12 @@ impl<'a> ModelSelector<'a> {
             self.state.focused_index = Some(current.saturating_sub(1));
             self.state.scroll_to_focused = true;
         }
-        if ui.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Enter)) {
-            if let Some(focused_idx) = self.state.focused_index {
-                if let Some(&(real_idx, _)) = self.state.filtered_models.get(focused_idx) {
-                    self.state.selected_model_index = Some(real_idx);
-                    ui.close();
-                }
-            }
+        if ui.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Enter))
+            && let Some(focused_idx) = self.state.focused_index
+            && let Some(&(real_idx, _)) = self.state.filtered_models.get(focused_idx)
+        {
+            self.state.selected_model_index = Some(real_idx);
+            ui.close();
         }
         if ui.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Escape)) {
             ui.close();

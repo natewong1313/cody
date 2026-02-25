@@ -94,10 +94,10 @@ impl<'a> DirButton<'a> {
 
         let response = ui.add(button);
 
-        if let Some(on_dir_change) = self.on_dir_change {
-            if let Some(dir) = self.inbox.read(ui).last() {
-                on_dir_change(dir);
-            }
+        if let Some(on_dir_change) = self.on_dir_change
+            && let Some(dir) = self.inbox.read(ui).last()
+        {
+            on_dir_change(dir);
         }
 
         if response.clicked() {

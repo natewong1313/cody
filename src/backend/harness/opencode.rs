@@ -31,7 +31,7 @@ pub struct OpencodeHarness {
 impl Harness for OpencodeHarness {
     fn new() -> anyhow::Result<Self> {
         let port = 6767;
-        log::debug!("Starting opencode on port {}", port);
+        log::debug!("Starting opencode on port {port}");
         let proc = unsafe {
             Command::new("opencode")
                 .arg("serve")
@@ -48,7 +48,7 @@ impl Harness for OpencodeHarness {
                 .map_err(|e| anyhow::anyhow!(OpencodeHarnessError::Spawn(e)))?
         };
 
-        log::debug!("Opencode running on port {}", port);
+        log::debug!("Opencode running on port {port}");
 
         let opencode_client = OpencodeApiClient::new(port);
 

@@ -57,7 +57,7 @@ impl Sqlite {
     }
 
     fn new_with_conn(mut conn: Connection) -> Result<Self, DatabaseStartupError> {
-        conn.pragma_update_and_check(None, "journal_mode", &"WAL", |_| Ok(()))?;
+        conn.pragma_update_and_check(None, "journal_mode", "WAL", |_| Ok(()))?;
         conn.execute_batch("PRAGMA foreign_keys = ON;")?;
         SQLITE_MIGRATIONS.to_latest(&mut conn)?;
         Ok(Self { conn: conn.into() })

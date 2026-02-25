@@ -17,7 +17,6 @@ use egui_inbox::UiInbox;
 use egui_phosphor::regular;
 use garde::Validate;
 use poll_promise::Promise;
-use std::time::Duration;
 use uuid::Uuid;
 
 #[derive(Debug, Default, Validate)]
@@ -209,13 +208,12 @@ impl ProjectsPage {
                     .ui(
                         ui,
                         DirButton::new(&dir_display, &self.dir_inbox).on_dir_change(|dir| {
-                            if self.form_fields.name.is_empty() {
-                                if let Some(name) = std::path::Path::new(&dir)
+                            if self.form_fields.name.is_empty()
+                                && let Some(name) = std::path::Path::new(&dir)
                                     .file_name()
                                     .and_then(|n| n.to_str())
-                                {
-                                    self.form_fields.name = name.to_string();
-                                }
+                            {
+                                self.form_fields.name = name.to_string();
                             }
                             self.form_fields.dir = dir;
                         }),

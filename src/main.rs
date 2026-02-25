@@ -109,7 +109,7 @@ fn configure_egui(cc: &eframe::CreationContext<'_>) {
     }
 }
 
-fn run_app(env: AppEnv) -> eframe::Result {
+fn run_app(_env: AppEnv) -> eframe::Result {
     let opts = eframe::NativeOptions {
         viewport: ViewportBuilder::default()
             .with_inner_size([800.0, 800.0])
