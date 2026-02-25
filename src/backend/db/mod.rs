@@ -1,7 +1,10 @@
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::backend::{Project, Session};
+use crate::backend::{
+    Project, Session,
+    repo::message::{Message, MessagePart},
+};
 
 mod migrations;
 pub mod sqlite;
@@ -52,4 +55,35 @@ pub trait Database {
         &self,
         session_id: Uuid,
     ) -> Result<Option<String>, DatabaseError>;
+    async fn get_session_id_by_harness_id(
+        &self,
+        harness_id: &str,
+    ) -> Result<Option<Uuid>, DatabaseError>;
+
+    async fn upsert_session_message(&self, message: Message) -> Result<(), DatabaseError>;
+    async fn upsert_session_message_with_parts(
+        &self,
+        message: Message,
+    ) -> Result<(), DatabaseError>;
+    async fn ensure_session_message_exists(
+        &self,
+        session_id: Uuid,
+        message_id: &str,
+    ) -> Result<(), DatabaseError>;
+    async fn mark_session_message_removed(
+        &self,
+        session_id: Uuid,
+        message_id: &str,
+    ) -> Result<(), DatabaseError>;
+    async fn upsert_session_message_part(
+        &self,
+        session_id: Uuid,
+        part: MessagePart,
+        delta: Option<String>,
+    ) -> Result<(), DatabaseError>;
+    async fn list_session_messages(
+        &self,
+        session_id: Uuid,
+        limit: Option<i32>,
+    ) -> Result<Vec<Message>, DatabaseError>;
 }
