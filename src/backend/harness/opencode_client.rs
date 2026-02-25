@@ -1,6 +1,7 @@
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::pin::Pin;
 
 #[derive(Clone)]
 pub struct OpencodeApiClient {
@@ -523,10 +524,14 @@ impl OpencodeApiClient {
     pub async fn get_event_stream(
         &self,
     ) -> Result<
-        impl futures::Stream<
-            Item = Result<
-                eventsource_stream::Event,
-                eventsource_stream::EventStreamError<reqwest::Error>,
+        Pin<
+            Box<
+                dyn futures::Stream<
+                        Item = Result<
+                            eventsource_stream::Event,
+                            eventsource_stream::EventStreamError<reqwest::Error>,
+                        >,
+                    > + Send,
             >,
         >,
         reqwest::Error,
@@ -539,7 +544,7 @@ impl OpencodeApiClient {
             .send()
             .await?;
 
-        Ok(response.bytes_stream().eventsource())
+        Ok(Box::pin(response.bytes_stream().eventsource()))
     }
 
     pub async fn send_message(

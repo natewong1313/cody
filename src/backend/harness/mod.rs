@@ -1,10 +1,12 @@
 use crate::backend::repo::session::Session;
+use futures::Stream;
+use std::pin::Pin;
 
 pub mod opencode;
 mod opencode_client;
 pub(crate) use opencode_client::{
-    ModelSelection, OpencodeMessage, OpencodeMessageWithParts, OpencodePart, OpencodePartInput,
-    OpencodeSendMessageRequest,
+    ModelSelection, OpencodeEventPayload, OpencodeGlobalEvent, OpencodeMessage,
+    OpencodeMessageWithParts, OpencodePart, OpencodePartInput, OpencodeSendMessageRequest,
 };
 
 pub trait Harness: Sized {
@@ -30,4 +32,19 @@ pub trait Harness: Sized {
         limit: Option<i32>,
         directory: Option<&str>,
     ) -> anyhow::Result<Vec<OpencodeMessageWithParts>>;
+
+    async fn get_event_stream(
+        &self,
+    ) -> anyhow::Result<
+        Pin<
+            Box<
+                dyn Stream<
+                        Item = Result<
+                            eventsource_stream::Event,
+                            eventsource_stream::EventStreamError<reqwest::Error>,
+                        >,
+                    > + Send,
+            >,
+        >,
+    >;
 }

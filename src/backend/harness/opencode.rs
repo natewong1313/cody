@@ -1,4 +1,5 @@
 use std::os::unix::process::CommandExt;
+use std::pin::Pin;
 use std::process::{Child, Command};
 use std::sync::{Arc, Mutex};
 use thiserror::Error;
@@ -198,6 +199,28 @@ impl Harness for OpencodeHarness {
             .get_session_messages(harness_id, limit, directory)
             .await
             .map_err(|e| anyhow::anyhow!(OpencodeHarnessError::ApiRequest(e.to_string())))
+    }
+
+    async fn get_event_stream(
+        &self,
+    ) -> anyhow::Result<
+        Pin<
+            Box<
+                dyn futures::Stream<
+                        Item = Result<
+                            eventsource_stream::Event,
+                            eventsource_stream::EventStreamError<reqwest::Error>,
+                        >,
+                    > + Send,
+            >,
+        >,
+    > {
+        let stream = self
+            .opencode_client
+            .get_event_stream()
+            .await
+            .map_err(|e| anyhow::anyhow!(OpencodeHarnessError::ApiRequest(e.to_string())))?;
+        Ok(Box::pin(stream))
     }
 }
 
