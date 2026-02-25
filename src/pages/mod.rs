@@ -1,5 +1,5 @@
 use crate::{
-    backend::mutations::MutationsClient,
+    mutations::MutationsClient,
     opencode::{ModelSelection, OpencodeSession},
     pages::project::ProjectPage,
     pages::projects::ProjectsPage,

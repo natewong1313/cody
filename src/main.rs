@@ -9,6 +9,7 @@ mod actions;
 mod app;
 mod backend;
 mod components;
+mod mutations;
 mod opencode;
 mod pages;
 mod query;
@@ -127,7 +128,7 @@ fn run_app(env: AppEnv) -> eframe::Result {
 }
 
 fn init_tracing() {
-    let default_filter = "warn,cody=debug";
+    let default_filter = "warn,cody::backend::harness=debug";
     let env_filter = EnvFilter::try_from_default_env()
         .or_else(|_| EnvFilter::try_new(default_filter))
         .unwrap_or_else(|_| EnvFilter::new("info"));
