@@ -1,0 +1,75 @@
+syntax = "proto3";
+package message;
+
+service Message {
+  rpc SendMessage(SendMessageRequest) returns (SendMessageReply);
+  rpc ListSessionMessages(ListSessionMessagesRequest) returns (ListSessionMessagesReply);
+  rpc SubscribeSessionMessages(SubscribeSessionMessagesRequest) returns (stream SubscribeSessionMessagesReply);
+}
+
+message ModelSelection {
+  string provider_id = 1;
+  string model_id = 2;
+}
+
+message MessagePartInput {
+  string text = 1;
+  bool synthetic = 2;
+  bool ignored = 3;
+}
+
+message MessageInput {
+  repeated MessagePartInput parts = 1;
+  string message_id = 2;
+  string agent = 3;
+  bool no_reply = 4;
+  string system = 5;
+  ModelSelection model = 6;
+}
+
+message MessagePartModel {
+  string id = 1;
+  string message_id = 2;
+  string type = 3;
+  string text = 4;
+  string tool_json = 5;
+}
+
+message MessageModel {
+  string id = 1;
+  string session_id = 2;
+  string role = 3;
+  string created_at = 4;
+  string completed_at = 5;
+  string parent_id = 6;
+  string provider_id = 7;
+  string model_id = 8;
+  string error_json = 9;
+  repeated MessagePartModel parts = 10;
+}
+
+message SendMessageRequest {
+  string session_id = 1;
+  MessageInput input = 2;
+}
+
+message SendMessageReply {
+  MessageModel message = 1;
+}
+
+message ListSessionMessagesRequest {
+  string session_id = 1;
+  optional int32 limit = 2;
+}
+
+message ListSessionMessagesReply {
+  repeated MessageModel messages = 1;
+}
+
+message SubscribeSessionMessagesRequest {
+  string session_id = 1;
+}
+
+message SubscribeSessionMessagesReply {
+  repeated MessageModel messages = 1;
+}
