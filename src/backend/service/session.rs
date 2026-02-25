@@ -6,8 +6,9 @@ use crate::backend::{
     BackendService, Session,
     proto_session::{
         CreateSessionReply, CreateSessionRequest, DeleteSessionReply, DeleteSessionRequest,
-        GetSessionReply, GetSessionRequest, ListSessionsByProjectReply,
-        ListSessionsByProjectRequest, UpdateSessionReply, UpdateSessionRequest,
+        GetSessionMessagesReply, GetSessionMessagesRequest, GetSessionReply, GetSessionRequest,
+        ListSessionsByProjectReply, ListSessionsByProjectRequest, SendSessionMessageReply,
+        SendSessionMessageRequest, UpdateSessionReply, UpdateSessionRequest,
         session_server::Session as SessionService,
     },
     proto_utils::parse_uuid,
@@ -77,5 +78,37 @@ impl SessionService for Arc<BackendService> {
         self.session_repo.delete(&session_id).await?;
 
         Ok(Response::new(DeleteSessionReply {}))
+    }
+
+    async fn send_session_message(
+        &self,
+        request: Request<SendSessionMessageRequest>,
+    ) -> Result<Response<SendSessionMessageReply>, Status> {
+        let req = request.into_inner();
+        let session_id = parse_uuid("session_id", &req.session_id)?;
+        let input = required_field(req.input, "input")?;
+
+        let message = self.session_repo.send_message(&session_id, input).await?;
+
+        Ok(Response::new(SendSessionMessageReply {
+            message: Some(message.into()),
+        }))
+    }
+
+    async fn get_session_messages(
+        &self,
+        request: Request<GetSessionMessagesRequest>,
+    ) -> Result<Response<GetSessionMessagesReply>, Status> {
+        let req = request.into_inner();
+        let session_id = parse_uuid("session_id", &req.session_id)?;
+
+        let messages = self
+            .session_repo
+            .get_messages(&session_id, req.limit)
+            .await?;
+
+        Ok(Response::new(GetSessionMessagesReply {
+            messages: messages.into_iter().map(Into::into).collect(),
+        }))
     }
 }

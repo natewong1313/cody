@@ -181,7 +181,10 @@ async fn spawn_fake_opencode_server() -> (u32, tokio::task::JoinHandle<()>) {
                 let mut buf = [0_u8; 2048];
                 let _ = socket.read(&mut buf).await;
 
-                let body = r#"{"id":"fake-session-id","title":"fake"}"#;
+                let body = format!(
+                    "{{\"id\":\"ses-{}\",\"title\":\"fake\"}}",
+                    Uuid::new_v4().simple()
+                );
                 let response = format!(
                     "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
                     body.len(),

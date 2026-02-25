@@ -46,9 +46,21 @@ pub async fn spawn_fake_opencode_server() -> (u32, tokio::task::JoinHandle<()>) 
 
             tokio::spawn(async move {
                 let mut buf = [0_u8; 2048];
-                let _ = socket.read(&mut buf).await;
+                let read = socket.read(&mut buf).await.unwrap_or_default();
+                let request = String::from_utf8_lossy(&buf[..read]);
+                let first_line = request.lines().next().unwrap_or_default();
 
-                let body = r#"{"id":"fake-session-id","title":"fake"}"#;
+                let body = if first_line.starts_with("POST /session/")
+                    && first_line.contains("/message")
+                {
+                    r#"{"info":{"role":"assistant","id":"msg-assistant-1","sessionID":"ses-fake","time":{"created":1730000000000,"completed":1730000001000},"error":null,"parentID":"msg-user-1","modelID":"gpt-5","providerID":"openai","mode":"chat","path":{"cwd":"/tmp","root":"/tmp"},"cost":0.0,"tokens":{"input":1,"output":2,"reasoning":0,"cache":{"read":0,"write":0}},"finish":"stop"},"parts":[{"id":"part-1","sessionID":"ses-fake","messageID":"msg-assistant-1","type":"text","text":"hello"}]}"#.to_string()
+                } else if first_line.starts_with("GET /session/") && first_line.contains("/message")
+                {
+                    r#"[{"info":{"role":"user","id":"msg-user-1","sessionID":"ses-fake","time":{"created":1730000000000},"summary":null,"agent":"build","model":{"providerID":"openai","modelID":"gpt-5"},"system":null,"tools":null},"parts":[{"id":"part-user-1","sessionID":"ses-fake","messageID":"msg-user-1","type":"text","text":"hi"}]},{"info":{"role":"assistant","id":"msg-assistant-1","sessionID":"ses-fake","time":{"created":1730000000000,"completed":1730000001000},"error":null,"parentID":"msg-user-1","modelID":"gpt-5","providerID":"openai","mode":"chat","path":{"cwd":"/tmp","root":"/tmp"},"cost":0.0,"tokens":{"input":1,"output":2,"reasoning":0,"cache":{"read":0,"write":0}},"finish":"stop"},"parts":[{"id":"part-1","sessionID":"ses-fake","messageID":"msg-assistant-1","type":"text","text":"hello"}]}]"#.to_string()
+                } else {
+                    return_create_session_body()
+                };
+
                 let response = format!(
                     "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
                     body.len(),
@@ -62,6 +74,13 @@ pub async fn spawn_fake_opencode_server() -> (u32, tokio::task::JoinHandle<()>) 
     });
 
     (port, handle)
+}
+
+fn return_create_session_body() -> String {
+    format!(
+        "{{\"id\":\"ses-{}\",\"title\":\"fake\"}}",
+        Uuid::new_v4().simple()
+    )
 }
 
 pub fn test_backend(port: u32) -> Arc<BackendService> {

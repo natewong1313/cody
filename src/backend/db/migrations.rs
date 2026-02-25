@@ -22,5 +22,9 @@ const SQLITE_MIGRATIONS_SLICE: &[M<'_>] = &[
             updated_at TEXT NOT NULL
         );",
     ),
+    M::up(
+        "ALTER TABLE sessions ADD COLUMN harness_id TEXT;
+         CREATE UNIQUE INDEX idx_sessions_harness_id ON sessions(harness_id) WHERE harness_id IS NOT NULL;",
+    ),
 ];
 pub const SQLITE_MIGRATIONS: Migrations<'_> = Migrations::from_slice(SQLITE_MIGRATIONS_SLICE);

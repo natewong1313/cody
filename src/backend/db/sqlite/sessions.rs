@@ -85,3 +85,24 @@ pub fn delete_session(conn: &Connection, session_id: Uuid) -> Result<(), Databas
     let rows = conn.execute("DELETE FROM sessions WHERE id = ?1", [session_id])?;
     assert_one_row_affected("delete_session", rows)
 }
+
+pub fn set_session_harness_id(
+    conn: &Connection,
+    session_id: Uuid,
+    harness_id: &str,
+) -> Result<(), DatabaseError> {
+    let rows = conn.execute(
+        "UPDATE sessions SET harness_id = ?2 WHERE id = ?1",
+        (session_id, harness_id),
+    )?;
+    assert_one_row_affected("set_session_harness_id", rows)
+}
+
+pub fn get_session_harness_id(
+    conn: &Connection,
+    session_id: Uuid,
+) -> Result<Option<String>, DatabaseError> {
+    let mut stmt = conn.prepare("SELECT harness_id FROM sessions WHERE id = ?1")?;
+    let harness_id = stmt.query_row([session_id], |row| row.get(0)).optional()?;
+    Ok(harness_id)
+}

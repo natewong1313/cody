@@ -16,7 +16,9 @@ pub struct OpencodeSession {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelSelection {
+    #[serde(rename = "providerID", alias = "providerId")]
     pub provider_id: String,
+    #[serde(rename = "modelID", alias = "modelId")]
     pub model_id: String,
 }
 
@@ -90,6 +92,7 @@ pub struct OpencodeSourceRange {
 #[serde(rename_all = "camelCase")]
 pub struct OpencodeSendMessageRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "messageID", alias = "messageId")]
     pub message_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<ModelSelection>,
@@ -108,6 +111,7 @@ pub struct OpencodeSendMessageRequest {
 #[serde(rename_all = "camelCase")]
 pub struct OpencodeCreateSessionRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "parentID", alias = "parentId")]
     pub parent_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
@@ -150,7 +154,9 @@ pub struct MessageSummary {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelInfo {
+    #[serde(rename = "providerID", alias = "providerId")]
     pub provider_id: String,
+    #[serde(rename = "modelID", alias = "modelId")]
     pub model_id: String,
 }
 
@@ -248,8 +254,8 @@ impl OpencodeMessage {
 #[serde(rename_all = "camelCase")]
 pub struct UserMessage {
     pub id: String,
+    #[serde(rename = "sessionID", alias = "sessionId")]
     pub session_id: String,
-    pub role: String,
     pub time: MessageTime,
     pub summary: Option<MessageSummary>,
     pub agent: String,
@@ -262,12 +268,15 @@ pub struct UserMessage {
 #[serde(rename_all = "camelCase")]
 pub struct AssistantMessage {
     pub id: String,
+    #[serde(rename = "sessionID", alias = "sessionId")]
     pub session_id: String,
-    pub role: String,
     pub time: MessageTimeCompleted,
     pub error: Option<OpencodeMessageError>,
+    #[serde(rename = "parentID", alias = "parentId")]
     pub parent_id: String,
+    #[serde(rename = "modelID", alias = "modelId")]
     pub model_id: String,
+    #[serde(rename = "providerID", alias = "providerId")]
     pub provider_id: String,
     pub mode: String,
     pub path: MessagePath,
@@ -288,10 +297,10 @@ pub enum OpencodeMessageError {
 #[serde(rename_all = "camelCase")]
 pub struct OpencodeTextPart {
     pub id: String,
+    #[serde(rename = "sessionID", alias = "sessionId")]
     pub session_id: String,
+    #[serde(rename = "messageID", alias = "messageId")]
     pub message_id: String,
-    #[serde(rename = "type")]
-    pub part_type: String,
     pub text: String,
     pub synthetic: Option<bool>,
     pub ignored: Option<bool>,
@@ -301,10 +310,10 @@ pub struct OpencodeTextPart {
 #[serde(rename_all = "camelCase")]
 pub struct OpencodeReasoningPart {
     pub id: String,
+    #[serde(rename = "sessionID", alias = "sessionId")]
     pub session_id: String,
+    #[serde(rename = "messageID", alias = "messageId")]
     pub message_id: String,
-    #[serde(rename = "type")]
-    pub part_type: String,
     pub text: String,
 }
 
@@ -321,10 +330,11 @@ pub struct OpencodeToolStateCompleted {
 #[serde(rename_all = "camelCase")]
 pub struct OpencodeToolPart {
     pub id: String,
+    #[serde(rename = "sessionID", alias = "sessionId")]
     pub session_id: String,
+    #[serde(rename = "messageID", alias = "messageId")]
     pub message_id: String,
-    #[serde(rename = "type")]
-    pub part_type: String,
+    #[serde(rename = "callID", alias = "callId")]
     pub call_id: String,
     pub tool: String,
     pub state: OpencodeToolState,
@@ -458,13 +468,16 @@ pub struct OpencodeMessagePartUpdatedProps {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OpencodeMessageRemovedProps {
+    #[serde(rename = "sessionID", alias = "sessionId")]
     pub session_id: String,
+    #[serde(rename = "messageID", alias = "messageId")]
     pub message_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OpencodeSessionIdleProps {
+    #[serde(rename = "sessionID", alias = "sessionId")]
     pub session_id: String,
 }
 

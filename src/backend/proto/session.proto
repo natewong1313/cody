@@ -7,6 +7,8 @@ service Session {
     rpc CreateSession(CreateSessionRequest) returns (CreateSessionReply);
     rpc UpdateSession(UpdateSessionRequest) returns (UpdateSessionReply);
     rpc DeleteSession(DeleteSessionRequest) returns (DeleteSessionReply);
+    rpc SendSessionMessage(SendSessionMessageRequest) returns (SendSessionMessageReply);
+    rpc GetSessionMessages(GetSessionMessagesRequest) returns (GetSessionMessagesReply);
 }
 
 message SessionModel {
@@ -46,3 +48,62 @@ message DeleteSessionRequest {
   string session_id = 1;
 }
 message DeleteSessionReply {}
+
+message SendSessionMessageRequest {
+  string session_id = 1;
+  SessionMessageInput input = 2;
+}
+
+message SendSessionMessageReply {
+  SessionMessageModel message = 1;
+}
+
+message GetSessionMessagesRequest {
+  string session_id = 1;
+  optional int32 limit = 2;
+}
+
+message GetSessionMessagesReply {
+  repeated SessionMessageModel messages = 1;
+}
+
+message SessionMessageInput {
+  repeated SessionMessagePartInput parts = 1;
+  string message_id = 2;
+  string agent = 3;
+  bool no_reply = 4;
+  string system = 5;
+  SessionModelSelection model = 6;
+}
+
+message SessionModelSelection {
+  string provider_id = 1;
+  string model_id = 2;
+}
+
+message SessionMessagePartInput {
+  string text = 1;
+  bool synthetic = 2;
+  bool ignored = 3;
+}
+
+message SessionMessageModel {
+  string id = 1;
+  string session_id = 2;
+  string role = 3;
+  string created_at = 4;
+  string completed_at = 5;
+  string parent_id = 6;
+  string provider_id = 7;
+  string model_id = 8;
+  string error_json = 9;
+  repeated SessionMessagePartModel parts = 10;
+}
+
+message SessionMessagePartModel {
+  string id = 1;
+  string message_id = 2;
+  string type = 3;
+  string text = 4;
+  string tool_json = 5;
+}

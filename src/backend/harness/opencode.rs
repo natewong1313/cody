@@ -3,7 +3,7 @@ use std::process::{Child, Command};
 use std::sync::{Arc, Mutex};
 use thiserror::Error;
 
-use crate::backend::harness::Harness;
+use crate::backend::harness::{Harness, OpencodeMessageWithParts, OpencodeSendMessageRequest};
 use crate::backend::{
     harness::opencode_client::{OpencodeApiClient, OpencodeCreateSessionRequest},
     repo::session::Session,
@@ -160,19 +160,44 @@ impl Harness for OpencodeHarness {
         &self,
         session: Session,
         directory: Option<&str>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<String> {
         let request = OpencodeCreateSessionRequest {
             parent_id: None,
             title: Some(session.name),
             permission: None,
         };
 
-        self.opencode_client
+        let created = self
+            .opencode_client
             .create_session(Some(&request), directory)
             .await
             .map_err(|e| anyhow::anyhow!(OpencodeHarnessError::ApiRequest(e.to_string())))?;
 
-        Ok(())
+        Ok(created.id)
+    }
+
+    async fn send_message(
+        &self,
+        harness_id: &str,
+        request: &OpencodeSendMessageRequest,
+        directory: Option<&str>,
+    ) -> anyhow::Result<OpencodeMessageWithParts> {
+        self.opencode_client
+            .send_message(harness_id, request, directory)
+            .await
+            .map_err(|e| anyhow::anyhow!(OpencodeHarnessError::ApiRequest(e.to_string())))
+    }
+
+    async fn get_session_messages(
+        &self,
+        harness_id: &str,
+        limit: Option<i32>,
+        directory: Option<&str>,
+    ) -> anyhow::Result<Vec<OpencodeMessageWithParts>> {
+        self.opencode_client
+            .get_session_messages(harness_id, limit, directory)
+            .await
+            .map_err(|e| anyhow::anyhow!(OpencodeHarnessError::ApiRequest(e.to_string())))
     }
 }
 
