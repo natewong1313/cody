@@ -42,7 +42,7 @@ impl MessageService for Arc<BackendService> {
         let req = request.into_inner();
         let session_id = parse_uuid("session_id", &req.session_id)?;
         if let Some(limit) = req.limit
-            && limit < 0
+            && limit <= 0
         {
             return Err(Status::invalid_argument("limit must be greater than 0"));
         }
