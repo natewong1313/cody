@@ -1,9 +1,141 @@
 use chrono::Utc;
-use tokio_rusqlite::rusqlite::{Connection, OptionalExtension, params};
+use tokio_rusqlite::rusqlite::{self, params, Connection, OptionalExtension};
+use tokio_rusqlite::Row;
 use uuid::Uuid;
 
 use crate::backend::db::DatabaseError;
 use crate::backend::repo::message::{Message, MessagePart};
+
+type MessageWithPartRow = (
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+);
+
+fn map_message_with_part_row(row: &Row<'_>) -> rusqlite::Result<MessageWithPartRow> {
+    Ok((
+        row.get::<_, String>(0)?,
+        row.get::<_, String>(1)?,
+        row.get::<_, String>(2)?,
+        row.get::<_, String>(3)?,
+        row.get::<_, String>(4)?,
+        row.get::<_, String>(5)?,
+        row.get::<_, String>(6)?,
+        row.get::<_, String>(7)?,
+        row.get::<_, Option<String>>(8)?,
+        row.get::<_, Option<String>>(9)?,
+        row.get::<_, Option<String>>(10)?,
+        row.get::<_, Option<String>>(11)?,
+        row.get::<_, Option<String>>(12)?,
+    ))
+}
+
+fn message_part_from_row(
+    part_id: Option<String>,
+    part_message_id: Option<String>,
+    part_type: Option<String>,
+    part_text: Option<String>,
+    part_tool_json: Option<String>,
+) -> Option<MessagePart> {
+    match (
+        part_id,
+        part_message_id,
+        part_type,
+        part_text,
+        part_tool_json,
+    ) {
+        (Some(id), Some(message_id), Some(part_type), Some(text), Some(tool_json)) => {
+            Some(MessagePart {
+                id,
+                message_id,
+                part_type,
+                text,
+                tool_json,
+            })
+        }
+        _ => None,
+    }
+}
+
+fn fetch_session_message_rows(
+    conn: &Connection,
+    session_id: Uuid,
+    limit: Option<i32>,
+) -> Result<Vec<MessageWithPartRow>, DatabaseError> {
+    let query_with_limit = "WITH selected_messages AS (
+            SELECT id, session_id, role, created_at, completed_at, parent_id, provider_id, model_id, error_json
+            FROM session_messages
+            WHERE session_id = ?1 AND removed_at IS NULL
+            ORDER BY created_at ASC, id ASC
+            LIMIT ?2
+        )
+        SELECT
+            m.id,
+            m.role,
+            m.created_at,
+            m.completed_at,
+            m.parent_id,
+            m.provider_id,
+            m.model_id,
+            m.error_json,
+            p.id,
+            p.message_id,
+            p.part_type,
+            p.text,
+            p.tool_json
+        FROM selected_messages m
+        LEFT JOIN session_message_parts p
+            ON p.session_id = m.session_id
+           AND p.message_id = m.id
+        ORDER BY m.created_at ASC, m.id ASC, p.id ASC";
+
+    let query_without_limit = "SELECT
+            m.id,
+            m.role,
+            m.created_at,
+            m.completed_at,
+            m.parent_id,
+            m.provider_id,
+            m.model_id,
+            m.error_json,
+            p.id,
+            p.message_id,
+            p.part_type,
+            p.text,
+            p.tool_json
+        FROM session_messages m
+        LEFT JOIN session_message_parts p
+            ON p.session_id = m.session_id
+           AND p.message_id = m.id
+        WHERE m.session_id = ?1 AND m.removed_at IS NULL
+        ORDER BY m.created_at ASC, m.id ASC, p.id ASC";
+
+    let mut stmt = conn.prepare(if limit.is_some() {
+        query_with_limit
+    } else {
+        query_without_limit
+    })?;
+
+    if let Some(limit) = limit {
+        stmt.query_map(params![session_id, limit], map_message_with_part_row)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(DatabaseError::from)
+    } else {
+        stmt.query_map(params![session_id], map_message_with_part_row)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(DatabaseError::from)
+    }
+}
 
 pub fn get_session_id_by_harness_id(
     conn: &Connection,
@@ -54,24 +186,19 @@ pub fn upsert_session_message_with_parts(
 ) -> Result<(), DatabaseError> {
     conn.execute_batch("BEGIN IMMEDIATE TRANSACTION;")?;
 
-    let result = (|| -> Result<(), DatabaseError> {
+    if let Err(err) = (|| -> Result<(), DatabaseError> {
         upsert_session_message(conn, message)?;
         for part in &message.parts {
             upsert_session_message_part(conn, message.session_id, part, None)?;
         }
         Ok(())
-    })();
-
-    match result {
-        Ok(()) => {
-            conn.execute_batch("COMMIT;")?;
-            Ok(())
-        }
-        Err(err) => {
-            let _ = conn.execute_batch("ROLLBACK;");
-            Err(err)
-        }
+    })() {
+        let _ = conn.execute_batch("ROLLBACK;");
+        return Err(err);
     }
+
+    conn.execute_batch("COMMIT;")?;
+    Ok(())
 }
 
 pub fn ensure_session_message_exists(
@@ -151,99 +278,7 @@ pub fn list_session_messages(
     session_id: Uuid,
     limit: Option<i32>,
 ) -> Result<Vec<Message>, DatabaseError> {
-    let query_with_limit = "WITH selected_messages AS (
-            SELECT id, session_id, role, created_at, completed_at, parent_id, provider_id, model_id, error_json
-            FROM session_messages
-            WHERE session_id = ?1 AND removed_at IS NULL
-            ORDER BY created_at ASC, id ASC
-            LIMIT ?2
-        )
-        SELECT
-            m.id,
-            m.role,
-            m.created_at,
-            m.completed_at,
-            m.parent_id,
-            m.provider_id,
-            m.model_id,
-            m.error_json,
-            p.id,
-            p.message_id,
-            p.part_type,
-            p.text,
-            p.tool_json
-        FROM selected_messages m
-        LEFT JOIN session_message_parts p
-            ON p.session_id = m.session_id
-           AND p.message_id = m.id
-        ORDER BY m.created_at ASC, m.id ASC, p.id ASC";
-
-    let query_without_limit = "SELECT
-            m.id,
-            m.role,
-            m.created_at,
-            m.completed_at,
-            m.parent_id,
-            m.provider_id,
-            m.model_id,
-            m.error_json,
-            p.id,
-            p.message_id,
-            p.part_type,
-            p.text,
-            p.tool_json
-        FROM session_messages m
-        LEFT JOIN session_message_parts p
-            ON p.session_id = m.session_id
-           AND p.message_id = m.id
-        WHERE m.session_id = ?1 AND m.removed_at IS NULL
-        ORDER BY m.created_at ASC, m.id ASC, p.id ASC";
-
-    let mut stmt = conn.prepare(if limit.is_some() {
-        query_with_limit
-    } else {
-        query_without_limit
-    })?;
-
-    let rows = if let Some(limit) = limit {
-        stmt.query_map(params![session_id, limit], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, String>(2)?,
-                row.get::<_, String>(3)?,
-                row.get::<_, String>(4)?,
-                row.get::<_, String>(5)?,
-                row.get::<_, String>(6)?,
-                row.get::<_, String>(7)?,
-                row.get::<_, Option<String>>(8)?,
-                row.get::<_, Option<String>>(9)?,
-                row.get::<_, Option<String>>(10)?,
-                row.get::<_, Option<String>>(11)?,
-                row.get::<_, Option<String>>(12)?,
-            ))
-        })?
-        .collect::<Result<Vec<_>, _>>()?
-    } else {
-        stmt.query_map(params![session_id], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, String>(2)?,
-                row.get::<_, String>(3)?,
-                row.get::<_, String>(4)?,
-                row.get::<_, String>(5)?,
-                row.get::<_, String>(6)?,
-                row.get::<_, String>(7)?,
-                row.get::<_, Option<String>>(8)?,
-                row.get::<_, Option<String>>(9)?,
-                row.get::<_, Option<String>>(10)?,
-                row.get::<_, Option<String>>(11)?,
-                row.get::<_, Option<String>>(12)?,
-            ))
-        })?
-        .collect::<Result<Vec<_>, _>>()?
-    };
+    let rows = fetch_session_message_rows(conn, session_id, limit)?;
 
     let mut messages: Vec<Message> = Vec::new();
     for (
@@ -262,10 +297,7 @@ pub fn list_session_messages(
         part_tool_json,
     ) in rows
     {
-        let needs_new_message = match messages.last() {
-            Some(existing) => existing.id != id,
-            None => true,
-        };
+        let needs_new_message = messages.last().is_none_or(|existing| existing.id != id);
         if needs_new_message {
             messages.push(Message {
                 id: id.clone(),
@@ -281,29 +313,16 @@ pub fn list_session_messages(
             });
         }
 
-        if let (
-            Some(part_id),
-            Some(part_message_id),
-            Some(part_type),
-            Some(part_text),
-            Some(part_tool_json),
-        ) = (
+        if let Some(part) = message_part_from_row(
             part_id,
             part_message_id,
             part_type,
             part_text,
             part_tool_json,
         ) {
-            let Some(message) = messages.last_mut() else {
-                continue;
-            };
-            message.parts.push(MessagePart {
-                id: part_id,
-                message_id: part_message_id,
-                part_type,
-                text: part_text,
-                tool_json: part_tool_json,
-            });
+            if let Some(message) = messages.last_mut() {
+                message.parts.push(part);
+            }
         }
     }
 

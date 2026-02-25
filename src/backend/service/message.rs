@@ -1,5 +1,6 @@
 use futures::{Stream, StreamExt, stream};
 use std::{collections::hash_map::Entry, pin::Pin, sync::Arc};
+use tokio::sync::watch;
 use tonic::{Request, Response, Status};
 
 use super::required_field;
@@ -40,10 +41,10 @@ impl MessageService for Arc<BackendService> {
     ) -> Result<Response<ListSessionMessagesReply>, Status> {
         let req = request.into_inner();
         let session_id = parse_uuid("session_id", &req.session_id)?;
-        if let Some(limit) = req.limit {
-            if limit <= 0 {
-                return Err(Status::invalid_argument("limit must be greater than 0"));
-            }
+        if let Some(limit) = req.limit
+            && limit < 0
+        {
+            return Err(Status::invalid_argument("limit must be greater than 0"));
         }
 
         let messages = self
@@ -74,7 +75,7 @@ impl MessageService for Arc<BackendService> {
                     (sender, receiver)
                 }
                 Entry::Vacant(entry) => {
-                    let (sender, receiver) = tokio::sync::watch::channel(Vec::new());
+                    let (sender, receiver) = watch::channel(Vec::new());
                     entry.insert(sender.clone());
                     (sender, receiver)
                 }
