@@ -6,12 +6,12 @@ use crate::theme::{
 };
 use egui::epaint::CornerRadiusF32;
 use egui::{
-    vec2, Align2, CentralPanel, Color32, Frame, Id, Label, RichText, ScrollArea, Stroke, TextEdit,
-    TopBottomPanel, Ui,
+    Align2, CentralPanel, Color32, Frame, Id, Label, RichText, ScrollArea, Stroke, TextEdit,
+    TopBottomPanel, Ui, vec2,
 };
 use egui_dock::tab_viewer::OnCloseResponse;
 use egui_dock::{DockArea, DockState, Style, TabAddAlign};
-use egui_flex::{item, Flex};
+use egui_flex::{Flex, item};
 use egui_phosphor::regular;
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;

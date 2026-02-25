@@ -1,4 +1,6 @@
+use poll_promise::Promise;
 use tonic::transport::Channel;
+use uuid::Uuid;
 
 use crate::backend::{Project, Session};
 
@@ -22,11 +24,11 @@ impl MutationsClient {
         session::create_session(self.backend_channel.clone(), session);
     }
 
-    pub fn create_project_with_initial_session(&self, project: Project, session: Session) {
-        project::create_project_with_initial_session(
-            self.backend_channel.clone(),
-            project,
-            session,
-        );
+    pub fn create_project_with_initial_session(
+        &self,
+        project: Project,
+        session: Session,
+    ) -> Promise<Result<Uuid, String>> {
+        project::create_project_with_initial_session(self.backend_channel.clone(), project, session)
     }
 }

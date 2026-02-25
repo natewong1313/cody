@@ -16,6 +16,8 @@ use egui_form::{Form, FormField};
 use egui_inbox::UiInbox;
 use egui_phosphor::regular;
 use garde::Validate;
+use poll_promise::Promise;
+use std::time::Duration;
 use uuid::Uuid;
 
 #[derive(Debug, Default, Validate)]
@@ -31,6 +33,8 @@ pub struct ProjectsPage {
     modal_id: u32,
     form_fields: ProjectFormFields,
     dir_inbox: UiInbox<String>,
+    create_promise: Option<Promise<Result<Uuid, String>>>,
+    create_error: Option<String>,
 }
 
 impl ProjectsPage {
@@ -40,10 +44,14 @@ impl ProjectsPage {
             modal_id: 0,
             form_fields: ProjectFormFields::default(),
             dir_inbox: UiInbox::new(),
+            create_promise: None,
+            create_error: None,
         }
     }
 
     pub fn render(&mut self, ctx: &egui::Context, page_ctx: &mut super::PageContext) {
+        self.handle_create_result(page_ctx);
+
         CentralPanel::default()
             .frame(
                 Frame::central_panel(&ctx.style())
@@ -224,7 +232,7 @@ impl ProjectsPage {
                 self.render_form_buttons(ui, form, page_ctx);
             });
 
-        if modal_response.should_close() {
+        if modal_response.should_close() && self.create_promise.is_none() {
             self.reset_form();
         }
     }
@@ -235,24 +243,33 @@ impl ProjectsPage {
         mut form: Form<GardeReport>,
         page_ctx: &mut super::PageContext,
     ) {
+        let is_creating = self.create_promise.is_some();
+
         ui.horizontal(|ui| {
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                let create_response = StyledButton::new("Create")
-                    .size(ButtonSize::Sm)
-                    .icon(regular::PLUS)
-                    .show(ui);
+                let create_response =
+                    StyledButton::new(if is_creating { "Creating..." } else { "Create" })
+                        .size(ButtonSize::Sm)
+                        .icon(regular::PLUS)
+                        .show(ui);
 
-                if let Some(Ok(())) = form.handle_submit(&create_response, ui) {
+                if !is_creating && let Some(Ok(())) = form.handle_submit(&create_response, ui) {
                     self.on_create_project_click(page_ctx);
                 }
 
-                if StyledButton::new("Cancel")
-                    .size(ButtonSize::Sm)
-                    .variant(ButtonVariant::Secondary)
-                    .show(ui)
-                    .clicked()
-                {
-                    self.reset_form();
+                ui.add_enabled_ui(!is_creating, |ui| {
+                    if StyledButton::new("Cancel")
+                        .size(ButtonSize::Sm)
+                        .variant(ButtonVariant::Secondary)
+                        .show(ui)
+                        .clicked()
+                    {
+                        self.reset_form();
+                    }
+                });
+
+                if let Some(error) = &self.create_error {
+                    ui.label(RichText::new(error).color(egui::Color32::RED));
                 }
             });
         });
@@ -278,21 +295,43 @@ impl ProjectsPage {
             updated_at: now,
         };
 
-        page_ctx
-            .mutations
-            .create_project_with_initial_session(project, session);
+        self.create_promise = Some(
+            page_ctx
+                .mutations
+                .create_project_with_initial_session(project, session),
+        );
+        self.create_error = None;
+    }
 
-        page_ctx
-            .action_sender
-            .send(PageAction::Navigate(Route::Project { id: project_id }))
-            .ok();
+    fn handle_create_result(&mut self, page_ctx: &mut super::PageContext) {
+        let Some(result) = self
+            .create_promise
+            .as_ref()
+            .and_then(|promise| promise.ready())
+        else {
+            return;
+        };
 
-        self.reset_form();
+        match result {
+            Ok(project_id) => {
+                page_ctx
+                    .action_sender
+                    .send(PageAction::Navigate(Route::Project { id: *project_id }))
+                    .ok();
+                self.reset_form();
+            }
+            Err(error) => {
+                self.create_error = Some(error.clone());
+            }
+        }
+
+        self.create_promise = None;
     }
 
     fn reset_form(&mut self) {
         self.modal_open = false;
         self.modal_id += 1;
         self.form_fields = ProjectFormFields::default();
+        self.create_error = None;
     }
 }

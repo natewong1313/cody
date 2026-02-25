@@ -1,10 +1,10 @@
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::{Receiver, Sender, channel};
 
+use crate::BACKEND_ADDR;
 use crate::mutations::MutationsClient;
 use crate::query::QueryClient;
-use crate::BACKEND_ADDR;
 use crate::{
-    actions::{handle_action, ActionContext},
+    actions::{ActionContext, handle_action},
     pages::{PageAction, PageContext, PagesRouter},
 };
 
