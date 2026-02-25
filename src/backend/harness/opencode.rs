@@ -31,6 +31,7 @@ pub struct OpencodeHarness {
 impl Harness for OpencodeHarness {
     fn new() -> anyhow::Result<Self> {
         let port = 6767;
+        log::debug!("Starting opencode on port {}", port);
         let proc = unsafe {
             Command::new("opencode")
                 .arg("serve")
@@ -46,6 +47,8 @@ impl Harness for OpencodeHarness {
                 .spawn()
                 .map_err(|e| anyhow::anyhow!(OpencodeHarnessError::Spawn(e)))?
         };
+
+        log::debug!("Opencode running on port {}", port);
 
         let opencode_client = OpencodeApiClient::new(port);
 
@@ -102,6 +105,9 @@ impl OpencodeHarness {
 
 impl Drop for OpencodeHarness {
     fn drop(&mut self) {
-        self.cleanup();
+        if Arc::strong_count(&self.proc) == 1 {
+            log::debug!("Cleaning up opencode process on last harness drop");
+            self.cleanup();
+        }
     }
 }
