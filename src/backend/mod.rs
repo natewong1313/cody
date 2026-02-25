@@ -19,7 +19,6 @@ mod harness;
 pub mod proto_utils;
 mod repo;
 mod service;
-mod state;
 
 pub(crate) mod proto_project {
     tonic::include_proto!("project");
