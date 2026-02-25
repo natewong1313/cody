@@ -88,7 +88,10 @@ impl egui_dock::TabViewer for TabViewer<'_> {
                                         .justify(egui_flex::FlexJustify::SpaceBetween)
                                         .align_items(egui_flex::FlexAlign::Center),
                                     |flex| {
-                                        let btn = flex.add(item(), StyledButton::new("Send"));
+                                        let btn = flex.add(
+                                            item(),
+                                            StyledButton::new("Send").id("send_button"),
+                                        );
                                         if btn.clicked() {
                                             println!("send: {}", tab_state.prompt_input);
                                             tab_state.prompt_input.clear();

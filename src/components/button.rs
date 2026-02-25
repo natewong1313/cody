@@ -42,6 +42,7 @@ pub struct StyledButton<'a> {
     icon: Option<&'a str>,
     icon_size: Option<f32>,
     explicit_size: Option<Vec2>,
+    id: Option<&'a str>,
 }
 
 impl<'a> StyledButton<'a> {
@@ -53,7 +54,13 @@ impl<'a> StyledButton<'a> {
             icon: None,
             icon_size: None,
             explicit_size: None,
+            id: None,
         }
+    }
+
+    pub fn id(mut self, id: &'a str) -> Self {
+        self.id = Some(id);
+        self
     }
 
     pub fn icon_size(mut self, size: f32) -> Self {
@@ -149,7 +156,16 @@ impl<'a> StyledButton<'a> {
         .stroke(stroke)
         .corner_radius(RADIUS_MD);
 
-        let response = if let Some(size) = self.explicit_size {
+        let response = if let Some(id) = self.id {
+            ui.push_id(id, |ui| {
+                if let Some(size) = self.explicit_size {
+                    ui.add_sized(size, button)
+                } else {
+                    ui.add(button)
+                }
+            })
+            .inner
+        } else if let Some(size) = self.explicit_size {
             ui.add_sized(size, button)
         } else {
             ui.add(button)
