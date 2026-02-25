@@ -11,13 +11,12 @@ pub use repo::project::Project;
 pub use repo::session::Session;
 mod db;
 mod harness;
-pub mod mutations;
 pub mod proto_utils;
 mod repo;
 mod service;
 mod state;
 
-pub(in crate::backend) mod proto_project {
+pub(crate) mod proto_project {
     tonic::include_proto!("project");
 }
 use proto_project::project_server::ProjectServer;
@@ -25,7 +24,7 @@ pub use proto_project::{
     SubscribeProjectsReply, SubscribeProjectsRequest, project_client::ProjectClient,
 };
 
-pub(in crate::backend) mod proto_session {
+pub(crate) mod proto_session {
     tonic::include_proto!("session");
 }
 use proto_session::session_server::SessionServer;

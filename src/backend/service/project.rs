@@ -54,7 +54,9 @@ impl ProjectService for Arc<BackendService> {
         let created = self.project_repo.create(&project).await?;
 
         let current_projects = self.project_repo.list().await?;
-        self.projects_sender.send(current_projects).unwrap();
+        if self.projects_sender.send(current_projects).is_err() {
+            log::debug!("No project subscribers to notify after create");
+        }
 
         Ok(Response::new(CreateProjectReply {
             project: Some(created.into()),
@@ -72,7 +74,9 @@ impl ProjectService for Arc<BackendService> {
         let updated = self.project_repo.update(&project).await?;
 
         let current_projects = self.project_repo.list().await?;
-        self.projects_sender.send(current_projects).unwrap();
+        if self.projects_sender.send(current_projects).is_err() {
+            log::debug!("No project subscribers to notify after update");
+        }
 
         Ok(Response::new(UpdateProjectReply {
             project: Some(updated.into()),
@@ -87,7 +91,9 @@ impl ProjectService for Arc<BackendService> {
         self.project_repo.delete(&project_id).await?;
 
         let current_projects = self.project_repo.list().await?;
-        self.projects_sender.send(current_projects).unwrap();
+        if self.projects_sender.send(current_projects).is_err() {
+            log::debug!("No project subscribers to notify after delete");
+        }
 
         Ok(Response::new(DeleteProjectReply {}))
     }

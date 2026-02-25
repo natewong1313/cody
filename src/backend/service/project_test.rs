@@ -1,4 +1,5 @@
 use futures::StreamExt;
+use tokio::time::{Duration, timeout};
 use tonic::{Code, Request};
 use uuid::Uuid;
 
@@ -143,7 +144,7 @@ async fn create_and_delete_project_happy_path() {
 }
 
 #[tokio::test]
-async fn subscribe_project_returns_snapshot_once() {
+async fn subscribe_projects_returns_snapshot_once() {
     let backend = test_backend(closed_port());
     let seeded = test_project("proj", "/tmp/proj");
     backend
@@ -153,9 +154,9 @@ async fn subscribe_project_returns_snapshot_once() {
         .expect("seed create should succeed");
 
     let response = backend
-        .subscribe_project(Request::new(SubscribeProjectsRequest {}))
+        .subscribe_projects(Request::new(SubscribeProjectsRequest {}))
         .await
-        .expect("subscribe_project should succeed");
+        .expect("subscribe_projects should succeed");
 
     let mut stream = response.into_inner();
 
@@ -170,5 +171,9 @@ async fn subscribe_project_returns_snapshot_once() {
     assert_eq!(first.projects[0].name, "proj");
     assert_eq!(first.projects[0].dir, "/tmp/proj");
 
-    assert!(stream.next().await.is_none(), "scaffold stream should end");
+    let next_item = timeout(Duration::from_millis(50), stream.next()).await;
+    assert!(
+        next_item.is_err(),
+        "stream should stay open without emitting updates"
+    );
 }

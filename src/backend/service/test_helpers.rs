@@ -3,6 +3,7 @@ use std::sync::Arc;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpListener,
+    sync::watch,
 };
 use uuid::Uuid;
 
@@ -64,9 +65,11 @@ pub fn test_backend(port: u32) -> Arc<BackendService> {
     let db = Sqlite::new_in_memory().expect("in-memory db should initialize");
     let harness = OpencodeHarness::new_for_test(port);
     let ctx = BackendContext::new(db, harness);
+    let (projects_sender, _) = watch::channel(Vec::new());
 
     Arc::new(BackendService {
         project_repo: ProjectRepo::new(ctx.clone()),
+        projects_sender,
         session_repo: SessionRepo::new(ctx),
     })
 }
