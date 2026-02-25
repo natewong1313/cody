@@ -24,6 +24,7 @@ fn handle_navigate(pages_router: &mut PagesRouter, page: Route) {
     pages_router.navigate(page);
 }
 
+#[allow(dead_code)]
 fn handle_create_session(
     api_client: &OpencodeApiClient,
     session_inbox: &UiInbox<Result<OpencodeSession, String>>,
@@ -42,6 +43,7 @@ fn handle_create_session(
     });
 }
 
+#[allow(dead_code)]
 fn handle_send_message(
     api_client: &OpencodeApiClient,
     session_id: String,

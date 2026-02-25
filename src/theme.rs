@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use egui::Color32;
 
 pub const FUCHSIA_300: Color32 = Color32::from_rgb(240, 171, 252);

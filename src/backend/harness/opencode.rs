@@ -16,6 +16,7 @@ pub enum OpencodeHarnessError {
     Spawn(#[from] std::io::Error),
 
     #[error("Mutex poisoned")]
+    #[allow(dead_code)]
     MutexPoisoned,
 
     #[error("API request failed: {0}")]
@@ -228,6 +229,7 @@ impl Harness for OpencodeHarness {
 impl OpencodeHarness {
     /// Explicitly shutdown the opencode process.
     /// This is useful for graceful shutdown scenarios.
+    #[allow(dead_code)]
     pub fn shutdown(&self) {
         log::info!("Shutting down opencode harness");
         self.cleanup();

@@ -26,16 +26,19 @@ impl<'a> DirButton<'a> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn placeholder(mut self, placeholder: &'a str) -> Self {
         self.placeholder = placeholder;
         self
     }
 
+    #[allow(dead_code)]
     pub fn icon(mut self, icon: &'a str) -> Self {
         self.icon = icon;
         self
     }
 
+    #[allow(dead_code)]
     pub fn min_width(mut self, width: f32) -> Self {
         self.min_width = Some(width);
         self

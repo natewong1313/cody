@@ -5,6 +5,7 @@ use egui::{
 };
 
 #[derive(Default, Clone, Copy)]
+#[allow(dead_code)]
 pub enum TextInputSize {
     Sm,
     #[default]
@@ -46,16 +47,19 @@ impl<'a> StyledTextInput<'a> {
         self
     }
 
+    #[allow(dead_code)]
     pub fn desired_width(mut self, width: f32) -> Self {
         self.desired_width = width;
         self
     }
 
+    #[allow(dead_code)]
     pub fn size(mut self, size: TextInputSize) -> Self {
         self.size = size;
         self
     }
 
+    #[allow(dead_code)]
     pub fn leading_icon(mut self, icon: &'a str) -> Self {
         self.leading_icon = Some(icon);
         self
@@ -114,10 +118,12 @@ impl<'a> StyledTextInput<'a> {
 
 pub struct StyledTextInputResponse {
     pub inner: Response,
+    #[allow(dead_code)]
     pub frame_rect: egui::Rect,
 }
 
 impl StyledTextInputResponse {
+    #[allow(dead_code)]
     pub fn frame_height(&self) -> f32 {
         self.frame_rect.height()
     }

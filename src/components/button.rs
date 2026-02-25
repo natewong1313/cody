@@ -8,6 +8,7 @@ use egui::{
 use egui_flex::{FlexInstance, FlexItem, FlexWidget};
 
 #[derive(Default, Clone, Copy)]
+#[allow(dead_code)]
 pub enum ButtonSize {
     Sm,
     #[default]
@@ -68,6 +69,7 @@ impl<'a> StyledButton<'a> {
         self
     }
 
+    #[allow(dead_code)]
     pub fn explicit_size(mut self, size: Vec2) -> Self {
         self.explicit_size = Some(size);
         self

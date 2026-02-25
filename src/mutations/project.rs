@@ -7,6 +7,7 @@ use crate::backend::{
     proto_session::CreateSessionRequest,
 };
 
+#[allow(dead_code)]
 pub fn create_project(backend_channel: Channel, project: Project) {
     tokio::spawn(async move {
         log::debug!("creating project");

@@ -319,8 +319,7 @@ pub fn list_session_messages(
             part_type,
             part_text,
             part_tool_json,
-        )
-            && let Some(message) = messages.last_mut()
+        ) && let Some(message) = messages.last_mut()
         {
             message.parts.push(part);
         }
