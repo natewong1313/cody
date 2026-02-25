@@ -157,7 +157,7 @@ impl ProjectService for Arc<BackendService> {
         let receiver = self.projects_sender.subscribe();
         let initial = stream::once(async move { Ok(initial_reply) });
         let updates = stream::unfold(receiver, |mut receiver| async move {
-            if let Err(_) = receiver.changed().await {
+            if receiver.changed().await.is_err() {
                 return None;
             }
             let reply = SubscribeProjectsReply {

@@ -66,10 +66,10 @@ fn handle_send_message(
         };
         match client.send_message(&session_id, &request, None).await {
             Ok(_) => {
-                log::info!("Message sent to session {}", session_id);
+                log::info!("Message sent to session {session_id}");
             }
             Err(e) => {
-                log::error!("Failed to send message to session {}: {}", session_id, e);
+                log::error!("Failed to send message to session {session_id}: {e}");
             }
         }
     });

@@ -472,7 +472,7 @@ impl OpencodeApiClient {
     pub fn new(port: u32) -> Self {
         Self {
             http_client: Client::new(),
-            server_url: format!("http://127.0.0.1:{}", port),
+            server_url: format!("http://127.0.0.1:{port}"),
         }
     }
 

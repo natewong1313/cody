@@ -8,8 +8,6 @@ use crate::{
     pages::{PageAction, PageContext, PagesRouter},
 };
 
-#[cfg(feature = "local")]
-use subsecond;
 use tonic::transport::{Channel, Endpoint};
 
 pub struct App {
@@ -25,7 +23,7 @@ pub struct App {
 impl App {
     pub fn new() -> Self {
         let (action_sender, action_reciever) = channel();
-        let backend_channel = Endpoint::from_shared(format!("http://{}", BACKEND_ADDR))
+        let backend_channel = Endpoint::from_shared(format!("http://{BACKEND_ADDR}"))
             .unwrap()
             .connect_lazy();
         let query_client = QueryClient::new();

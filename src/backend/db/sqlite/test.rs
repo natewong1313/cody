@@ -329,7 +329,7 @@ async fn test_update_session() {
 
     let updated = db.update_session(updated_session).await.unwrap();
     assert_eq!(updated.name, "Updated");
-    assert_eq!(updated.show_in_gui, false);
+    assert!(!updated.show_in_gui);
     assert_eq!(updated.id, created.id);
     assert!(updated.updated_at > created.updated_at);
 }
@@ -417,13 +417,12 @@ async fn test_multiple_projects_and_sessions() {
     let created_project2 = db.create_project(project2).await.unwrap();
 
     for i in 0..5 {
-        let session =
-            create_test_session(created_project1.id, &format!("Session {}", i), i % 2 == 0);
+        let session = create_test_session(created_project1.id, &format!("Session {i}"), i % 2 == 0);
         db.create_session(session).await.unwrap();
     }
 
     for i in 0..3 {
-        let session = create_test_session(created_project2.id, &format!("Session {}", i), true);
+        let session = create_test_session(created_project2.id, &format!("Session {i}"), true);
         db.create_session(session).await.unwrap();
     }
 
@@ -460,7 +459,7 @@ async fn test_session_show_in_gui_default() {
     };
 
     let created = db.create_session(session).await.unwrap();
-    assert_eq!(created.show_in_gui, false);
+    assert!(!created.show_in_gui);
 }
 
 #[tokio::test]
@@ -491,7 +490,7 @@ async fn test_multiple_sequential_operations() {
     let db = Sqlite::new_in_memory().unwrap();
 
     for i in 0..10 {
-        let project = create_test_project(&format!("Project {}", i), &format!("/dir/{}", i));
+        let project = create_test_project(&format!("Project {i}"), &format!("/dir/{i}"));
         db.create_project(project).await.unwrap();
     }
 

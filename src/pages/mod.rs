@@ -1,8 +1,5 @@
 use crate::{
-    mutations::MutationsClient,
-    opencode::{ModelSelection, OpencodeSession},
-    pages::project::ProjectPage,
-    pages::projects::ProjectsPage,
+    mutations::MutationsClient, pages::project::ProjectPage, pages::projects::ProjectsPage,
     query::QueryClient,
 };
 use std::{collections::HashMap, sync::mpsc::Sender};
