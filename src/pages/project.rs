@@ -73,77 +73,29 @@ impl ProjectPage {
                 QueryState::Data(Some(project)) => {
                     self.redirected_missing_project = false;
                     self.render_project(ui, page_ctx, &project);
-
-                    match page_ctx.query.use_sessions_by_project(ui, project_id) {
-                        QueryState::Loading => {
-                            ui.label(RichText::new("Loading sessions...").color(BG_500));
-                        }
-                        QueryState::Error(error) => {
-                            ui.label(RichText::new(error).color(egui::Color32::RED));
-                        }
-                        QueryState::Data(sessions) if sessions.is_empty() => {
-                            ui.label(RichText::new("No sessions yet").color(BG_500));
-                        }
-                        QueryState::Data(sessions) => {
-                            self.sync_session_tabs(&sessions);
-                            self.render_sessions_dock(ui, &sessions);
-                        }
-                    }
                 }
             });
-    }
-
-    fn sync_session_tabs(&mut self, sessions: &[Session]) {
-        let next_tab_ids: Vec<Uuid> = sessions.iter().map(|session| session.id).collect();
-        let next_set: HashSet<Uuid> = next_tab_ids.iter().copied().collect();
-
-        self.sessions_states
-            .retain(|session_id, _| next_set.contains(session_id));
-
-        let current_tab_ids: Vec<Uuid> = self
-            .session_tabs_tree
-            .iter_all_tabs()
-            .map(|(_, tab_id)| *tab_id)
-            .collect();
-        let current_set: HashSet<Uuid> = current_tab_ids.iter().copied().collect();
-
-        let sets_differ = current_set != next_set;
-        let order_differs = current_tab_ids != next_tab_ids;
-
-        if sets_differ {
-            self.session_tabs_tree
-                .retain_tabs(|tab_id| next_set.contains(tab_id));
-
-            for session_id in &next_tab_ids {
-                if self.session_tabs_tree.find_tab(session_id).is_none() {
-                    self.session_tabs_tree.push_to_focused_leaf(*session_id);
-                }
-            }
-        } else if order_differs {
-            self.session_tabs_tree = DockState::new(next_tab_ids.clone());
-        }
-
-        self.session_tab_ids = next_tab_ids;
     }
 
     fn render_project(&mut self, ui: &mut Ui, page_ctx: &mut PageContext, project: &Project) {
         self.render_project_navbar(ui, page_ctx, project);
         ui.add_space(12.0);
 
-        // match sessions_state {
-        //     Loadable::Idle | Loadable::Loading => {
-        //         ui.label(RichText::new("Loading sessions...").color(BG_500));
-        //     }
-        //     Loadable::Error(error) => {
-        //         ui.label(RichText::new(error).color(egui::Color32::RED));
-        //     }
-        //     Loadable::Ready(sessions) if sessions.is_empty() => {
-        //         ui.label(RichText::new("No sessions yet").color(BG_500));
-        //     }
-        //     Loadable::Ready(sessions) => {
-        //         self.render_sessions_dock(ui, sessions);
-        //     }
-        // }
+        match page_ctx.query.use_sessions_by_project(ui, project.id) {
+            QueryState::Loading => {
+                ui.label(RichText::new("Loading sessions...").color(BG_500));
+            }
+            QueryState::Error(error) => {
+                ui.label(RichText::new(error).color(egui::Color32::RED));
+            }
+            QueryState::Data(sessions) if sessions.is_empty() => {
+                ui.label(RichText::new("No sessions yet").color(BG_500));
+            }
+            QueryState::Data(sessions) => {
+                self.sync_session_tabs(&sessions);
+                self.render_sessions_dock(ui, &sessions);
+            }
+        }
     }
 
     fn render_project_navbar(&self, ui: &mut Ui, page_ctx: &mut PageContext, project: &Project) {
@@ -180,6 +132,39 @@ impl ProjectPage {
                     );
                 });
         });
+    }
+
+    fn sync_session_tabs(&mut self, sessions: &[Session]) {
+        let next_tab_ids: Vec<Uuid> = sessions.iter().map(|session| session.id).collect();
+        let next_set: HashSet<Uuid> = next_tab_ids.iter().copied().collect();
+
+        self.sessions_states
+            .retain(|session_id, _| next_set.contains(session_id));
+
+        let current_tab_ids: Vec<Uuid> = self
+            .session_tabs_tree
+            .iter_all_tabs()
+            .map(|(_, tab_id)| *tab_id)
+            .collect();
+        let current_set: HashSet<Uuid> = current_tab_ids.iter().copied().collect();
+
+        let sets_differ = current_set != next_set;
+        let order_differs = current_tab_ids != next_tab_ids;
+
+        if sets_differ {
+            self.session_tabs_tree
+                .retain_tabs(|tab_id| next_set.contains(tab_id));
+
+            for session_id in &next_tab_ids {
+                if self.session_tabs_tree.find_tab(session_id).is_none() {
+                    self.session_tabs_tree.push_to_focused_leaf(*session_id);
+                }
+            }
+        } else if order_differs {
+            self.session_tabs_tree = DockState::new(next_tab_ids.clone());
+        }
+
+        self.session_tab_ids = next_tab_ids;
     }
 
     fn render_sessions_dock(&mut self, ui: &mut Ui, sessions: &[Session]) {

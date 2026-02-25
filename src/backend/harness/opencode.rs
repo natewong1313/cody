@@ -37,7 +37,7 @@ impl Harness for OpencodeHarness {
             Command::new("opencode")
                 .arg("serve")
                 .arg("--port")
-                .arg(&port.to_string())
+                .arg(port.to_string())
                 .arg("--print-logs")
                 .arg("--log-level")
                 .arg("DEBUG")

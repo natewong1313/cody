@@ -174,7 +174,7 @@ impl<'a> StyledButton<'a> {
         if response.hovered() {
             let rect = response.rect;
             ui.painter()
-                .rect_stroke(rect, RADIUS_MD, hover_stroke, StrokeKind::Outside);
+                .rect_stroke(rect, RADIUS_MD, hover_stroke, StrokeKind::Inside);
         }
 
         ui.spacing_mut().button_padding = prev_padding;

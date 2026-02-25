@@ -1,6 +1,6 @@
 use chrono::Utc;
-use tokio_rusqlite::rusqlite::{self, params, Connection, OptionalExtension};
 use tokio_rusqlite::Row;
+use tokio_rusqlite::rusqlite::{self, Connection, OptionalExtension, params};
 use uuid::Uuid;
 
 use crate::backend::db::DatabaseError;
@@ -319,10 +319,10 @@ pub fn list_session_messages(
             part_type,
             part_text,
             part_tool_json,
-        ) {
-            if let Some(message) = messages.last_mut() {
-                message.parts.push(part);
-            }
+        )
+            && let Some(message) = messages.last_mut()
+        {
+            message.parts.push(part);
         }
     }
 

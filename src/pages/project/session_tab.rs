@@ -7,20 +7,21 @@ use egui_flex::{Flex, item};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-pub(super) type SessionTabStateMap = HashMap<Uuid, SessionTabState>;
+pub type SessionTabStateMap = HashMap<Uuid, SessionTabState>;
 
 #[derive(Default)]
-pub(super) struct SessionTabState {
+pub struct SessionTabState {
     prompt_input: String,
 }
 
-pub(super) struct TabViewer<'a> {
+/// A tab viewer is responsible for all session tabs within a project
+pub struct TabViewer<'a> {
     sessions_by_id: &'a HashMap<Uuid, &'a Session>,
     sessions_states: &'a mut SessionTabStateMap,
 }
 
 impl<'a> TabViewer<'a> {
-    pub(super) fn new(
+    pub fn new(
         sessions_by_id: &'a HashMap<Uuid, &'a Session>,
         sessions_states: &'a mut SessionTabStateMap,
     ) -> Self {
@@ -101,9 +102,9 @@ impl egui_dock::TabViewer for TabViewer<'_> {
             .auto_shrink([false, false])
             .show(ui, |ui| {
                 ui.set_width(ui.available_width());
-                for _ in 1..=50 {
-                    ui.label("messages");
-                }
+                // for _ in 1..=50 {
+                //     ui.label("messages");
+                // }
             });
     }
 

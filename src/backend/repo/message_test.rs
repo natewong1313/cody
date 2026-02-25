@@ -43,7 +43,13 @@ fn test_session(project_id: Uuid, name: &str, show_in_gui: bool) -> Session {
     }
 }
 
-fn test_repos(port: u32) -> (ProjectRepo<Sqlite>, SessionRepo<Sqlite>, MessageRepo<Sqlite>) {
+fn test_repos(
+    port: u32,
+) -> (
+    ProjectRepo<Sqlite>,
+    SessionRepo<Sqlite>,
+    MessageRepo<Sqlite>,
+) {
     let db = Sqlite::new_in_memory().expect("in-memory db should initialize");
     let harness = OpencodeHarness::new_for_test(port);
     let ctx = BackendContext::new(db, harness);
@@ -261,8 +267,7 @@ fn message_input_rejects_blank_text_part() {
         model: None,
     };
 
-    let err =
-        OpencodeSendMessageRequest::try_from(input).expect_err("blank text part should fail");
+    let err = OpencodeSendMessageRequest::try_from(input).expect_err("blank text part should fail");
     assert_eq!(err.code(), tonic::Code::InvalidArgument);
     assert!(err.message().contains("cannot be empty"));
 }
