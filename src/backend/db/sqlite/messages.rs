@@ -1,43 +1,43 @@
-use chrono::Utc;
 use tokio_rusqlite::Row;
 use tokio_rusqlite::rusqlite::{self, Connection, OptionalExtension, params};
 use uuid::Uuid;
 
+use super::now_utc_string;
 use crate::backend::db::DatabaseError;
 use crate::backend::repo::message::{Message, MessagePart};
 
-type MessageWithPartRow = (
-    String,
-    String,
-    String,
-    String,
-    String,
-    String,
-    String,
-    String,
-    Option<String>,
-    Option<String>,
-    Option<String>,
-    Option<String>,
-    Option<String>,
-);
+struct MessageWithPartRow {
+    id: String,
+    role: String,
+    created_at: String,
+    completed_at: String,
+    parent_id: String,
+    provider_id: String,
+    model_id: String,
+    error_json: String,
+    part_id: Option<String>,
+    part_message_id: Option<String>,
+    part_type: Option<String>,
+    part_text: Option<String>,
+    part_tool_json: Option<String>,
+}
 
 fn map_message_with_part_row(row: &Row<'_>) -> rusqlite::Result<MessageWithPartRow> {
-    Ok((
-        row.get::<_, String>(0)?,
-        row.get::<_, String>(1)?,
-        row.get::<_, String>(2)?,
-        row.get::<_, String>(3)?,
-        row.get::<_, String>(4)?,
-        row.get::<_, String>(5)?,
-        row.get::<_, String>(6)?,
-        row.get::<_, String>(7)?,
-        row.get::<_, Option<String>>(8)?,
-        row.get::<_, Option<String>>(9)?,
-        row.get::<_, Option<String>>(10)?,
-        row.get::<_, Option<String>>(11)?,
-        row.get::<_, Option<String>>(12)?,
-    ))
+    Ok(MessageWithPartRow {
+        id: row.get(0)?,
+        role: row.get(1)?,
+        created_at: row.get(2)?,
+        completed_at: row.get(3)?,
+        parent_id: row.get(4)?,
+        provider_id: row.get(5)?,
+        model_id: row.get(6)?,
+        error_json: row.get(7)?,
+        part_id: row.get(8)?,
+        part_message_id: row.get(9)?,
+        part_type: row.get(10)?,
+        part_text: row.get(11)?,
+        part_tool_json: row.get(12)?,
+    })
 }
 
 fn message_part_from_row(
@@ -147,7 +147,7 @@ pub fn get_session_id_by_harness_id(
 }
 
 pub fn upsert_session_message(conn: &Connection, message: &Message) -> Result<(), DatabaseError> {
-    let updated_at = Utc::now().naive_utc().to_string();
+    let updated_at = now_utc_string();
     conn.execute(
         "INSERT INTO session_messages (
             session_id, id, role, created_at, completed_at, parent_id,
@@ -186,19 +186,24 @@ pub fn upsert_session_message_with_parts(
 ) -> Result<(), DatabaseError> {
     conn.execute_batch("BEGIN IMMEDIATE TRANSACTION;")?;
 
-    if let Err(err) = (|| -> Result<(), DatabaseError> {
+    let result = (|| -> Result<(), DatabaseError> {
         upsert_session_message(conn, message)?;
         for part in &message.parts {
             upsert_session_message_part(conn, message.session_id, part, None)?;
         }
         Ok(())
-    })() {
-        let _ = conn.execute_batch("ROLLBACK;");
-        return Err(err);
-    }
+    })();
 
-    conn.execute_batch("COMMIT;")?;
-    Ok(())
+    match result {
+        Ok(()) => {
+            conn.execute_batch("COMMIT;")?;
+            Ok(())
+        }
+        Err(err) => {
+            let _ = conn.execute_batch("ROLLBACK;");
+            Err(err)
+        }
+    }
 }
 
 pub fn ensure_session_message_exists(
@@ -206,7 +211,7 @@ pub fn ensure_session_message_exists(
     session_id: Uuid,
     message_id: &str,
 ) -> Result<(), DatabaseError> {
-    let updated_at = Utc::now().naive_utc().to_string();
+    let updated_at = now_utc_string();
     conn.execute(
         "INSERT INTO session_messages (
             session_id, id, role, created_at, completed_at, parent_id,
@@ -224,7 +229,7 @@ pub fn mark_session_message_removed(
     session_id: Uuid,
     message_id: &str,
 ) -> Result<(), DatabaseError> {
-    let updated_at = Utc::now().naive_utc().to_string();
+    let updated_at = now_utc_string();
     conn.execute(
         "UPDATE session_messages
          SET removed_at = ?3, updated_at = ?3
@@ -241,7 +246,7 @@ pub fn upsert_session_message_part(
     part: &MessagePart,
     delta: Option<&str>,
 ) -> Result<(), DatabaseError> {
-    let updated_at = Utc::now().naive_utc().to_string();
+    let updated_at = now_utc_string();
     conn.execute(
         "INSERT INTO session_message_parts (
             session_id, message_id, id, part_type, text, tool_json, updated_at
@@ -281,47 +286,57 @@ pub fn list_session_messages(
     let rows = fetch_session_message_rows(conn, session_id, limit)?;
 
     let mut messages: Vec<Message> = Vec::new();
-    for (
-        id,
-        role,
-        created_at,
-        completed_at,
-        parent_id,
-        provider_id,
-        model_id,
-        error_json,
-        part_id,
-        part_message_id,
-        part_type,
-        part_text,
-        part_tool_json,
-    ) in rows
-    {
-        let needs_new_message = messages.last().is_none_or(|existing| existing.id != id);
-        if needs_new_message {
-            messages.push(Message {
-                id: id.clone(),
-                session_id,
-                role,
-                created_at,
-                completed_at,
-                parent_id,
-                provider_id,
-                model_id,
-                error_json,
-                parts: Vec::new(),
-            });
-        }
-
-        if let Some(part) = message_part_from_row(
+    for row in rows {
+        let MessageWithPartRow {
+            id,
+            role,
+            created_at,
+            completed_at,
+            parent_id,
+            provider_id,
+            model_id,
+            error_json,
             part_id,
             part_message_id,
             part_type,
             part_text,
             part_tool_json,
-        ) && let Some(message) = messages.last_mut()
-        {
-            message.parts.push(part);
+        } = row;
+
+        let part = message_part_from_row(
+            part_id,
+            part_message_id,
+            part_type,
+            part_text,
+            part_tool_json,
+        );
+
+        match messages.last_mut() {
+            Some(message) if message.id == id => {
+                if let Some(part) = part {
+                    message.parts.push(part);
+                }
+            }
+            _ => {
+                let mut message = Message {
+                    id,
+                    session_id,
+                    role,
+                    created_at,
+                    completed_at,
+                    parent_id,
+                    provider_id,
+                    model_id,
+                    error_json,
+                    parts: Vec::new(),
+                };
+
+                if let Some(part) = part {
+                    message.parts.push(part);
+                }
+
+                messages.push(message);
+            }
         }
     }
 

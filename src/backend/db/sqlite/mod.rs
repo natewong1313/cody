@@ -11,6 +11,10 @@ mod sessions;
 #[cfg(test)]
 mod test;
 
+pub fn now_utc_string() -> String {
+    chrono::Utc::now().naive_utc().to_string()
+}
+
 pub fn check_returning_row_error(
     op: &'static str,
     err: tokio_rusqlite::rusqlite::Error,

@@ -1,8 +1,7 @@
-use chrono::Utc;
 use tokio_rusqlite::rusqlite::{Connection, OptionalExtension, Row};
 use uuid::Uuid;
 
-use super::{assert_one_row_affected, check_returning_row_error};
+use super::{assert_one_row_affected, check_returning_row_error, now_utc_string};
 use crate::backend::Session;
 use crate::backend::db::DatabaseError;
 
@@ -73,7 +72,7 @@ pub fn update_session(conn: &Connection, session: &Session) -> Result<Session, D
                 &session.project_id,
                 &session.show_in_gui,
                 &session.name,
-                Utc::now().naive_utc(),
+                now_utc_string(),
             ),
             row_to_session,
         )
