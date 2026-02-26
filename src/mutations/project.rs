@@ -7,22 +7,6 @@ use crate::backend::{
     proto_session::CreateSessionRequest,
 };
 
-#[allow(dead_code)]
-pub fn create_project(backend_channel: Channel, project: Project) {
-    tokio::spawn(async move {
-        log::debug!("creating project");
-        let mut client = ProjectClient::new(backend_channel);
-        let request = CreateProjectRequest {
-            project: Some(project.into()),
-        };
-
-        log::debug!("sending create project request");
-        if let Err(error) = client.create_project(Request::new(request)).await {
-            log::error!("failed to create project via gRPC: {error}");
-        }
-    });
-}
-
 pub fn create_project_with_initial_session(
     backend_channel: Channel,
     project: Project,

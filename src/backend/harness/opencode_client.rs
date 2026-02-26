@@ -565,8 +565,21 @@ impl OpencodeApiClient {
         if let Some(dir) = directory {
             req = req.query(&[("directory", dir)]);
         }
-        let response: OpencodeMessageWithParts = req.send().await?.json().await?;
-        Ok(response)
+        let response = req.send().await?;
+        let status = response.status();
+        let body = response.text().await?;
+
+        if !status.is_success() {
+            return Err(anyhow::anyhow!(
+                "opencode send_message failed with status {status}: {body}"
+            ));
+        }
+
+        serde_json::from_str::<OpencodeMessageWithParts>(&body).map_err(|err| {
+            anyhow::anyhow!(
+                "opencode send_message returned unexpected body: {err}; status={status}; body={body}"
+            )
+        })
     }
 
     pub async fn get_session_messages(

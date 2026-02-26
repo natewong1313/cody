@@ -93,7 +93,7 @@ impl ProjectPage {
             }
             QueryState::Data(sessions) => {
                 self.sync_session_tabs(&sessions);
-                self.render_sessions_dock(ui, &sessions);
+                self.render_sessions_dock(ui, page_ctx, &sessions);
             }
         }
     }
@@ -167,7 +167,12 @@ impl ProjectPage {
         self.session_tab_ids = next_tab_ids;
     }
 
-    fn render_sessions_dock(&mut self, ui: &mut Ui, sessions: &[Session]) {
+    fn render_sessions_dock(
+        &mut self,
+        ui: &mut Ui,
+        page_ctx: &mut super::PageContext,
+        sessions: &[Session],
+    ) {
         let sessions_by_id: HashMap<Uuid, &Session> = sessions
             .iter()
             .map(|session| (session.id, session))
@@ -234,7 +239,7 @@ impl ProjectPage {
             .show_add_buttons(true)
             .show_inside(
                 ui,
-                &mut TabViewer::new(&sessions_by_id, &mut self.sessions_states),
+                &mut TabViewer::new(&sessions_by_id, &mut self.sessions_states, page_ctx),
             );
     }
 }
