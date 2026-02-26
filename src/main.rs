@@ -1,6 +1,7 @@
 use crate::app::App;
 use egui::ViewportBuilder;
 use egui::{FontData, FontDefinitions, FontFamily};
+use tracing_log::LogTracer;
 use tracing_subscriber::EnvFilter;
 
 use anyhow::Result;
@@ -128,7 +129,11 @@ fn run_app(_env: AppEnv) -> eframe::Result {
 }
 
 fn init_tracing() {
-    let default_filter = "warn,cody::backend::harness=debug";
+    if let Err(err) = LogTracer::init() {
+        eprintln!("log tracer already initialized (continuing): {err}");
+    }
+
+    let default_filter = "info,cody::backend::harness=debug";
     let env_filter = EnvFilter::try_from_default_env()
         .or_else(|_| EnvFilter::try_new(default_filter))
         .unwrap_or_else(|_| EnvFilter::new("info"));
