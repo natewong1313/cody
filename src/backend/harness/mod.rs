@@ -1,6 +1,7 @@
 use crate::backend::repo::session::Session;
 use futures::Stream;
 use std::pin::Pin;
+use uuid::Uuid;
 
 pub mod opencode;
 mod opencode_client;
@@ -8,6 +9,18 @@ pub(crate) use opencode_client::{
     ModelSelection, OpencodeEventPayload, OpencodeGlobalEvent, OpencodeMessage,
     OpencodeMessageWithParts, OpencodePart, OpencodePartInput, OpencodeSendMessageRequest,
 };
+
+pub struct Model {
+    pub provider_id: String,
+    pub model_id: String,
+}
+
+pub struct SendMessageRequest {
+    pub session_id: Uuid,
+    pub model: Option<Model>,
+    pub agent: Option<String>,
+    pub system_msg: Option<String>,
+}
 
 pub trait Harness: Sized {
     fn new() -> anyhow::Result<Self>;

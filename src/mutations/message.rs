@@ -20,7 +20,6 @@ pub fn send_message(
 
         log::debug!("sending message: {}", message);
 
-        let message_id = format!("msg_{}", Uuid::new_v4().simple());
         let mut message_client = MessageClient::new(backend_channel.clone());
         let request = SendMessageRequest {
             session_id: session_id.to_string(),

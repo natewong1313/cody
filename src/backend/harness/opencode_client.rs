@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::pin::Pin;
 
+use crate::backend::harness::{Model, SendMessageRequest};
+
 #[derive(Clone)]
 pub struct OpencodeApiClient {
     http_client: Client,
@@ -23,6 +25,15 @@ pub struct ModelSelection {
     pub provider_id: String,
     #[serde(rename = "modelID", alias = "modelId")]
     pub model_id: String,
+}
+
+impl From<Model> for ModelSelection {
+    fn from(value: Model) -> Self {
+        Self {
+            provider_id: value.provider_id,
+            model_id: value.model_id,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,6 +119,20 @@ pub struct OpencodeSendMessageRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tools: Option<HashMap<String, bool>>,
     pub parts: Vec<OpencodePartInput>,
+}
+
+impl From<SendMessageRequest> for OpencodeSendMessageRequest {
+    fn from(value: SendMessageRequest) -> Self {
+        Self {
+            message_id: None,
+            model: value.model.map(Into::into),
+            agent: value.agent,
+            no_reply: None,
+            system: value.system_msg,
+            tools: None,
+            parts: Vec::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
