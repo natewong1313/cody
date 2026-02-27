@@ -1,9 +1,11 @@
-use crate::backend::{Project, Session};
+use crate::backend::{Message, MessagePart, Project, Session};
 
 use super::{Database, DatabaseError, DatabaseStartupError, migrations::SQLITE_MIGRATIONS};
 use tokio_rusqlite::{Connection as AsyncConnection, Error as AsyncError, rusqlite::Connection};
 use uuid::Uuid;
 
+mod message;
+mod message_part;
 mod project;
 #[cfg(test)]
 mod project_test;
@@ -138,6 +140,62 @@ impl Database for Sqlite {
 
     async fn delete_session(&self, session_id: uuid::Uuid) -> Result<(), DatabaseError> {
         self.with_conn(move |conn| session::delete_session(conn, session_id))
+            .await
+    }
+
+    async fn list_messages_by_session(
+        &self,
+        session_id: Uuid,
+    ) -> Result<Vec<Message>, DatabaseError> {
+        self.with_conn(move |conn| message::list_messages_by_session(conn, session_id))
+            .await
+    }
+
+    async fn get_message(&self, message_id: Uuid) -> Result<Option<Message>, DatabaseError> {
+        self.with_conn(move |conn| message::get_message(conn, message_id))
+            .await
+    }
+
+    async fn create_message(&self, message_item: Message) -> Result<Message, DatabaseError> {
+        self.with_conn(move |conn| message::create_message(conn, &message_item))
+            .await
+    }
+
+    async fn update_message(&self, message_item: Message) -> Result<Message, DatabaseError> {
+        self.with_conn(move |conn| message::update_message(conn, &message_item))
+            .await
+    }
+
+    async fn delete_message(&self, message_id: Uuid) -> Result<(), DatabaseError> {
+        self.with_conn(move |conn| message::delete_message(conn, message_id))
+            .await
+    }
+
+    async fn list_message_parts_by_message(
+        &self,
+        message_id: Uuid,
+    ) -> Result<Vec<MessagePart>, DatabaseError> {
+        self.with_conn(move |conn| message_part::list_parts_by_message(conn, message_id))
+            .await
+    }
+
+    async fn get_message_part(&self, part_id: Uuid) -> Result<Option<MessagePart>, DatabaseError> {
+        self.with_conn(move |conn| message_part::get_part(conn, part_id))
+            .await
+    }
+
+    async fn create_message_part(&self, part: MessagePart) -> Result<MessagePart, DatabaseError> {
+        self.with_conn(move |conn| message_part::create_part(conn, &part))
+            .await
+    }
+
+    async fn update_message_part(&self, part: MessagePart) -> Result<MessagePart, DatabaseError> {
+        self.with_conn(move |conn| message_part::update_part(conn, &part))
+            .await
+    }
+
+    async fn delete_message_part(&self, part_id: Uuid) -> Result<(), DatabaseError> {
+        self.with_conn(move |conn| message_part::delete_part(conn, part_id))
             .await
     }
 }
