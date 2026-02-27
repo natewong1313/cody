@@ -15,9 +15,15 @@ use crate::backend::{
 pub struct Session {
     pub id: Uuid,
     pub project_id: Uuid,
+    pub parent_session_id: Option<Uuid>,
     pub show_in_gui: bool,
     pub name: String,
     pub harness_type: String,
+    pub harness_session_id: Option<String>,
+    pub dir: Option<String>,
+    pub summary_additions: Option<i64>,
+    pub summary_deletions: Option<i64>,
+    pub summary_files: Option<i64>,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }
@@ -64,9 +70,15 @@ impl TryFrom<proto_session::SessionModel> for Session {
         Ok(Self {
             id: parse_uuid("session.id", &model.id)?,
             project_id: parse_uuid("session.project_id", &model.project_id)?,
+            parent_session_id: None,
             show_in_gui: model.show_in_gui,
             name: model.name,
             harness_type: "opencode".to_string(),
+            harness_session_id: None,
+            dir: None,
+            summary_additions: None,
+            summary_deletions: None,
+            summary_files: None,
             created_at: parse_naive_datetime("session.created_at", &model.created_at)?,
             updated_at: parse_naive_datetime("session.updated_at", &model.updated_at)?,
         })
@@ -108,13 +120,20 @@ where
             .ok_or(SessionRepoError::ProjectNotFound(session.project_id))?;
 
         let project_dir = Some(project.dir.as_str());
-        self.ctx
+        let harness_session_id = self
+            .ctx
             .harness
             .create_session(session.clone(), project_dir)
             .await
             .map_err(|e| SessionRepoError::Harness(e.to_string()))?;
 
-        Ok(self.ctx.db.create_session(session.clone()).await?)
+        let mut created = session.clone();
+        created.harness_session_id = Some(harness_session_id);
+        if created.dir.is_none() {
+            created.dir = Some(project.dir);
+        }
+
+        Ok(self.ctx.db.create_session(created).await?)
     }
 
     pub async fn update(&self, session: &Session) -> Result<Session, SessionRepoError> {

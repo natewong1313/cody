@@ -33,9 +33,15 @@ fn test_session(project_id: Uuid, name: &str, show_in_gui: bool) -> Session {
     Session {
         id: Uuid::new_v4(),
         project_id,
+        parent_session_id: None,
         show_in_gui,
         name: name.to_string(),
         harness_type: "opencode".to_string(),
+        harness_session_id: None,
+        dir: None,
+        summary_additions: None,
+        summary_deletions: None,
+        summary_files: None,
         created_at: now,
         updated_at: now,
     }
@@ -62,9 +68,15 @@ fn session_proto_serialize_to_model() {
     let session = Session {
         id,
         project_id,
+        parent_session_id: None,
         show_in_gui: true,
         name: "sess".to_string(),
         harness_type: "opencode".to_string(),
+        harness_session_id: None,
+        dir: None,
+        summary_additions: None,
+        summary_deletions: None,
+        summary_files: None,
         created_at: ts,
         updated_at: ts,
     };

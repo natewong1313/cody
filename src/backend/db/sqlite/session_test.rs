@@ -20,9 +20,15 @@ fn create_test_session(project_id: Uuid, name: &str, show_in_gui: bool) -> Sessi
     Session {
         id: Uuid::new_v4(),
         project_id,
+        parent_session_id: None,
         show_in_gui,
         name: name.to_string(),
         harness_type: "opencode".to_string(),
+        harness_session_id: None,
+        dir: None,
+        summary_additions: None,
+        summary_deletions: None,
+        summary_files: None,
         created_at: now,
         updated_at: now,
     }
@@ -319,9 +325,15 @@ async fn test_session_show_in_gui_default() {
     let session = Session {
         id: Uuid::new_v4(),
         project_id: created_project.id,
+        parent_session_id: None,
         show_in_gui: false,
         name: "Test".to_string(),
         harness_type: "opencode".to_string(),
+        harness_session_id: None,
+        dir: None,
+        summary_additions: None,
+        summary_deletions: None,
+        summary_files: None,
         created_at: now,
         updated_at: now,
     };
