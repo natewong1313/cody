@@ -1,7 +1,6 @@
 use crate::backend::db::Database;
 use crate::backend::db::sqlite::Sqlite;
 use crate::backend::repo::{
-    message::{Message, MessagePart},
     project::Project,
     session::Session,
 };
@@ -28,27 +27,6 @@ fn create_test_session(project_id: Uuid, name: &str, show_in_gui: bool) -> Sessi
         name: name.to_string(),
         created_at: now,
         updated_at: now,
-    }
-}
-
-fn create_test_message(session_id: Uuid, id: &str) -> Message {
-    Message {
-        id: id.to_string(),
-        session_id,
-        role: "assistant".to_string(),
-        created_at: "2025-01-02 03:04:05.123456".to_string(),
-        completed_at: "2025-01-02 03:04:06.123456".to_string(),
-        parent_id: "parent-1".to_string(),
-        provider_id: "openai".to_string(),
-        model_id: "gpt-5".to_string(),
-        error_json: String::new(),
-        parts: vec![MessagePart {
-            id: "part-1".to_string(),
-            message_id: id.to_string(),
-            part_type: "text".to_string(),
-            text: "hello".to_string(),
-            tool_json: String::new(),
-        }],
     }
 }
 
@@ -595,7 +573,7 @@ async fn test_session_isolation_between_projects() {
 }
 
 #[tokio::test]
-async fn test_session_harness_id_round_trip() {
+async fn test_session_harness_id_set_succeeds() {
     let db = Sqlite::new_in_memory().unwrap();
     let project = db
         .create_project(create_test_project("Test", "/test/dir"))
@@ -609,179 +587,4 @@ async fn test_session_harness_id_round_trip() {
     db.set_session_harness_id(session.id, "ses-abc".to_string())
         .await
         .unwrap();
-
-    let by_session = db.get_session_harness_id(session.id).await.unwrap();
-    assert_eq!(by_session.as_deref(), Some("ses-abc"));
-
-    let reverse = db.get_session_id_by_harness_id("ses-abc").await.unwrap();
-    assert_eq!(reverse, Some(session.id));
-}
-
-#[tokio::test]
-async fn test_message_upsert_and_list() {
-    let db = Sqlite::new_in_memory().unwrap();
-    let project = db
-        .create_project(create_test_project("Test", "/test/dir"))
-        .await
-        .unwrap();
-    let session = db
-        .create_session(create_test_session(project.id, "Test", true))
-        .await
-        .unwrap();
-
-    let message = create_test_message(session.id, "msg-1");
-    db.upsert_session_message(message.clone()).await.unwrap();
-    for part in &message.parts {
-        db.upsert_session_message_part(session.id, part.clone(), None)
-            .await
-            .unwrap();
-    }
-
-    let listed = db.list_session_messages(session.id, None).await.unwrap();
-    assert_eq!(listed.len(), 1);
-    assert_eq!(listed[0].id, "msg-1");
-    assert_eq!(listed[0].parts.len(), 1);
-    assert_eq!(listed[0].parts[0].text, "hello");
-}
-
-#[tokio::test]
-async fn test_message_mark_removed_excludes_from_list() {
-    let db = Sqlite::new_in_memory().unwrap();
-    let project = db
-        .create_project(create_test_project("Test", "/test/dir"))
-        .await
-        .unwrap();
-    let session = db
-        .create_session(create_test_session(project.id, "Test", true))
-        .await
-        .unwrap();
-
-    let message = create_test_message(session.id, "msg-removed");
-    db.upsert_session_message(message.clone()).await.unwrap();
-    for part in &message.parts {
-        db.upsert_session_message_part(session.id, part.clone(), None)
-            .await
-            .unwrap();
-    }
-
-    db.mark_session_message_removed(session.id, "msg-removed")
-        .await
-        .unwrap();
-
-    let listed = db.list_session_messages(session.id, None).await.unwrap();
-    assert!(listed.is_empty());
-}
-
-#[tokio::test]
-async fn test_ensure_session_message_exists_allows_part_before_message() {
-    let db = Sqlite::new_in_memory().unwrap();
-    let project = db
-        .create_project(create_test_project("Test", "/test/dir"))
-        .await
-        .unwrap();
-    let session = db
-        .create_session(create_test_session(project.id, "Test", true))
-        .await
-        .unwrap();
-
-    db.ensure_session_message_exists(session.id, "msg-orphan")
-        .await
-        .unwrap();
-    db.upsert_session_message_part(
-        session.id,
-        MessagePart {
-            id: "part-1".to_string(),
-            message_id: "msg-orphan".to_string(),
-            part_type: "text".to_string(),
-            text: "hello".to_string(),
-            tool_json: String::new(),
-        },
-        None,
-    )
-    .await
-    .unwrap();
-
-    let listed = db.list_session_messages(session.id, None).await.unwrap();
-    assert_eq!(listed.len(), 1);
-    assert_eq!(listed[0].id, "msg-orphan");
-    assert_eq!(listed[0].parts.len(), 1);
-    assert_eq!(listed[0].parts[0].text, "hello");
-}
-
-#[tokio::test]
-async fn test_message_part_duplicate_delta_does_not_double_append() {
-    let db = Sqlite::new_in_memory().unwrap();
-    let project = db
-        .create_project(create_test_project("Test", "/test/dir"))
-        .await
-        .unwrap();
-    let session = db
-        .create_session(create_test_session(project.id, "Test", true))
-        .await
-        .unwrap();
-
-    db.ensure_session_message_exists(session.id, "msg-delta")
-        .await
-        .unwrap();
-
-    let part = MessagePart {
-        id: "part-1".to_string(),
-        message_id: "msg-delta".to_string(),
-        part_type: "text".to_string(),
-        text: String::new(),
-        tool_json: String::new(),
-    };
-
-    db.upsert_session_message_part(session.id, part.clone(), Some("hello".to_string()))
-        .await
-        .unwrap();
-    db.upsert_session_message_part(session.id, part, Some("hello".to_string()))
-        .await
-        .unwrap();
-
-    let listed = db.list_session_messages(session.id, None).await.unwrap();
-    assert_eq!(listed.len(), 1);
-    assert_eq!(listed[0].parts.len(), 1);
-    assert_eq!(listed[0].parts[0].text, "hello");
-}
-
-#[tokio::test]
-async fn test_upsert_message_with_parts_rolls_back_on_part_error() {
-    let db = Sqlite::new_in_memory().unwrap();
-    let project = db
-        .create_project(create_test_project("Test", "/test/dir"))
-        .await
-        .unwrap();
-    let session = db
-        .create_session(create_test_session(project.id, "Test", true))
-        .await
-        .unwrap();
-
-    let message = Message {
-        id: "msg-rollback".to_string(),
-        session_id: session.id,
-        role: "assistant".to_string(),
-        created_at: "2025-01-02 03:04:05.123456".to_string(),
-        completed_at: "2025-01-02 03:04:06.123456".to_string(),
-        parent_id: String::new(),
-        provider_id: "openai".to_string(),
-        model_id: "gpt-5".to_string(),
-        error_json: String::new(),
-        parts: vec![MessagePart {
-            id: "part-invalid".to_string(),
-            message_id: "different-message-id".to_string(),
-            part_type: "text".to_string(),
-            text: "hello".to_string(),
-            tool_json: String::new(),
-        }],
-    };
-
-    let err = db.upsert_session_message_with_parts(message).await;
-    assert!(
-        err.is_err(),
-        "expected FK error from invalid part message_id"
-    );
-
-    let listed = db.list_session_messages(session.id, None).await.unwrap();
-    assert!(listed.is_empty(), "message insert should be rolled back");
 }

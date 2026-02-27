@@ -1,11 +1,8 @@
 use tonic::Status;
 
-pub mod message;
 pub mod project;
 pub mod session;
 
-#[cfg(test)]
-mod message_test;
 #[cfg(test)]
 mod mod_test;
 #[cfg(test)]

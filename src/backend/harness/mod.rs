@@ -20,6 +20,7 @@ pub struct SendMessageRequest {
     pub model: Option<Model>,
     pub agent: Option<String>,
     pub system_msg: Option<String>,
+    // pub msg_parts: Vec<MessageParts>,
 }
 
 pub trait Harness: Sized {

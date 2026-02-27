@@ -11,8 +11,9 @@ pub fn row_to_session(row: &Row) -> Result<Session, tokio_rusqlite::rusqlite::Er
         project_id: row.get(1)?,
         show_in_gui: row.get(2)?,
         name: row.get(3)?,
-        created_at: row.get(4)?,
-        updated_at: row.get(5)?,
+        harness_type: row.get(4)?,
+        created_at: row.get(5)?,
+        updated_at: row.get(6)?,
     })
 }
 
@@ -95,13 +96,4 @@ pub fn set_session_harness_id(
         (session_id, harness_id),
     )?;
     assert_one_row_affected("set_session_harness_id", rows)
-}
-
-pub fn get_session_harness_id(
-    conn: &Connection,
-    session_id: Uuid,
-) -> Result<Option<String>, DatabaseError> {
-    let mut stmt = conn.prepare("SELECT harness_id FROM sessions WHERE id = ?1")?;
-    let harness_id = stmt.query_row([session_id], |row| row.get(0)).optional()?;
-    Ok(harness_id)
 }

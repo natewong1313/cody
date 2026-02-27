@@ -1,11 +1,9 @@
-use crate::backend::repo::message::{Message, MessagePart};
 use crate::backend::{Project, Session};
 
 use super::{Database, DatabaseError, DatabaseStartupError, migrations::SQLITE_MIGRATIONS};
 use tokio_rusqlite::{Connection as AsyncConnection, Error as AsyncError, rusqlite::Connection};
 use uuid::Uuid;
 
-mod messages;
 mod projects;
 mod sessions;
 #[cfg(test)]
@@ -150,78 +148,4 @@ impl Database for Sqlite {
             .await
     }
 
-    async fn get_session_harness_id(
-        &self,
-        session_id: Uuid,
-    ) -> Result<Option<String>, DatabaseError> {
-        self.with_conn(move |conn| sessions::get_session_harness_id(conn, session_id))
-            .await
-    }
-
-    async fn get_session_id_by_harness_id(
-        &self,
-        harness_id: &str,
-    ) -> Result<Option<Uuid>, DatabaseError> {
-        let harness_id = harness_id.to_string();
-        self.with_conn(move |conn| messages::get_session_id_by_harness_id(conn, &harness_id))
-            .await
-    }
-
-    async fn upsert_session_message(&self, message: Message) -> Result<(), DatabaseError> {
-        self.with_conn(move |conn| messages::upsert_session_message(conn, &message))
-            .await
-    }
-
-    async fn upsert_session_message_with_parts(
-        &self,
-        message: Message,
-    ) -> Result<(), DatabaseError> {
-        self.with_conn(move |conn| messages::upsert_session_message_with_parts(conn, &message))
-            .await
-    }
-
-    async fn ensure_session_message_exists(
-        &self,
-        session_id: Uuid,
-        message_id: &str,
-    ) -> Result<(), DatabaseError> {
-        let message_id = message_id.to_string();
-        self.with_conn(move |conn| {
-            messages::ensure_session_message_exists(conn, session_id, &message_id)
-        })
-        .await
-    }
-
-    async fn mark_session_message_removed(
-        &self,
-        session_id: Uuid,
-        message_id: &str,
-    ) -> Result<(), DatabaseError> {
-        let message_id = message_id.to_string();
-        self.with_conn(move |conn| {
-            messages::mark_session_message_removed(conn, session_id, &message_id)
-        })
-        .await
-    }
-
-    async fn upsert_session_message_part(
-        &self,
-        session_id: Uuid,
-        part: MessagePart,
-        delta: Option<String>,
-    ) -> Result<(), DatabaseError> {
-        self.with_conn(move |conn| {
-            messages::upsert_session_message_part(conn, session_id, &part, delta.as_deref())
-        })
-        .await
-    }
-
-    async fn list_session_messages(
-        &self,
-        session_id: Uuid,
-        limit: Option<i32>,
-    ) -> Result<Vec<Message>, DatabaseError> {
-        self.with_conn(move |conn| messages::list_session_messages(conn, session_id, limit))
-            .await
-    }
 }

@@ -17,6 +17,7 @@ pub struct Session {
     pub project_id: Uuid,
     pub show_in_gui: bool,
     pub name: String,
+    pub harness_type: String,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }
@@ -65,6 +66,7 @@ impl TryFrom<proto_session::SessionModel> for Session {
             project_id: parse_uuid("session.project_id", &model.project_id)?,
             show_in_gui: model.show_in_gui,
             name: model.name,
+            harness_type: "opencode".to_string(),
             created_at: parse_naive_datetime("session.created_at", &model.created_at)?,
             updated_at: parse_naive_datetime("session.updated_at", &model.updated_at)?,
         })

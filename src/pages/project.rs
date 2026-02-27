@@ -5,9 +5,9 @@ use crate::query::QueryState;
 use crate::theme::{BG_50, BG_500, BG_800, BG_900, BG_950, FUCHSIA_500, RADIUS_MD};
 mod session_tab;
 use egui::epaint::CornerRadiusF32;
-use egui::{CentralPanel, Color32, Frame, Label, RichText, Ui, vec2};
+use egui::{vec2, CentralPanel, Color32, Frame, Label, RichText, Ui};
 use egui_dock::{DockArea, DockState, Style, TabAddAlign};
-use egui_flex::{Flex, item};
+use egui_flex::{item, Flex};
 use egui_phosphor::regular;
 use session_tab::{SessionTabStateMap, TabViewer};
 use std::collections::{HashMap, HashSet};
@@ -170,7 +170,7 @@ impl ProjectPage {
     fn render_sessions_dock(
         &mut self,
         ui: &mut Ui,
-        page_ctx: &mut super::PageContext,
+        _page_ctx: &mut super::PageContext,
         sessions: &[Session],
     ) {
         let sessions_by_id: HashMap<Uuid, &Session> = sessions
@@ -239,7 +239,7 @@ impl ProjectPage {
             .show_add_buttons(true)
             .show_inside(
                 ui,
-                &mut TabViewer::new(&sessions_by_id, &mut self.sessions_states, page_ctx),
+                &mut TabViewer::new(&sessions_by_id, &mut self.sessions_states),
             );
     }
 }

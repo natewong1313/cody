@@ -4,7 +4,6 @@ use uuid::Uuid;
 
 use crate::backend::{Project, Session};
 
-mod message;
 mod project;
 mod session;
 
@@ -20,11 +19,6 @@ impl MutationsClient {
     #[allow(dead_code)]
     pub fn create_session(&self, session: Session) {
         session::create_session(self.backend_channel.clone(), session);
-    }
-
-    pub fn send_message(&self, session_id: Uuid, text: String) -> Promise<Result<(), String>> {
-        log::debug!("sending message");
-        message::send_message(self.backend_channel.clone(), session_id, text)
     }
 
     pub fn create_project_with_initial_session(
