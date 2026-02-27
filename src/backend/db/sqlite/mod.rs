@@ -4,10 +4,12 @@ use super::{Database, DatabaseError, DatabaseStartupError, migrations::SQLITE_MI
 use tokio_rusqlite::{Connection as AsyncConnection, Error as AsyncError, rusqlite::Connection};
 use uuid::Uuid;
 
-mod projects;
-mod sessions;
+mod project;
+mod session;
 #[cfg(test)]
-mod test;
+mod project_test;
+#[cfg(test)]
+mod session_test;
 
 pub fn now_utc_string() -> String {
     chrono::Utc::now().naive_utc().to_string()
@@ -88,26 +90,26 @@ impl Sqlite {
 
 impl Database for Sqlite {
     async fn list_projects(&self) -> Result<Vec<Project>, DatabaseError> {
-        self.with_conn(projects::list_projects).await
+        self.with_conn(project::list_projects).await
     }
 
     async fn get_project(&self, project_id: Uuid) -> Result<Option<Project>, DatabaseError> {
-        self.with_conn(move |conn| projects::get_project(conn, project_id))
+        self.with_conn(move |conn| project::get_project(conn, project_id))
             .await
     }
 
     async fn create_project(&self, project: Project) -> Result<Project, DatabaseError> {
-        self.with_conn(move |conn| projects::create_project(conn, &project))
+        self.with_conn(move |conn| project::create_project(conn, &project))
             .await
     }
 
     async fn update_project(&self, project: Project) -> Result<Project, DatabaseError> {
-        self.with_conn(move |conn| projects::update_project(conn, &project))
+        self.with_conn(move |conn| project::update_project(conn, &project))
             .await
     }
 
     async fn delete_project(&self, project_id: Uuid) -> Result<(), DatabaseError> {
-        self.with_conn(move |conn| projects::delete_project(conn, project_id))
+        self.with_conn(move |conn| project::delete_project(conn, project_id))
             .await
     }
 
@@ -115,27 +117,27 @@ impl Database for Sqlite {
         &self,
         project_id: Uuid,
     ) -> Result<Vec<Session>, DatabaseError> {
-        self.with_conn(move |conn| sessions::list_sessions_by_project(conn, project_id))
+        self.with_conn(move |conn| session::list_sessions_by_project(conn, project_id))
             .await
     }
 
     async fn get_session(&self, session_id: Uuid) -> Result<Option<Session>, DatabaseError> {
-        self.with_conn(move |conn| sessions::get_session(conn, session_id))
+        self.with_conn(move |conn| session::get_session(conn, session_id))
             .await
     }
 
     async fn create_session(&self, session: Session) -> Result<Session, DatabaseError> {
-        self.with_conn(move |conn| sessions::create_session(conn, &session))
+        self.with_conn(move |conn| session::create_session(conn, &session))
             .await
     }
 
     async fn update_session(&self, session: Session) -> Result<Session, DatabaseError> {
-        self.with_conn(move |conn| sessions::update_session(conn, &session))
+        self.with_conn(move |conn| session::update_session(conn, &session))
             .await
     }
 
     async fn delete_session(&self, session_id: uuid::Uuid) -> Result<(), DatabaseError> {
-        self.with_conn(move |conn| sessions::delete_session(conn, session_id))
+        self.with_conn(move |conn| session::delete_session(conn, session_id))
             .await
     }
 }
