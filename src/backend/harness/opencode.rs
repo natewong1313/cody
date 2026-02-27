@@ -180,24 +180,24 @@ impl Harness for OpencodeHarness {
 
     async fn send_message(
         &self,
-        harness_id: &str,
+        session_id: &str,
         request: &OpencodeSendMessageRequest,
         directory: Option<&str>,
     ) -> anyhow::Result<OpencodeMessageWithParts> {
         self.opencode_client
-            .send_message(harness_id, request, directory)
+            .send_message(session_id, request, directory)
             .await
             .map_err(|e| anyhow::anyhow!(OpencodeHarnessError::ApiRequest(e.to_string())))
     }
 
     async fn get_session_messages(
         &self,
-        harness_id: &str,
+        session_id: &str,
         limit: Option<i32>,
         directory: Option<&str>,
     ) -> anyhow::Result<Vec<OpencodeMessageWithParts>> {
         self.opencode_client
-            .get_session_messages(harness_id, limit, directory)
+            .get_session_messages(session_id, limit, directory)
             .await
             .map_err(|e| anyhow::anyhow!(OpencodeHarnessError::ApiRequest(e.to_string())))
     }

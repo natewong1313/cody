@@ -35,14 +35,14 @@ pub trait Harness: Sized {
 
     async fn send_message(
         &self,
-        harness_id: &str,
+        session_id: &str,
         request: &OpencodeSendMessageRequest,
         directory: Option<&str>,
     ) -> anyhow::Result<OpencodeMessageWithParts>;
 
     async fn get_session_messages(
         &self,
-        harness_id: &str,
+        session_id: &str,
         limit: Option<i32>,
         directory: Option<&str>,
     ) -> anyhow::Result<Vec<OpencodeMessageWithParts>>;

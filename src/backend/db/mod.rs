@@ -43,9 +43,4 @@ pub trait Database {
     async fn create_session(&self, session: Session) -> Result<Session, DatabaseError>;
     async fn update_session(&self, session: Session) -> Result<Session, DatabaseError>;
     async fn delete_session(&self, session_id: Uuid) -> Result<(), DatabaseError>;
-    async fn set_session_harness_id(
-        &self,
-        session_id: Uuid,
-        harness_id: String,
-    ) -> Result<(), DatabaseError>;
 }

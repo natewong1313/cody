@@ -108,31 +108,13 @@ where
             .ok_or(SessionRepoError::ProjectNotFound(session.project_id))?;
 
         let project_dir = Some(project.dir.as_str());
-        let harness_id = self
-            .ctx
+        self.ctx
             .harness
             .create_session(session.clone(), project_dir)
             .await
             .map_err(|e| SessionRepoError::Harness(e.to_string()))?;
 
-        let created = self.ctx.db.create_session(session.clone()).await?;
-        if let Err(err) = self
-            .ctx
-            .db
-            .set_session_harness_id(created.id, harness_id)
-            .await
-        {
-            if let Err(delete_err) = self.ctx.db.delete_session(created.id).await {
-                log::error!(
-                    "failed to delete session {} after set_session_harness_id error: {}",
-                    created.id,
-                    delete_err
-                );
-            }
-            return Err(SessionRepoError::Database(err));
-        }
-
-        Ok(created)
+        Ok(self.ctx.db.create_session(session.clone()).await?)
     }
 
     pub async fn update(&self, session: &Session) -> Result<Session, SessionRepoError> {

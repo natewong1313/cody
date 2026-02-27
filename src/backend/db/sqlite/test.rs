@@ -1,9 +1,6 @@
 use crate::backend::db::Database;
 use crate::backend::db::sqlite::Sqlite;
-use crate::backend::repo::{
-    project::Project,
-    session::Session,
-};
+use crate::backend::repo::{project::Project, session::Session};
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -25,6 +22,7 @@ fn create_test_session(project_id: Uuid, name: &str, show_in_gui: bool) -> Sessi
         project_id,
         show_in_gui,
         name: name.to_string(),
+        harness_type: "opencode".to_string(),
         created_at: now,
         updated_at: now,
     }
@@ -457,6 +455,7 @@ async fn test_session_show_in_gui_default() {
         project_id: created_project.id,
         show_in_gui: false,
         name: "Test".to_string(),
+        harness_type: "opencode".to_string(),
         created_at: now,
         updated_at: now,
     };
@@ -573,7 +572,7 @@ async fn test_session_isolation_between_projects() {
 }
 
 #[tokio::test]
-async fn test_session_harness_id_set_succeeds() {
+async fn test_session_harness_type_persists() {
     let db = Sqlite::new_in_memory().unwrap();
     let project = db
         .create_project(create_test_project("Test", "/test/dir"))
@@ -584,7 +583,5 @@ async fn test_session_harness_id_set_succeeds() {
         .await
         .unwrap();
 
-    db.set_session_harness_id(session.id, "ses-abc".to_string())
-        .await
-        .unwrap();
+    assert_eq!(session.harness_type, "opencode");
 }

@@ -138,14 +138,4 @@ impl Database for Sqlite {
         self.with_conn(move |conn| sessions::delete_session(conn, session_id))
             .await
     }
-
-    async fn set_session_harness_id(
-        &self,
-        session_id: Uuid,
-        harness_id: String,
-    ) -> Result<(), DatabaseError> {
-        self.with_conn(move |conn| sessions::set_session_harness_id(conn, session_id, &harness_id))
-            .await
-    }
-
 }

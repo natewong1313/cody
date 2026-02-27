@@ -289,6 +289,7 @@ impl ProjectsPage {
             project_id,
             show_in_gui: true,
             name: "New Session".to_string(),
+            harness_type: "opencode".to_string(),
             created_at: now,
             updated_at: now,
         };

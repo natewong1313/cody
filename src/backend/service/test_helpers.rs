@@ -115,6 +115,7 @@ pub fn test_session(project_id: Uuid, name: &str, show_in_gui: bool) -> Session 
         project_id,
         show_in_gui,
         name: name.to_string(),
+        harness_type: "opencode".to_string(),
         created_at: now,
         updated_at: now,
     }

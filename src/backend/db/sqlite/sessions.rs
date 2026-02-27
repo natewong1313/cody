@@ -2,8 +2,8 @@ use tokio_rusqlite::rusqlite::{Connection, OptionalExtension, Row};
 use uuid::Uuid;
 
 use super::{assert_one_row_affected, check_returning_row_error, now_utc_string};
-use crate::backend::Session;
 use crate::backend::db::DatabaseError;
+use crate::backend::Session;
 
 pub fn row_to_session(row: &Row) -> Result<Session, tokio_rusqlite::rusqlite::Error> {
     Ok(Session {
@@ -22,7 +22,7 @@ pub fn list_sessions_by_project(
     project_id: Uuid,
 ) -> Result<Vec<Session>, DatabaseError> {
     let mut stmt = conn.prepare(
-        "SELECT id, project_id, show_in_gui, name, created_at, updated_at
+        "SELECT id, project_id, show_in_gui, name, harness_type, created_at, updated_at
          FROM sessions
          WHERE project_id = ?1
          ORDER BY updated_at DESC",
@@ -35,7 +35,7 @@ pub fn list_sessions_by_project(
 
 pub fn get_session(conn: &Connection, session_id: Uuid) -> Result<Option<Session>, DatabaseError> {
     let mut stmt = conn.prepare(
-        "SELECT id, project_id, show_in_gui, name, created_at, updated_at
+        "SELECT id, project_id, show_in_gui, name, harness_type, created_at, updated_at
          FROM sessions
          WHERE id = ?1",
     )?;
@@ -45,14 +45,15 @@ pub fn get_session(conn: &Connection, session_id: Uuid) -> Result<Option<Session
 
 pub fn create_session(conn: &Connection, session: &Session) -> Result<Session, DatabaseError> {
     let created = conn.query_row(
-        "INSERT INTO sessions (id, project_id, show_in_gui, name, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-         RETURNING id, project_id, show_in_gui, name, created_at, updated_at",
+        "INSERT INTO sessions (id, project_id, show_in_gui, name, harness_type, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+         RETURNING id, project_id, show_in_gui, name, harness_type, created_at, updated_at",
         (
             &session.id,
             &session.project_id,
             &session.show_in_gui,
             &session.name,
+            &session.harness_type,
             &session.created_at,
             &session.updated_at,
         ),
@@ -65,14 +66,15 @@ pub fn update_session(conn: &Connection, session: &Session) -> Result<Session, D
     let updated = conn
         .query_row(
             "UPDATE sessions
-             SET project_id = ?2, show_in_gui = ?3, name = ?4, updated_at = ?5
+             SET project_id = ?2, show_in_gui = ?3, name = ?4, harness_type = ?5, updated_at = ?6
              WHERE id = ?1
-             RETURNING id, project_id, show_in_gui, name, created_at, updated_at",
+             RETURNING id, project_id, show_in_gui, name, harness_type, created_at, updated_at",
             (
                 &session.id,
                 &session.project_id,
                 &session.show_in_gui,
                 &session.name,
+                &session.harness_type,
                 now_utc_string(),
             ),
             row_to_session,
@@ -84,16 +86,4 @@ pub fn update_session(conn: &Connection, session: &Session) -> Result<Session, D
 pub fn delete_session(conn: &Connection, session_id: Uuid) -> Result<(), DatabaseError> {
     let rows = conn.execute("DELETE FROM sessions WHERE id = ?1", [session_id])?;
     assert_one_row_affected("delete_session", rows)
-}
-
-pub fn set_session_harness_id(
-    conn: &Connection,
-    session_id: Uuid,
-    harness_id: &str,
-) -> Result<(), DatabaseError> {
-    let rows = conn.execute(
-        "UPDATE sessions SET harness_id = ?2 WHERE id = ?1",
-        (session_id, harness_id),
-    )?;
-    assert_one_row_affected("set_session_harness_id", rows)
 }

@@ -35,6 +35,7 @@ fn test_session(project_id: Uuid, name: &str, show_in_gui: bool) -> Session {
         project_id,
         show_in_gui,
         name: name.to_string(),
+        harness_type: "opencode".to_string(),
         created_at: now,
         updated_at: now,
     }
@@ -63,6 +64,7 @@ fn session_proto_serialize_to_model() {
         project_id,
         show_in_gui: true,
         name: "sess".to_string(),
+        harness_type: "opencode".to_string(),
         created_at: ts,
         updated_at: ts,
     };
