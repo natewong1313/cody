@@ -145,6 +145,64 @@ async fn test_update_project_with_empty_name_fails() {
 }
 
 #[tokio::test]
+async fn test_update_project_with_whitespace_only_name_fails() {
+    let db = Sqlite::new_in_memory().unwrap();
+    let project = create_test_project("Test", "/test/dir");
+    let created = db.create_project(project).await.unwrap();
+
+    let mut updated = created.clone();
+    updated.name = "   ".to_string();
+
+    let result = db.update_project(updated).await;
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn test_update_project_with_empty_dir_fails() {
+    let db = Sqlite::new_in_memory().unwrap();
+    let project = create_test_project("Test", "/test/dir");
+    let created = db.create_project(project).await.unwrap();
+
+    let mut updated = created.clone();
+    updated.dir = "".to_string();
+
+    let result = db.update_project(updated).await;
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn test_update_project_with_whitespace_only_dir_fails() {
+    let db = Sqlite::new_in_memory().unwrap();
+    let project = create_test_project("Test", "/test/dir");
+    let created = db.create_project(project).await.unwrap();
+
+    let mut updated = created.clone();
+    updated.dir = "   ".to_string();
+
+    let result = db.update_project(updated).await;
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn test_failed_update_project_does_not_modify_row() {
+    let db = Sqlite::new_in_memory().unwrap();
+    let project = create_test_project("Original", "/original/dir");
+    let created = db.create_project(project).await.unwrap();
+
+    let mut invalid_update = created.clone();
+    invalid_update.name = "   ".to_string();
+    invalid_update.dir = "/changed/dir".to_string();
+
+    let result = db.update_project(invalid_update).await;
+    assert!(result.is_err());
+
+    let retrieved = db.get_project(created.id).await.unwrap().unwrap();
+    assert_eq!(retrieved.name, created.name);
+    assert_eq!(retrieved.dir, created.dir);
+    assert_eq!(retrieved.updated_at, created.updated_at);
+}
+
+#[tokio::test]
 async fn test_delete_project() {
     let db = Sqlite::new_in_memory().unwrap();
     let project = create_test_project("Test", "/test/dir");
@@ -203,6 +261,16 @@ async fn test_project_with_special_characters_in_name() {
 }
 
 #[tokio::test]
+async fn test_project_with_special_characters_in_dir() {
+    let db = Sqlite::new_in_memory().unwrap();
+    let project = create_test_project("Test", "/tmp/test dir/with \"quotes\" and 'single'");
+    let created = db.create_project(project.clone()).await.unwrap();
+
+    let retrieved = db.get_project(created.id).await.unwrap().unwrap();
+    assert_eq!(retrieved.dir, project.dir);
+}
+
+#[tokio::test]
 async fn test_project_with_unicode_name() {
     let db = Sqlite::new_in_memory().unwrap();
     let project = create_test_project("テストプロジェクト 🚀 Ñoño", "/test/dir");
@@ -210,6 +278,16 @@ async fn test_project_with_unicode_name() {
 
     let retrieved = db.get_project(created.id).await.unwrap().unwrap();
     assert_eq!(retrieved.name, project.name);
+}
+
+#[tokio::test]
+async fn test_project_with_unicode_dir() {
+    let db = Sqlite::new_in_memory().unwrap();
+    let project = create_test_project("Test", "/tmp/プロジェクト/🚀/Ñoño");
+    let created = db.create_project(project.clone()).await.unwrap();
+
+    let retrieved = db.get_project(created.id).await.unwrap().unwrap();
+    assert_eq!(retrieved.dir, project.dir);
 }
 
 #[tokio::test]

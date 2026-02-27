@@ -5,9 +5,9 @@ use tokio_rusqlite::{Connection as AsyncConnection, Error as AsyncError, rusqlit
 use uuid::Uuid;
 
 mod project;
-mod session;
 #[cfg(test)]
 mod project_test;
+mod session;
 #[cfg(test)]
 mod session_test;
 
