@@ -14,7 +14,10 @@ use uuid::Uuid;
 
 pub use repo::project::Project;
 pub use repo::session::Session;
-pub use repo::{message::Message, message_part::MessagePart};
+pub use repo::{
+    message::{Message, MessageTool},
+    message_part::{MessagePart, MessagePartAttachment, MessagePartFileSource, MessagePartPatchFile},
+};
 mod db;
 mod harness;
 pub mod proto_utils;

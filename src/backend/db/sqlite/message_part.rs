@@ -1,8 +1,11 @@
-use tokio_rusqlite::rusqlite::{self, Connection, OptionalExtension, Row, params};
+use tokio_rusqlite::rusqlite::{self, params, Connection, OptionalExtension, Row};
 use uuid::Uuid;
 
 use super::{assert_one_row_affected, check_returning_row_error, now_utc_string};
-use crate::backend::{MessagePart, db::DatabaseError};
+use crate::backend::{
+    db::DatabaseError, MessagePart, MessagePartAttachment, MessagePartFileSource,
+    MessagePartPatchFile,
+};
 
 const SELECT_PART_COLUMNS: &str = r#"
 id, session_id, message_id, position, part_type,
@@ -305,4 +308,210 @@ pub fn update_part(conn: &Connection, part: &MessagePart) -> Result<MessagePart,
 pub fn delete_part(conn: &Connection, part_id: Uuid) -> Result<(), DatabaseError> {
     let rows = conn.execute("DELETE FROM message_parts WHERE id = ?1", [part_id])?;
     assert_one_row_affected("delete_part", rows)
+}
+
+pub fn row_to_attachment(row: &Row) -> Result<MessagePartAttachment, rusqlite::Error> {
+    Ok(MessagePartAttachment {
+        id: row.get(0)?,
+        part_id: row.get(1)?,
+        mime: row.get(2)?,
+        url: row.get(3)?,
+        filename: row.get(4)?,
+        created_at: row.get(5)?,
+    })
+}
+
+pub fn list_attachments_by_part(
+    conn: &Connection,
+    part_id: Uuid,
+) -> Result<Vec<MessagePartAttachment>, DatabaseError> {
+    let mut stmt = conn.prepare(
+        "SELECT id, part_id, mime, url, filename, created_at
+         FROM message_part_attachments
+         WHERE part_id = ?1
+         ORDER BY created_at ASC",
+    )?;
+
+    let attachments = stmt
+        .query_map([part_id], row_to_attachment)?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(attachments)
+}
+
+pub fn create_attachment(
+    conn: &Connection,
+    attachment: &MessagePartAttachment,
+) -> Result<MessagePartAttachment, DatabaseError> {
+    let rows = conn.execute(
+        "INSERT INTO message_part_attachments (id, part_id, mime, url, filename, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![
+            &attachment.id,
+            &attachment.part_id,
+            &attachment.mime,
+            &attachment.url,
+            &attachment.filename,
+            &attachment.created_at,
+        ],
+    )?;
+    assert_one_row_affected("create_attachment", rows)?;
+
+    let mut stmt = conn.prepare(
+        "SELECT id, part_id, mime, url, filename, created_at
+         FROM message_part_attachments
+         WHERE id = ?1",
+    )?;
+    let out = stmt.query_row([attachment.id], row_to_attachment)?;
+    Ok(out)
+}
+
+pub fn delete_attachment(conn: &Connection, attachment_id: Uuid) -> Result<(), DatabaseError> {
+    let rows = conn.execute(
+        "DELETE FROM message_part_attachments WHERE id = ?1",
+        [attachment_id],
+    )?;
+    assert_one_row_affected("delete_attachment", rows)
+}
+
+pub fn row_to_file_source(row: &Row) -> Result<MessagePartFileSource, rusqlite::Error> {
+    Ok(MessagePartFileSource {
+        part_id: row.get(0)?,
+        source_type: row.get(1)?,
+        path: row.get(2)?,
+        symbol_name: row.get(3)?,
+        symbol_kind: row.get(4)?,
+        range_start_line: row.get(5)?,
+        range_start_col: row.get(6)?,
+        range_end_line: row.get(7)?,
+        range_end_col: row.get(8)?,
+        client_name: row.get(9)?,
+        uri: row.get(10)?,
+        source_text_value: row.get(11)?,
+        source_text_start: row.get(12)?,
+        source_text_end: row.get(13)?,
+    })
+}
+
+pub fn get_file_source(
+    conn: &Connection,
+    part_id: Uuid,
+) -> Result<Option<MessagePartFileSource>, DatabaseError> {
+    let mut stmt = conn.prepare(
+        "SELECT
+            part_id, source_type, path, symbol_name, symbol_kind,
+            range_start_line, range_start_col, range_end_line, range_end_col,
+            client_name, uri,
+            source_text_value, source_text_start, source_text_end
+         FROM message_part_file_sources
+         WHERE part_id = ?1",
+    )?;
+    let source = stmt.query_row([part_id], row_to_file_source).optional()?;
+    Ok(source)
+}
+
+pub fn upsert_file_source(
+    conn: &Connection,
+    source: &MessagePartFileSource,
+) -> Result<MessagePartFileSource, DatabaseError> {
+    let rows = conn.execute(
+        "INSERT INTO message_part_file_sources (
+            part_id, source_type, path, symbol_name, symbol_kind,
+            range_start_line, range_start_col, range_end_line, range_end_col,
+            client_name, uri,
+            source_text_value, source_text_start, source_text_end
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
+         ON CONFLICT(part_id) DO UPDATE SET
+            source_type = excluded.source_type,
+            path = excluded.path,
+            symbol_name = excluded.symbol_name,
+            symbol_kind = excluded.symbol_kind,
+            range_start_line = excluded.range_start_line,
+            range_start_col = excluded.range_start_col,
+            range_end_line = excluded.range_end_line,
+            range_end_col = excluded.range_end_col,
+            client_name = excluded.client_name,
+            uri = excluded.uri,
+            source_text_value = excluded.source_text_value,
+            source_text_start = excluded.source_text_start,
+            source_text_end = excluded.source_text_end",
+        params![
+            &source.part_id,
+            &source.source_type,
+            &source.path,
+            &source.symbol_name,
+            &source.symbol_kind,
+            &source.range_start_line,
+            &source.range_start_col,
+            &source.range_end_line,
+            &source.range_end_col,
+            &source.client_name,
+            &source.uri,
+            &source.source_text_value,
+            &source.source_text_start,
+            &source.source_text_end,
+        ],
+    )?;
+    assert_one_row_affected("upsert_file_source", rows)?;
+
+    get_file_source(conn, source.part_id)?.ok_or(DatabaseError::UnexpectedRowsAffected {
+        op: "upsert_file_source",
+        expected: 1,
+        actual: 0,
+    })
+}
+
+pub fn delete_file_source(conn: &Connection, part_id: Uuid) -> Result<(), DatabaseError> {
+    let rows = conn.execute(
+        "DELETE FROM message_part_file_sources WHERE part_id = ?1",
+        [part_id],
+    )?;
+    assert_one_row_affected("delete_file_source", rows)
+}
+
+pub fn row_to_patch_file(row: &Row) -> Result<MessagePartPatchFile, rusqlite::Error> {
+    Ok(MessagePartPatchFile {
+        part_id: row.get(0)?,
+        file_path: row.get(1)?,
+    })
+}
+
+pub fn list_patch_files_by_part(
+    conn: &Connection,
+    part_id: Uuid,
+) -> Result<Vec<MessagePartPatchFile>, DatabaseError> {
+    let mut stmt = conn.prepare(
+        "SELECT part_id, file_path
+         FROM message_part_patch_files
+         WHERE part_id = ?1
+         ORDER BY file_path ASC",
+    )?;
+
+    let patch_files = stmt
+        .query_map([part_id], row_to_patch_file)?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(patch_files)
+}
+
+pub fn create_patch_file(
+    conn: &Connection,
+    patch_file: &MessagePartPatchFile,
+) -> Result<MessagePartPatchFile, DatabaseError> {
+    let rows = conn.execute(
+        "INSERT INTO message_part_patch_files (part_id, file_path) VALUES (?1, ?2)",
+        params![&patch_file.part_id, &patch_file.file_path],
+    )?;
+    assert_one_row_affected("create_patch_file", rows)?;
+    Ok(patch_file.clone())
+}
+
+pub fn delete_patch_file(
+    conn: &Connection,
+    part_id: Uuid,
+    file_path: &str,
+) -> Result<(), DatabaseError> {
+    let rows = conn.execute(
+        "DELETE FROM message_part_patch_files WHERE part_id = ?1 AND file_path = ?2",
+        params![part_id, file_path],
+    )?;
+    assert_one_row_affected("delete_patch_file", rows)
 }

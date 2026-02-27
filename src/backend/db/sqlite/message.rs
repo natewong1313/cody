@@ -1,8 +1,8 @@
-use tokio_rusqlite::rusqlite::{Connection, OptionalExtension, Row, params};
+use tokio_rusqlite::rusqlite::{params, Connection, OptionalExtension, Row};
 use uuid::Uuid;
 
 use super::{assert_one_row_affected, check_returning_row_error, now_utc_string};
-use crate::backend::{Message, db::DatabaseError};
+use crate::backend::{db::DatabaseError, Message, MessageTool};
 
 const SELECT_MESSAGE_COLUMNS: &str = r#"
 id, session_id, parent_message_id, role,
@@ -210,4 +210,66 @@ pub fn update_message(conn: &Connection, message: &Message) -> Result<Message, D
 pub fn delete_message(conn: &Connection, message_id: Uuid) -> Result<(), DatabaseError> {
     let rows = conn.execute("DELETE FROM messages WHERE id = ?1", [message_id])?;
     assert_one_row_affected("delete_message", rows)
+}
+
+pub fn row_to_message_tool(row: &Row) -> Result<MessageTool, tokio_rusqlite::rusqlite::Error> {
+    Ok(MessageTool {
+        message_id: row.get(0)?,
+        tool_name: row.get(1)?,
+        enabled: row.get(2)?,
+    })
+}
+
+pub fn list_message_tools(
+    conn: &Connection,
+    message_id: Uuid,
+) -> Result<Vec<MessageTool>, DatabaseError> {
+    let mut stmt = conn.prepare(
+        "SELECT message_id, tool_name, enabled
+         FROM message_tools
+         WHERE message_id = ?1
+         ORDER BY tool_name ASC",
+    )?;
+
+    let tools = stmt
+        .query_map([message_id], row_to_message_tool)?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(tools)
+}
+
+pub fn upsert_message_tool(
+    conn: &Connection,
+    tool: &MessageTool,
+) -> Result<MessageTool, DatabaseError> {
+    let rows = conn.execute(
+        "INSERT INTO message_tools (message_id, tool_name, enabled)
+         VALUES (?1, ?2, ?3)
+         ON CONFLICT(message_id, tool_name)
+         DO UPDATE SET enabled = excluded.enabled",
+        params![&tool.message_id, &tool.tool_name, &tool.enabled],
+    )?;
+    assert_one_row_affected("upsert_message_tool", rows)?;
+
+    let mut stmt = conn.prepare(
+        "SELECT message_id, tool_name, enabled
+         FROM message_tools
+         WHERE message_id = ?1 AND tool_name = ?2",
+    )?;
+    let out = stmt.query_row(
+        params![&tool.message_id, &tool.tool_name],
+        row_to_message_tool,
+    )?;
+    Ok(out)
+}
+
+pub fn delete_message_tool(
+    conn: &Connection,
+    message_id: Uuid,
+    tool_name: &str,
+) -> Result<(), DatabaseError> {
+    let rows = conn.execute(
+        "DELETE FROM message_tools WHERE message_id = ?1 AND tool_name = ?2",
+        params![message_id, tool_name],
+    )?;
+    assert_one_row_affected("delete_message_tool", rows)
 }

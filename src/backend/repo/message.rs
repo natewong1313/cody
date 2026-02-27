@@ -32,3 +32,10 @@ pub struct Message {
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct MessageTool {
+    pub message_id: Uuid,
+    pub tool_name: String,
+    pub enabled: bool,
+}

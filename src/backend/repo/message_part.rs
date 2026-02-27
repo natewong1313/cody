@@ -55,3 +55,37 @@ pub struct MessagePart {
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct MessagePartAttachment {
+    pub id: Uuid,
+    pub part_id: Uuid,
+    pub mime: String,
+    pub url: String,
+    pub filename: Option<String>,
+    pub created_at: NaiveDateTime,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct MessagePartFileSource {
+    pub part_id: Uuid,
+    pub source_type: String,
+    pub path: Option<String>,
+    pub symbol_name: Option<String>,
+    pub symbol_kind: Option<i64>,
+    pub range_start_line: Option<i64>,
+    pub range_start_col: Option<i64>,
+    pub range_end_line: Option<i64>,
+    pub range_end_col: Option<i64>,
+    pub client_name: Option<String>,
+    pub uri: Option<String>,
+    pub source_text_value: Option<String>,
+    pub source_text_start: Option<i64>,
+    pub source_text_end: Option<i64>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct MessagePartPatchFile {
+    pub part_id: Uuid,
+    pub file_path: String,
+}
