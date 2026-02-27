@@ -131,6 +131,16 @@ impl Database for Sqlite {
             .await
     }
 
+    async fn get_session_by_harness_session_id(
+        &self,
+        harness_session_id: String,
+    ) -> Result<Option<Session>, DatabaseError> {
+        self.with_conn(move |conn| {
+            session::get_session_by_harness_session_id(conn, &harness_session_id)
+        })
+        .await
+    }
+
     async fn create_session(&self, session: Session) -> Result<Session, DatabaseError> {
         self.with_conn(move |conn| session::create_session(conn, &session))
             .await
@@ -159,6 +169,17 @@ impl Database for Sqlite {
             .await
     }
 
+    async fn get_message_by_harness_message_id(
+        &self,
+        session_id: Uuid,
+        harness_message_id: String,
+    ) -> Result<Option<Message>, DatabaseError> {
+        self.with_conn(move |conn| {
+            message::get_message_by_harness_message_id(conn, session_id, &harness_message_id)
+        })
+        .await
+    }
+
     async fn create_message(&self, message_item: Message) -> Result<Message, DatabaseError> {
         self.with_conn(move |conn| message::create_message(conn, &message_item))
             .await
@@ -174,7 +195,32 @@ impl Database for Sqlite {
             .await
     }
 
-    async fn list_message_tools(&self, message_id: Uuid) -> Result<Vec<MessageTool>, DatabaseError> {
+    async fn delete_message_by_harness_message_id(
+        &self,
+        session_id: Uuid,
+        harness_message_id: String,
+    ) -> Result<(), DatabaseError> {
+        self.with_conn(move |conn| {
+            message::delete_message_by_harness_message_id(conn, session_id, &harness_message_id)
+        })
+        .await
+    }
+
+    async fn mark_session_assistant_messages_finished(
+        &self,
+        session_id: Uuid,
+        completed_at: chrono::NaiveDateTime,
+    ) -> Result<(), DatabaseError> {
+        self.with_conn(move |conn| {
+            message::mark_session_assistant_messages_finished(conn, session_id, completed_at)
+        })
+        .await
+    }
+
+    async fn list_message_tools(
+        &self,
+        message_id: Uuid,
+    ) -> Result<Vec<MessageTool>, DatabaseError> {
         self.with_conn(move |conn| message::list_message_tools(conn, message_id))
             .await
     }
@@ -206,6 +252,17 @@ impl Database for Sqlite {
             .await
     }
 
+    async fn get_message_part_by_harness_part_id(
+        &self,
+        message_id: Uuid,
+        harness_part_id: String,
+    ) -> Result<Option<MessagePart>, DatabaseError> {
+        self.with_conn(move |conn| {
+            message_part::get_part_by_harness_part_id(conn, message_id, &harness_part_id)
+        })
+        .await
+    }
+
     async fn create_message_part(&self, part: MessagePart) -> Result<MessagePart, DatabaseError> {
         self.with_conn(move |conn| message_part::create_part(conn, &part))
             .await
@@ -218,6 +275,15 @@ impl Database for Sqlite {
 
     async fn delete_message_part(&self, part_id: Uuid) -> Result<(), DatabaseError> {
         self.with_conn(move |conn| message_part::delete_part(conn, part_id))
+            .await
+    }
+
+    async fn append_message_part_text_delta(
+        &self,
+        part_id: Uuid,
+        delta: String,
+    ) -> Result<MessagePart, DatabaseError> {
+        self.with_conn(move |conn| message_part::append_part_text_delta(conn, part_id, &delta))
             .await
     }
 
@@ -237,7 +303,10 @@ impl Database for Sqlite {
             .await
     }
 
-    async fn delete_message_part_attachment(&self, attachment_id: Uuid) -> Result<(), DatabaseError> {
+    async fn delete_message_part_attachment(
+        &self,
+        attachment_id: Uuid,
+    ) -> Result<(), DatabaseError> {
         self.with_conn(move |conn| message_part::delete_attachment(conn, attachment_id))
             .await
     }

@@ -12,6 +12,7 @@ use crate::backend::{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessagePart {
     pub id: Uuid,
+    pub harness_part_id: Option<String>,
     pub session_id: Uuid,
     pub message_id: Uuid,
     pub position: i64,

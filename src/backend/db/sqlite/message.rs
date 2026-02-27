@@ -1,11 +1,12 @@
-use tokio_rusqlite::rusqlite::{params, Connection, OptionalExtension, Row};
+use chrono::NaiveDateTime;
+use tokio_rusqlite::rusqlite::{Connection, OptionalExtension, Row, params};
 use uuid::Uuid;
 
 use super::{assert_one_row_affected, check_returning_row_error, now_utc_string};
-use crate::backend::{db::DatabaseError, Message, MessageTool};
+use crate::backend::{Message, MessageTool, db::DatabaseError};
 
 const SELECT_MESSAGE_COLUMNS: &str = r#"
-id, session_id, parent_message_id, role,
+id, harness_message_id, session_id, parent_message_id, role,
 title, body, agent, system_message, variant,
 is_finished_streaming, is_summary,
 model_id, provider_id,
@@ -18,33 +19,34 @@ completed_at, created_at, updated_at
 pub fn row_to_message(row: &Row) -> Result<Message, tokio_rusqlite::rusqlite::Error> {
     Ok(Message {
         id: row.get(0)?,
-        session_id: row.get(1)?,
-        parent_message_id: row.get(2)?,
-        role: row.get(3)?,
-        title: row.get(4)?,
-        body: row.get(5)?,
-        agent: row.get(6)?,
-        system_message: row.get(7)?,
-        variant: row.get(8)?,
-        is_finished_streaming: row.get(9)?,
-        is_summary: row.get(10)?,
-        model_id: row.get(11)?,
-        provider_id: row.get(12)?,
-        error_name: row.get(13)?,
-        error_message: row.get(14)?,
-        error_type: row.get(15)?,
-        cwd: row.get(16)?,
-        root: row.get(17)?,
-        cost: row.get(18)?,
-        input_tokens: row.get(19)?,
-        output_tokens: row.get(20)?,
-        reasoning_tokens: row.get(21)?,
-        cached_read_tokens: row.get(22)?,
-        cached_write_tokens: row.get(23)?,
-        total_tokens: row.get(24)?,
-        completed_at: row.get(25)?,
-        created_at: row.get(26)?,
-        updated_at: row.get(27)?,
+        harness_message_id: row.get(1)?,
+        session_id: row.get(2)?,
+        parent_message_id: row.get(3)?,
+        role: row.get(4)?,
+        title: row.get(5)?,
+        body: row.get(6)?,
+        agent: row.get(7)?,
+        system_message: row.get(8)?,
+        variant: row.get(9)?,
+        is_finished_streaming: row.get(10)?,
+        is_summary: row.get(11)?,
+        model_id: row.get(12)?,
+        provider_id: row.get(13)?,
+        error_name: row.get(14)?,
+        error_message: row.get(15)?,
+        error_type: row.get(16)?,
+        cwd: row.get(17)?,
+        root: row.get(18)?,
+        cost: row.get(19)?,
+        input_tokens: row.get(20)?,
+        output_tokens: row.get(21)?,
+        reasoning_tokens: row.get(22)?,
+        cached_read_tokens: row.get(23)?,
+        cached_write_tokens: row.get(24)?,
+        total_tokens: row.get(25)?,
+        completed_at: row.get(26)?,
+        created_at: row.get(27)?,
+        updated_at: row.get(28)?,
     })
 }
 
@@ -78,7 +80,7 @@ pub fn get_message(conn: &Connection, message_id: Uuid) -> Result<Option<Message
 pub fn create_message(conn: &Connection, message: &Message) -> Result<Message, DatabaseError> {
     let rows = conn.execute(
         "INSERT INTO messages (
-            id, session_id, parent_message_id, role,
+            id, harness_message_id, session_id, parent_message_id, role,
             title, body, agent, system_message, variant,
             is_finished_streaming, is_summary,
             model_id, provider_id,
@@ -88,17 +90,18 @@ pub fn create_message(conn: &Connection, message: &Message) -> Result<Message, D
             completed_at, created_at, updated_at
         )
         VALUES (
-            ?1, ?2, ?3, ?4,
-            ?5, ?6, ?7, ?8, ?9,
-            ?10, ?11,
-            ?12, ?13,
-            ?14, ?15, ?16,
-            ?17, ?18,
-            ?19, ?20, ?21, ?22, ?23, ?24, ?25,
-            ?26, ?27, ?28
+            ?1, ?2, ?3, ?4, ?5,
+            ?6, ?7, ?8, ?9, ?10,
+            ?11, ?12,
+            ?13, ?14,
+            ?15, ?16, ?17,
+            ?18, ?19,
+            ?20, ?21, ?22, ?23, ?24, ?25, ?26,
+            ?27, ?28, ?29
         )",
         params![
             &message.id,
+            &message.harness_message_id,
             &message.session_id,
             &message.parent_message_id,
             &message.role,
@@ -142,35 +145,37 @@ pub fn update_message(conn: &Connection, message: &Message) -> Result<Message, D
             "UPDATE messages
              SET
                 session_id = ?2,
-                parent_message_id = ?3,
-                role = ?4,
-                title = ?5,
-                body = ?6,
-                agent = ?7,
-                system_message = ?8,
-                variant = ?9,
-                is_finished_streaming = ?10,
-                is_summary = ?11,
-                model_id = ?12,
-                provider_id = ?13,
-                error_name = ?14,
-                error_message = ?15,
-                error_type = ?16,
-                cwd = ?17,
-                root = ?18,
-                cost = ?19,
-                input_tokens = ?20,
-                output_tokens = ?21,
-                reasoning_tokens = ?22,
-                cached_read_tokens = ?23,
-                cached_write_tokens = ?24,
-                total_tokens = ?25,
-                completed_at = ?26,
-                updated_at = ?27
+                harness_message_id = ?3,
+                parent_message_id = ?4,
+                role = ?5,
+                title = ?6,
+                body = ?7,
+                agent = ?8,
+                system_message = ?9,
+                variant = ?10,
+                is_finished_streaming = ?11,
+                is_summary = ?12,
+                model_id = ?13,
+                provider_id = ?14,
+                error_name = ?15,
+                error_message = ?16,
+                error_type = ?17,
+                cwd = ?18,
+                root = ?19,
+                cost = ?20,
+                input_tokens = ?21,
+                output_tokens = ?22,
+                reasoning_tokens = ?23,
+                cached_read_tokens = ?24,
+                cached_write_tokens = ?25,
+                total_tokens = ?26,
+                completed_at = ?27,
+                updated_at = ?28
              WHERE id = ?1",
             params![
                 &message.id,
                 &message.session_id,
+                &message.harness_message_id,
                 &message.parent_message_id,
                 &message.role,
                 &message.title,
@@ -205,6 +210,48 @@ pub fn update_message(conn: &Connection, message: &Message) -> Result<Message, D
         expected: 1,
         actual: 0,
     })
+}
+
+pub fn get_message_by_harness_message_id(
+    conn: &Connection,
+    session_id: Uuid,
+    harness_message_id: &str,
+) -> Result<Option<Message>, DatabaseError> {
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {SELECT_MESSAGE_COLUMNS}
+         FROM messages
+         WHERE session_id = ?1 AND harness_message_id = ?2"
+    ))?;
+    let message = stmt
+        .query_row(params![session_id, harness_message_id], row_to_message)
+        .optional()?;
+    Ok(message)
+}
+
+pub fn delete_message_by_harness_message_id(
+    conn: &Connection,
+    session_id: Uuid,
+    harness_message_id: &str,
+) -> Result<(), DatabaseError> {
+    let rows = conn.execute(
+        "DELETE FROM messages WHERE session_id = ?1 AND harness_message_id = ?2",
+        params![session_id, harness_message_id],
+    )?;
+    assert_one_row_affected("delete_message_by_harness_message_id", rows)
+}
+
+pub fn mark_session_assistant_messages_finished(
+    conn: &Connection,
+    session_id: Uuid,
+    completed_at: NaiveDateTime,
+) -> Result<(), DatabaseError> {
+    conn.execute(
+        "UPDATE messages
+         SET is_finished_streaming = 1, completed_at = COALESCE(completed_at, ?2), updated_at = ?3
+         WHERE session_id = ?1 AND role = 'assistant' AND is_finished_streaming = 0",
+        params![session_id, completed_at, now_utc_string()],
+    )?;
+    Ok(())
 }
 
 pub fn delete_message(conn: &Connection, message_id: Uuid) -> Result<(), DatabaseError> {

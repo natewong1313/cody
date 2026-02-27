@@ -1,14 +1,17 @@
 use crate::backend::{
     db::{Database, DatabaseStartupError, sqlite::Sqlite},
-    harness::{Harness, opencode::OpencodeHarness},
-    repo::{project::ProjectRepo, session::SessionRepo},
+    harness::{Harness, event_forwarder::spawn_event_forwarder, opencode::OpencodeHarness},
+    repo::{
+        message::MessageRepo, message_events::MessageDiffEvent, message_part::MessagePartRepo,
+        project::ProjectRepo, session::SessionRepo,
+    },
 };
 use std::{
     collections::HashMap,
     net::SocketAddr,
     sync::{Arc, Mutex},
 };
-use tokio::{sync::watch, task::JoinHandle};
+use tokio::{sync::{broadcast, watch}, task::JoinHandle};
 use tonic::transport::Server;
 use uuid::Uuid;
 
@@ -16,7 +19,9 @@ pub use repo::project::Project;
 pub use repo::session::Session;
 pub use repo::{
     message::{Message, MessageTool},
-    message_part::{MessagePart, MessagePartAttachment, MessagePartFileSource, MessagePartPatchFile},
+    message_part::{
+        MessagePart, MessagePartAttachment, MessagePartFileSource, MessagePartPatchFile,
+    },
 };
 mod db;
 mod harness;
@@ -39,6 +44,17 @@ pub(crate) mod proto_session {
 use proto_session::session_server::SessionServer;
 pub use proto_session::{
     ListSessionsByProjectReply, ListSessionsByProjectRequest, session_client::SessionClient,
+};
+
+pub(crate) mod proto_message {
+    tonic::include_proto!("message");
+}
+use proto_message::message_server::MessageServer;
+pub use proto_message::{
+    ListMessagesBySessionReply, ListMessagesBySessionRequest, MessageModel, MessagePartModel,
+    MessageWithParts, SendMessageReply, SendMessageRequest,
+    SubscribeSessionMessagesReply, SubscribeSessionMessagesRequest,
+    message_client::MessageClient,
 };
 
 pub struct BackendContext<D>
@@ -78,6 +94,9 @@ pub struct BackendService {
     projects_sender: watch::Sender<Vec<Project>>,
     project_sender_by_id: Mutex<HashMap<Uuid, watch::Sender<Option<Project>>>>,
     session_repo: SessionRepo<Sqlite>,
+    message_repo: MessageRepo<Sqlite>,
+    message_part_repo: MessagePartRepo<Sqlite>,
+    message_events_sender: broadcast::Sender<MessageDiffEvent>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -99,12 +118,23 @@ impl BackendService {
         let (projects_sender, _) = watch::channel(Vec::new());
         let project_sender_by_id = Mutex::new(HashMap::new());
         let session_repo = SessionRepo::new(ctx.clone());
+        let message_repo = MessageRepo::new(ctx.clone());
+        let message_part_repo = MessagePartRepo::new(ctx.clone());
+        let (message_events_sender, _unused_rx) = broadcast::channel(512);
+        let _event_forwarder = spawn_event_forwarder(
+            ctx.clone(),
+            ctx.harness.clone(),
+            message_events_sender.clone(),
+        );
 
         Ok(Self {
             project_repo,
             projects_sender,
             project_sender_by_id,
             session_repo,
+            message_repo,
+            message_part_repo,
+            message_events_sender,
         })
     }
 }
@@ -116,12 +146,14 @@ pub fn spawn_backend(
 
     let project_service = ProjectServer::new(backend.clone());
     let session_service = SessionServer::new(backend.clone());
+    let message_service = MessageServer::new(backend.clone());
 
     Ok(tokio::spawn(async move {
         log::info!("gRPC backend listening on {addr}");
         Server::builder()
             .add_service(project_service)
             .add_service(session_service)
+            .add_service(message_service)
             .serve(addr)
             .await
     }))

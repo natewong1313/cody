@@ -1,4 +1,5 @@
 pub mod message;
+pub mod message_events;
 pub mod message_part;
 pub mod project;
 pub mod session;

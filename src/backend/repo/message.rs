@@ -14,6 +14,7 @@ use crate::backend::{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
     pub id: Uuid,
+    pub harness_message_id: Option<String>,
     pub session_id: Uuid,
     pub parent_message_id: Option<Uuid>,
     pub role: String,
@@ -165,6 +166,7 @@ where
         let user_message_id = Uuid::new_v4();
         let user_message = Message {
             id: user_message_id,
+            harness_message_id: None,
             session_id: *session_id,
             parent_message_id: None,
             role: "user".to_string(),
@@ -277,6 +279,7 @@ where
     for (position, part) in parts.iter().enumerate() {
         let mut row = MessagePart {
             id: Uuid::new_v4(),
+            harness_part_id: None,
             session_id,
             message_id,
             position: position as i64,

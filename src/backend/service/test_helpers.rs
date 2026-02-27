@@ -16,7 +16,10 @@ use crate::backend::{
     harness::opencode::OpencodeHarness,
     proto_project::ProjectModel,
     proto_session::SessionModel,
-    repo::{project::ProjectRepo, session::SessionRepo},
+    repo::{
+        message::MessageRepo, message_events::MessageDiffEvent, message_part::MessagePartRepo,
+        project::ProjectRepo, session::SessionRepo,
+    },
 };
 
 pub fn closed_port() -> u32 {
@@ -88,12 +91,18 @@ pub fn test_backend(port: u32) -> Arc<BackendService> {
     let harness = OpencodeHarness::new_for_test(port);
     let ctx = BackendContext::new(db, harness);
     let (projects_sender, _) = watch::channel(Vec::new());
+    let (message_events_sender, _unused_rx) = tokio::sync::broadcast::channel::<MessageDiffEvent>(
+        16,
+    );
 
     Arc::new(BackendService {
         project_repo: ProjectRepo::new(ctx.clone()),
         projects_sender,
         project_sender_by_id: Mutex::new(HashMap::new()),
-        session_repo: SessionRepo::new(ctx),
+        session_repo: SessionRepo::new(ctx.clone()),
+        message_repo: MessageRepo::new(ctx.clone()),
+        message_part_repo: MessagePartRepo::new(ctx),
+        message_events_sender,
     })
 }
 

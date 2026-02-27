@@ -2,8 +2,8 @@ use tokio_rusqlite::rusqlite::{Connection, OptionalExtension, Row};
 use uuid::Uuid;
 
 use super::{assert_one_row_affected, check_returning_row_error, now_utc_string};
-use crate::backend::db::DatabaseError;
 use crate::backend::Session;
+use crate::backend::db::DatabaseError;
 
 const SELECT_SESSION_COLUMNS: &str = "
 id, project_id, parent_session_id, show_in_gui, name, harness_type, harness_session_id,
@@ -51,6 +51,21 @@ pub fn get_session(conn: &Connection, session_id: Uuid) -> Result<Option<Session
          WHERE id = ?1"
     ))?;
     let session = stmt.query_row([session_id], row_to_session).optional()?;
+    Ok(session)
+}
+
+pub fn get_session_by_harness_session_id(
+    conn: &Connection,
+    harness_session_id: &str,
+) -> Result<Option<Session>, DatabaseError> {
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {SELECT_SESSION_COLUMNS}
+         FROM sessions
+         WHERE harness_session_id = ?1"
+    ))?;
+    let session = stmt
+        .query_row([harness_session_id], row_to_session)
+        .optional()?;
     Ok(session)
 }
 

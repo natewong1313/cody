@@ -42,6 +42,10 @@ pub trait Database {
         &self,
         project_id: Uuid,
     ) -> Result<Vec<Session>, DatabaseError>;
+    async fn get_session_by_harness_session_id(
+        &self,
+        harness_session_id: String,
+    ) -> Result<Option<Session>, DatabaseError>;
     async fn get_session(&self, session_id: Uuid) -> Result<Option<Session>, DatabaseError>;
     async fn create_session(&self, session: Session) -> Result<Session, DatabaseError>;
     async fn update_session(&self, session: Session) -> Result<Session, DatabaseError>;
@@ -52,10 +56,26 @@ pub trait Database {
         session_id: Uuid,
     ) -> Result<Vec<Message>, DatabaseError>;
     async fn get_message(&self, message_id: Uuid) -> Result<Option<Message>, DatabaseError>;
+    async fn get_message_by_harness_message_id(
+        &self,
+        session_id: Uuid,
+        harness_message_id: String,
+    ) -> Result<Option<Message>, DatabaseError>;
     async fn create_message(&self, message: Message) -> Result<Message, DatabaseError>;
     async fn update_message(&self, message: Message) -> Result<Message, DatabaseError>;
     async fn delete_message(&self, message_id: Uuid) -> Result<(), DatabaseError>;
-    async fn list_message_tools(&self, message_id: Uuid) -> Result<Vec<MessageTool>, DatabaseError>;
+    async fn delete_message_by_harness_message_id(
+        &self,
+        session_id: Uuid,
+        harness_message_id: String,
+    ) -> Result<(), DatabaseError>;
+    async fn mark_session_assistant_messages_finished(
+        &self,
+        session_id: Uuid,
+        completed_at: chrono::NaiveDateTime,
+    ) -> Result<(), DatabaseError>;
+    async fn list_message_tools(&self, message_id: Uuid)
+    -> Result<Vec<MessageTool>, DatabaseError>;
     async fn upsert_message_tool(&self, tool: MessageTool) -> Result<MessageTool, DatabaseError>;
     async fn delete_message_tool(
         &self,
@@ -68,9 +88,19 @@ pub trait Database {
         message_id: Uuid,
     ) -> Result<Vec<MessagePart>, DatabaseError>;
     async fn get_message_part(&self, part_id: Uuid) -> Result<Option<MessagePart>, DatabaseError>;
+    async fn get_message_part_by_harness_part_id(
+        &self,
+        message_id: Uuid,
+        harness_part_id: String,
+    ) -> Result<Option<MessagePart>, DatabaseError>;
     async fn create_message_part(&self, part: MessagePart) -> Result<MessagePart, DatabaseError>;
     async fn update_message_part(&self, part: MessagePart) -> Result<MessagePart, DatabaseError>;
     async fn delete_message_part(&self, part_id: Uuid) -> Result<(), DatabaseError>;
+    async fn append_message_part_text_delta(
+        &self,
+        part_id: Uuid,
+        delta: String,
+    ) -> Result<MessagePart, DatabaseError>;
     async fn list_message_part_attachments(
         &self,
         part_id: Uuid,
@@ -79,7 +109,10 @@ pub trait Database {
         &self,
         attachment: MessagePartAttachment,
     ) -> Result<MessagePartAttachment, DatabaseError>;
-    async fn delete_message_part_attachment(&self, attachment_id: Uuid) -> Result<(), DatabaseError>;
+    async fn delete_message_part_attachment(
+        &self,
+        attachment_id: Uuid,
+    ) -> Result<(), DatabaseError>;
     async fn get_message_part_file_source(
         &self,
         part_id: Uuid,

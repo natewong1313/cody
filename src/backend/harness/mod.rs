@@ -3,11 +3,13 @@ use futures::Stream;
 use std::pin::Pin;
 use uuid::Uuid;
 
+pub mod event_forwarder;
 pub mod opencode;
 mod opencode_client;
 pub(crate) use opencode_client::{
     ModelSelection, OpencodeEventPayload, OpencodeGlobalEvent, OpencodeMessage,
-    OpencodeMessageWithParts, OpencodePart, OpencodePartInput, OpencodeSendMessageRequest,
+    OpencodeMessageError, OpencodeMessageWithParts, OpencodePart, OpencodePartInput,
+    OpencodeSendMessageRequest, OpencodeToolState,
 };
 
 pub struct Model {

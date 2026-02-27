@@ -211,5 +211,25 @@ CREATE TABLE message_part_patch_files (
 CREATE INDEX message_part_patch_files_part_id_idx ON message_part_patch_files(part_id);
 ",
     ),
+    M::up(
+        "
+ALTER TABLE messages ADD COLUMN harness_message_id TEXT;
+ALTER TABLE message_parts ADD COLUMN harness_part_id TEXT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS messages_harness_message_id_uq
+    ON messages(harness_message_id)
+    WHERE harness_message_id IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS message_parts_harness_part_id_uq
+    ON message_parts(harness_part_id)
+    WHERE harness_part_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS messages_session_harness_message_id_idx
+    ON messages(session_id, harness_message_id);
+
+CREATE INDEX IF NOT EXISTS message_parts_message_harness_part_id_idx
+    ON message_parts(message_id, harness_part_id);
+",
+    ),
 ];
 pub const SQLITE_MIGRATIONS: Migrations<'_> = Migrations::from_slice(SQLITE_MIGRATIONS_SLICE);
