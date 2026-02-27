@@ -1,9 +1,9 @@
 use crate::backend::Session;
 use crate::components::button::StyledButton;
 use crate::theme::{BG_700, BG_800, RADIUS_MD, STROKE_WIDTH};
-use egui::{vec2, Align2, Color32, Frame, Id, Stroke, TextEdit, TopBottomPanel};
+use egui::{Align2, Color32, Frame, Id, Stroke, TextEdit, TopBottomPanel, vec2};
 use egui_dock::tab_viewer::OnCloseResponse;
-use egui_flex::{item, Flex};
+use egui_flex::{Flex, item};
 use std::collections::HashMap;
 use uuid::Uuid;
 
