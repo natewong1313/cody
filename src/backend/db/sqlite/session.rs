@@ -44,6 +44,20 @@ pub fn list_sessions_by_project(
     Ok(sessions)
 }
 
+pub fn list_sessions_with_harness_ids(conn: &Connection) -> Result<Vec<Session>, DatabaseError> {
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {SELECT_SESSION_COLUMNS}
+         FROM sessions
+         WHERE harness_session_id IS NOT NULL
+         ORDER BY updated_at DESC"
+    ))?;
+
+    let sessions = stmt
+        .query_map([], row_to_session)?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(sessions)
+}
+
 pub fn get_session(conn: &Connection, session_id: Uuid) -> Result<Option<Session>, DatabaseError> {
     let mut stmt = conn.prepare(&format!(
         "SELECT {SELECT_SESSION_COLUMNS}

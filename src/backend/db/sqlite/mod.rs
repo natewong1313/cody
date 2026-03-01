@@ -126,6 +126,11 @@ impl Database for Sqlite {
             .await
     }
 
+    async fn list_sessions_with_harness_ids(&self) -> Result<Vec<Session>, DatabaseError> {
+        self.with_conn(session::list_sessions_with_harness_ids)
+            .await
+    }
+
     async fn get_session(&self, session_id: Uuid) -> Result<Option<Session>, DatabaseError> {
         self.with_conn(move |conn| session::get_session(conn, session_id))
             .await
@@ -178,6 +183,14 @@ impl Database for Sqlite {
             message::get_message_by_harness_message_id(conn, session_id, &harness_message_id)
         })
         .await
+    }
+
+    async fn get_latest_unbound_user_message(
+        &self,
+        session_id: Uuid,
+    ) -> Result<Option<Message>, DatabaseError> {
+        self.with_conn(move |conn| message::get_latest_unbound_user_message(conn, session_id))
+            .await
     }
 
     async fn create_message(&self, message_item: Message) -> Result<Message, DatabaseError> {

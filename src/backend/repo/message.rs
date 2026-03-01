@@ -9,6 +9,7 @@ use crate::backend::{
     BackendContext, MessagePart,
     db::{Database, DatabaseError},
     harness::{Harness, OpencodeMessageWithParts, OpencodePartInput, OpencodeSendMessageRequest},
+    repo::message_events::MessageEventApplier,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -223,6 +224,12 @@ where
             .ctx
             .harness
             .send_message(harness_session_id, request, session.dir.as_deref())
+            .await
+            .map_err(|e| MessageRepoError::Harness(e.to_string()))?;
+
+        let applier = MessageEventApplier::new(self.ctx.clone());
+        applier
+            .apply_message_with_parts(*session_id, harness_response.clone())
             .await
             .map_err(|e| MessageRepoError::Harness(e.to_string()))?;
 

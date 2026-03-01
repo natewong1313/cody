@@ -31,6 +31,12 @@ impl MessageService for Arc<BackendService> {
             return Err(Status::invalid_argument("message text cannot be empty"));
         }
 
+        if req.provider_id.is_empty() ^ req.model_id.is_empty() {
+            return Err(Status::invalid_argument(
+                "provider_id and model_id must be provided together",
+            ));
+        }
+
         let model = if !req.provider_id.is_empty() && !req.model_id.is_empty() {
             Some(ModelSelection {
                 provider_id: req.provider_id,
@@ -92,7 +98,20 @@ impl MessageService for Arc<BackendService> {
         request: Request<SubscribeSessionMessagesRequest>,
     ) -> Result<Response<Self::SubscribeSessionMessagesStream>, Status> {
         let session_id = parse_uuid("session_id", &request.into_inner().session_id)?;
-        let receiver = self.message_events_sender.subscribe();
+        let receiver = {
+            let mut senders = self
+                .message_sender_by_session_id
+                .lock()
+                .map_err(|_| Status::internal("message sender lock poisoned"))?;
+
+            senders
+                .entry(session_id)
+                .or_insert_with(|| {
+                    let (sender, _rx) = tokio::sync::broadcast::channel(512);
+                    sender
+                })
+                .subscribe()
+        };
 
         let updates = stream::unfold(
             (receiver, session_id),

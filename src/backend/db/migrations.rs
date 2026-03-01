@@ -231,5 +231,19 @@ CREATE INDEX IF NOT EXISTS message_parts_message_harness_part_id_idx
     ON message_parts(message_id, harness_part_id);
 ",
     ),
+    M::up(
+        "
+DROP INDEX IF EXISTS messages_harness_message_id_uq;
+DROP INDEX IF EXISTS message_parts_harness_part_id_uq;
+
+CREATE UNIQUE INDEX IF NOT EXISTS messages_session_harness_message_id_uq
+    ON messages(session_id, harness_message_id)
+    WHERE harness_message_id IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS message_parts_message_harness_part_id_uq
+    ON message_parts(message_id, harness_part_id)
+    WHERE harness_part_id IS NOT NULL;
+",
+    ),
 ];
 pub const SQLITE_MIGRATIONS: Migrations<'_> = Migrations::from_slice(SQLITE_MIGRATIONS_SLICE);

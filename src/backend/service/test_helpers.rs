@@ -1,7 +1,7 @@
 use chrono::Utc;
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, atomic::AtomicBool},
 };
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -91,9 +91,7 @@ pub fn test_backend(port: u32) -> Arc<BackendService> {
     let harness = OpencodeHarness::new_for_test(port);
     let ctx = BackendContext::new(db, harness);
     let (projects_sender, _) = watch::channel(Vec::new());
-    let (message_events_sender, _unused_rx) = tokio::sync::broadcast::channel::<MessageDiffEvent>(
-        16,
-    );
+    let message_sender_by_session_id = Arc::new(Mutex::new(HashMap::new()));
 
     Arc::new(BackendService {
         project_repo: ProjectRepo::new(ctx.clone()),
@@ -102,7 +100,9 @@ pub fn test_backend(port: u32) -> Arc<BackendService> {
         session_repo: SessionRepo::new(ctx.clone()),
         message_repo: MessageRepo::new(ctx.clone()),
         message_part_repo: MessagePartRepo::new(ctx),
-        message_events_sender,
+        message_sender_by_session_id,
+        event_forwarder_shutdown: Arc::new(AtomicBool::new(true)),
+        event_forwarder_handle: Mutex::new(None),
     })
 }
 

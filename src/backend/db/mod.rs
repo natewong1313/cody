@@ -42,6 +42,7 @@ pub trait Database {
         &self,
         project_id: Uuid,
     ) -> Result<Vec<Session>, DatabaseError>;
+    async fn list_sessions_with_harness_ids(&self) -> Result<Vec<Session>, DatabaseError>;
     async fn get_session_by_harness_session_id(
         &self,
         harness_session_id: String,
@@ -60,6 +61,10 @@ pub trait Database {
         &self,
         session_id: Uuid,
         harness_message_id: String,
+    ) -> Result<Option<Message>, DatabaseError>;
+    async fn get_latest_unbound_user_message(
+        &self,
+        session_id: Uuid,
     ) -> Result<Option<Message>, DatabaseError>;
     async fn create_message(&self, message: Message) -> Result<Message, DatabaseError>;
     async fn update_message(&self, message: Message) -> Result<Message, DatabaseError>;

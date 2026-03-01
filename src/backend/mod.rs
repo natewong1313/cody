@@ -9,9 +9,16 @@ use crate::backend::{
 use std::{
     collections::HashMap,
     net::SocketAddr,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
+    thread,
 };
-use tokio::{sync::{broadcast, watch}, task::JoinHandle};
+use tokio::{
+    sync::{broadcast, watch},
+    task::JoinHandle,
+};
 use tonic::transport::Server;
 use uuid::Uuid;
 
@@ -52,9 +59,8 @@ pub(crate) mod proto_message {
 use proto_message::message_server::MessageServer;
 pub use proto_message::{
     ListMessagesBySessionReply, ListMessagesBySessionRequest, MessageModel, MessagePartModel,
-    MessageWithParts, SendMessageReply, SendMessageRequest,
-    SubscribeSessionMessagesReply, SubscribeSessionMessagesRequest,
-    message_client::MessageClient,
+    MessageWithParts, SendMessageReply, SendMessageRequest, SubscribeSessionMessagesReply,
+    SubscribeSessionMessagesRequest, message_client::MessageClient,
 };
 
 pub struct BackendContext<D>
@@ -96,7 +102,9 @@ pub struct BackendService {
     session_repo: SessionRepo<Sqlite>,
     message_repo: MessageRepo<Sqlite>,
     message_part_repo: MessagePartRepo<Sqlite>,
-    message_events_sender: broadcast::Sender<MessageDiffEvent>,
+    message_sender_by_session_id: Arc<Mutex<HashMap<Uuid, broadcast::Sender<MessageDiffEvent>>>>,
+    event_forwarder_shutdown: Arc<AtomicBool>,
+    event_forwarder_handle: Mutex<Option<thread::JoinHandle<()>>>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -120,11 +128,13 @@ impl BackendService {
         let session_repo = SessionRepo::new(ctx.clone());
         let message_repo = MessageRepo::new(ctx.clone());
         let message_part_repo = MessagePartRepo::new(ctx.clone());
-        let (message_events_sender, _unused_rx) = broadcast::channel(512);
-        let _event_forwarder = spawn_event_forwarder(
+        let message_sender_by_session_id = Arc::new(Mutex::new(HashMap::new()));
+        let event_forwarder_shutdown = Arc::new(AtomicBool::new(false));
+        let event_forwarder_handle = spawn_event_forwarder(
             ctx.clone(),
             ctx.harness.clone(),
-            message_events_sender.clone(),
+            Arc::clone(&message_sender_by_session_id),
+            Arc::clone(&event_forwarder_shutdown),
         );
 
         Ok(Self {
@@ -134,8 +144,21 @@ impl BackendService {
             session_repo,
             message_repo,
             message_part_repo,
-            message_events_sender,
+            message_sender_by_session_id,
+            event_forwarder_shutdown,
+            event_forwarder_handle: Mutex::new(Some(event_forwarder_handle)),
         })
+    }
+}
+
+impl Drop for BackendService {
+    fn drop(&mut self) {
+        self.event_forwarder_shutdown.store(true, Ordering::SeqCst);
+        if let Ok(mut guard) = self.event_forwarder_handle.lock()
+            && let Some(handle) = guard.take()
+        {
+            let _ = handle.join();
+        }
     }
 }
 

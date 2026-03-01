@@ -101,7 +101,10 @@ where
                     })?;
                 self.ctx
                     .db
-                    .delete_message_by_harness_message_id(local_session.id, harness_message_id.clone())
+                    .delete_message_by_harness_message_id(
+                        local_session.id,
+                        harness_message_id.clone(),
+                    )
                     .await?;
                 Ok(Some(MessageDiffEvent::MessageRemoved {
                     session_id: local_session.id,
@@ -132,6 +135,32 @@ where
         }
     }
 
+    pub async fn apply_message_with_parts(
+        &self,
+        local_session_id: Uuid,
+        message_with_parts: crate::backend::harness::OpencodeMessageWithParts,
+    ) -> Result<Vec<MessageDiffEvent>, MessageEventApplyError> {
+        let mut out = Vec::new();
+
+        if let Some(diff) = self
+            .apply_message_updated(local_session_id, message_with_parts.info)
+            .await?
+        {
+            out.push(diff);
+        }
+
+        for part in message_with_parts.parts {
+            if let Some(diff) = self
+                .apply_part_updated(local_session_id, part, None)
+                .await?
+            {
+                out.push(diff);
+            }
+        }
+
+        Ok(out)
+    }
+
     async fn apply_message_updated(
         &self,
         local_session_id: Uuid,
@@ -143,7 +172,17 @@ where
             .db
             .get_message_by_harness_message_id(local_session_id, harness_message_id.clone())
             .await?;
-        let had_existing = existing.is_some();
+        let mut had_existing = existing.is_some();
+
+        let mut existing = existing;
+        if existing.is_none() && matches!(info, OpencodeMessage::User(_)) {
+            existing = self
+                .ctx
+                .db
+                .get_latest_unbound_user_message(local_session_id)
+                .await?;
+            had_existing = existing.is_some();
+        }
 
         let now = Utc::now().naive_utc();
         let mut row = existing.clone().unwrap_or_else(|| Message {
@@ -265,21 +304,6 @@ where
             .get_message_part_by_harness_part_id(message.id, harness_part_id.clone())
             .await?;
         let had_existing = existing.is_some();
-
-        if let Some(existing_part) = existing.as_ref()
-            && let Some(text_delta) = delta.clone()
-            && is_text_like_part(&part)
-        {
-            let updated = self.ctx
-                .db
-                .append_message_part_text_delta(existing_part.id, text_delta)
-                .await?;
-            return Ok(Some(MessageDiffEvent::MessagePartUpserted {
-                session_id: local_session_id,
-                part: updated,
-                delta,
-            }));
-        }
 
         let now = Utc::now().naive_utc();
         let mut row = existing.unwrap_or_else(|| empty_part(message.id, local_session_id, now));

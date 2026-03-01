@@ -228,16 +228,33 @@ pub fn get_message_by_harness_message_id(
     Ok(message)
 }
 
+pub fn get_latest_unbound_user_message(
+    conn: &Connection,
+    session_id: Uuid,
+) -> Result<Option<Message>, DatabaseError> {
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {SELECT_MESSAGE_COLUMNS}
+         FROM messages
+         WHERE session_id = ?1 AND role = 'user' AND harness_message_id IS NULL
+         ORDER BY created_at DESC
+         LIMIT 1"
+    ))?;
+    let message = stmt
+        .query_row(params![session_id], row_to_message)
+        .optional()?;
+    Ok(message)
+}
+
 pub fn delete_message_by_harness_message_id(
     conn: &Connection,
     session_id: Uuid,
     harness_message_id: &str,
 ) -> Result<(), DatabaseError> {
-    let rows = conn.execute(
+    conn.execute(
         "DELETE FROM messages WHERE session_id = ?1 AND harness_message_id = ?2",
         params![session_id, harness_message_id],
     )?;
-    assert_one_row_affected("delete_message_by_harness_message_id", rows)
+    Ok(())
 }
 
 pub fn mark_session_assistant_messages_finished(
