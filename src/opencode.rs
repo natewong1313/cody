@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use libc::SIGTERM;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -443,7 +445,7 @@ impl OpencodeMessageWithParts {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OpencodeGlobalEvent {
-    pub directory: String,
+    pub directory: Option<String>,
     pub payload: OpencodeEventPayload,
 }
 

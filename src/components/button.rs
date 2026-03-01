@@ -8,6 +8,7 @@ use egui::{
 use egui_flex::{FlexInstance, FlexItem, FlexWidget};
 
 #[derive(Default, Clone, Copy)]
+#[allow(dead_code)]
 pub enum ButtonSize {
     Sm,
     #[default]
@@ -68,6 +69,7 @@ impl<'a> StyledButton<'a> {
         self
     }
 
+    #[allow(dead_code)]
     pub fn explicit_size(mut self, size: Vec2) -> Self {
         self.explicit_size = Some(size);
         self
@@ -174,7 +176,7 @@ impl<'a> StyledButton<'a> {
         if response.hovered() {
             let rect = response.rect;
             ui.painter()
-                .rect_stroke(rect, RADIUS_MD, hover_stroke, StrokeKind::Outside);
+                .rect_stroke(rect, RADIUS_MD, hover_stroke, StrokeKind::Inside);
         }
 
         ui.spacing_mut().button_padding = prev_padding;

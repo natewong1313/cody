@@ -1,28 +1,30 @@
 use crate::backend::Session;
 use crate::components::button::StyledButton;
 use crate::theme::{BG_700, BG_800, RADIUS_MD, STROKE_WIDTH};
-use egui::{Align2, Frame, Id, ScrollArea, Stroke, TextEdit, TopBottomPanel, vec2};
+use egui::{Align2, Color32, Frame, Id, Stroke, TextEdit, TopBottomPanel, vec2};
 use egui_dock::tab_viewer::OnCloseResponse;
 use egui_flex::{Flex, item};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-pub(super) type SessionTabStateMap = HashMap<Uuid, SessionTabState>;
+pub type SessionTabStateMap = HashMap<Uuid, SessionTabState>;
 
 #[derive(Default)]
-pub(super) struct SessionTabState {
+pub struct SessionTabState {
     prompt_input: String,
+    send_msg_error: Option<String>,
 }
 
-pub(super) struct TabViewer<'a> {
-    sessions_by_id: &'a HashMap<Uuid, &'a Session>,
-    sessions_states: &'a mut SessionTabStateMap,
+/// A tab viewer is responsible for all session tabs within a project
+pub struct TabViewer<'sessions> {
+    sessions_by_id: &'sessions HashMap<Uuid, &'sessions Session>,
+    sessions_states: &'sessions mut SessionTabStateMap,
 }
 
-impl<'a> TabViewer<'a> {
-    pub(super) fn new(
-        sessions_by_id: &'a HashMap<Uuid, &'a Session>,
-        sessions_states: &'a mut SessionTabStateMap,
+impl<'sessions> TabViewer<'sessions> {
+    pub fn new(
+        sessions_by_id: &'sessions HashMap<Uuid, &'sessions Session>,
+        sessions_states: &'sessions mut SessionTabStateMap,
     ) -> Self {
         Self {
             sessions_by_id,
@@ -31,7 +33,7 @@ impl<'a> TabViewer<'a> {
     }
 }
 
-impl egui_dock::TabViewer for TabViewer<'_> {
+impl<'sessions> egui_dock::TabViewer for TabViewer<'sessions> {
     type Tab = Uuid;
 
     fn id(&mut self, tab: &mut Self::Tab) -> egui::Id {
@@ -53,7 +55,8 @@ impl egui_dock::TabViewer for TabViewer<'_> {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, tab: &mut Self::Tab) {
-        let tab_state = self.sessions_states.entry(*tab).or_default();
+        let session_id = *tab;
+        let session_state = self.sessions_states.entry(session_id).or_default();
 
         TopBottomPanel::bottom(Id::new(("bottom_panel", *tab)))
             .show_separator_line(false)
@@ -72,7 +75,7 @@ impl egui_dock::TabViewer for TabViewer<'_> {
                             .show(ui, |flex| {
                                 flex.add(
                                     item().align_self_content(Align2::LEFT_TOP),
-                                    TextEdit::multiline(&mut tab_state.prompt_input)
+                                    TextEdit::multiline(&mut session_state.prompt_input)
                                         .hint_text("Type anything")
                                         .frame(false)
                                         .desired_rows(2),
@@ -89,21 +92,35 @@ impl egui_dock::TabViewer for TabViewer<'_> {
                                             StyledButton::new("Send").id("send_button"),
                                         );
                                         if btn.clicked() {
-                                            println!("send: {}", tab_state.prompt_input);
-                                            tab_state.prompt_input.clear();
+                                            let prompt = session_state.prompt_input.trim().to_string();
+                                            if prompt.is_empty() {
+                                                session_state.send_msg_error =
+                                                    Some("Message cannot be empty".to_string());
+                                            } else {
+                                                log::info!(
+                                                    "send clicked for session {session_id} ({} chars)",
+                                                    prompt.len()
+                                                );
+                                                session_state.send_msg_error = Some(
+                                                    "Message sending is temporarily disabled"
+                                                        .to_string(),
+                                                );
+                                                session_state.prompt_input.clear();
+                                            }
+                                        }
+
+                                        if let Some(err) = &session_state.send_msg_error {
+                                            flex.add(
+                                                item(),
+                                                egui::Label::new(
+                                                    egui::RichText::new(err).color(Color32::RED),
+                                                ),
+                                            );
                                         }
                                     },
                                 );
                             })
                     });
-            });
-        ScrollArea::vertical()
-            .auto_shrink([false, false])
-            .show(ui, |ui| {
-                ui.set_width(ui.available_width());
-                for _ in 1..=50 {
-                    ui.label("messages");
-                }
             });
     }
 

@@ -20,185 +20,18 @@ fn create_test_session(project_id: Uuid, name: &str, show_in_gui: bool) -> Sessi
     Session {
         id: Uuid::new_v4(),
         project_id,
+        parent_session_id: None,
         show_in_gui,
         name: name.to_string(),
+        harness_type: "opencode".to_string(),
+        harness_session_id: None,
+        dir: None,
+        summary_additions: None,
+        summary_deletions: None,
+        summary_files: None,
         created_at: now,
         updated_at: now,
     }
-}
-
-#[tokio::test]
-async fn test_new_in_memory_creates_valid_database() {
-    let result = Sqlite::new_in_memory();
-    assert!(
-        result.is_ok(),
-        "Failed to create in-memory database: {:?}",
-        result.err()
-    );
-}
-
-#[tokio::test]
-async fn test_list_projects_returns_empty_vec_for_new_database() {
-    let db = Sqlite::new_in_memory().unwrap();
-    let projects = db.list_projects().await.unwrap();
-    assert!(projects.is_empty());
-}
-
-#[tokio::test]
-async fn test_create_and_get_project() {
-    let db = Sqlite::new_in_memory().unwrap();
-    let project = create_test_project("Test Project", "/test/dir");
-
-    let created = db.create_project(project.clone()).await.unwrap();
-    assert_eq!(created.id, project.id);
-    assert_eq!(created.name, project.name);
-    assert_eq!(created.dir, project.dir);
-
-    let retrieved = db.get_project(project.id).await.unwrap();
-    assert!(retrieved.is_some());
-    let retrieved = retrieved.unwrap();
-    assert_eq!(retrieved.id, project.id);
-    assert_eq!(retrieved.name, project.name);
-}
-
-#[tokio::test]
-async fn test_get_project_returns_none_for_nonexistent() {
-    let db = Sqlite::new_in_memory().unwrap();
-    let nonexistent_id = Uuid::new_v4();
-
-    let result = db.get_project(nonexistent_id).await.unwrap();
-    assert!(result.is_none());
-}
-
-#[tokio::test]
-async fn test_create_project_with_empty_name_fails() {
-    let db = Sqlite::new_in_memory().unwrap();
-    let project = create_test_project("", "/test/dir");
-
-    let result = db.create_project(project).await;
-    assert!(result.is_err());
-}
-
-#[tokio::test]
-async fn test_create_project_with_whitespace_only_name_fails() {
-    let db = Sqlite::new_in_memory().unwrap();
-    let project = create_test_project("   ", "/test/dir");
-
-    let result = db.create_project(project).await;
-    assert!(result.is_err());
-}
-
-#[tokio::test]
-async fn test_create_project_with_empty_dir_fails() {
-    let db = Sqlite::new_in_memory().unwrap();
-    let project = create_test_project("Test", "");
-
-    let result = db.create_project(project).await;
-    assert!(result.is_err());
-}
-
-#[tokio::test]
-async fn test_create_project_with_whitespace_only_dir_fails() {
-    let db = Sqlite::new_in_memory().unwrap();
-    let project = create_test_project("Test", "   ");
-
-    let result = db.create_project(project).await;
-    assert!(result.is_err());
-}
-
-#[tokio::test]
-async fn test_create_duplicate_project_id_fails() {
-    let db = Sqlite::new_in_memory().unwrap();
-    let project = create_test_project("Test", "/test/dir");
-
-    db.create_project(project.clone()).await.unwrap();
-
-    let result = db.create_project(project).await;
-    assert!(result.is_err());
-}
-
-#[tokio::test]
-async fn test_update_project() {
-    let db = Sqlite::new_in_memory().unwrap();
-    let project = create_test_project("Original", "/original/dir");
-    let created = db.create_project(project).await.unwrap();
-
-    let mut updated_project = created.clone();
-    updated_project.name = "Updated".to_string();
-    updated_project.dir = "/updated/dir".to_string();
-
-    let updated = db.update_project(updated_project).await.unwrap();
-    assert_eq!(updated.name, "Updated");
-    assert_eq!(updated.dir, "/updated/dir");
-    assert_eq!(updated.id, created.id);
-    assert!(updated.updated_at > created.updated_at);
-}
-
-#[tokio::test]
-async fn test_update_nonexistent_project_fails() {
-    let db = Sqlite::new_in_memory().unwrap();
-    let project = create_test_project("Test", "/test/dir");
-
-    let result = db.update_project(project).await;
-    assert!(result.is_err());
-}
-
-#[tokio::test]
-async fn test_update_project_with_empty_name_fails() {
-    let db = Sqlite::new_in_memory().unwrap();
-    let project = create_test_project("Test", "/test/dir");
-    let created = db.create_project(project).await.unwrap();
-
-    let mut updated = created.clone();
-    updated.name = "".to_string();
-
-    let result = db.update_project(updated).await;
-    assert!(result.is_err());
-}
-
-#[tokio::test]
-async fn test_delete_project() {
-    let db = Sqlite::new_in_memory().unwrap();
-    let project = create_test_project("Test", "/test/dir");
-    let created = db.create_project(project).await.unwrap();
-
-    db.delete_project(created.id).await.unwrap();
-
-    let result = db.get_project(created.id).await.unwrap();
-    assert!(result.is_none());
-}
-
-#[tokio::test]
-async fn test_delete_nonexistent_project_fails() {
-    let db = Sqlite::new_in_memory().unwrap();
-    let nonexistent_id = Uuid::new_v4();
-
-    let result = db.delete_project(nonexistent_id).await;
-    assert!(result.is_err());
-}
-
-#[tokio::test]
-async fn test_list_projects_ordered_by_updated_at_desc() {
-    let db = Sqlite::new_in_memory().unwrap();
-
-    let project1 = create_test_project("Project 1", "/dir1");
-    let created1 = db.create_project(project1).await.unwrap();
-
-    let project2 = create_test_project("Project 2", "/dir2");
-    let created2 = db.create_project(project2).await.unwrap();
-
-    let project3 = create_test_project("Project 3", "/dir3");
-    let created3 = db.create_project(project3).await.unwrap();
-
-    let mut updated2 = created2.clone();
-    updated2.name = "Updated Project 2".to_string();
-    db.update_project(updated2).await.unwrap();
-
-    let projects = db.list_projects().await.unwrap();
-    assert_eq!(projects.len(), 3);
-    assert_eq!(projects[0].id, created2.id);
-    assert_eq!(projects[1].id, created3.id);
-    assert_eq!(projects[2].id, created1.id);
 }
 
 #[tokio::test]
@@ -353,6 +186,46 @@ async fn test_update_session_change_project() {
 }
 
 #[tokio::test]
+async fn test_update_session_to_nonexistent_project_fails() {
+    let db = Sqlite::new_in_memory().unwrap();
+    let project = create_test_project("Project", "/dir");
+    let created_project = db.create_project(project).await.unwrap();
+
+    let session = create_test_session(created_project.id, "Test", true);
+    let created = db.create_session(session).await.unwrap();
+
+    let mut updated = created.clone();
+    updated.project_id = Uuid::new_v4();
+
+    let result = db.update_session(updated).await;
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn test_failed_update_session_does_not_modify_row() {
+    let db = Sqlite::new_in_memory().unwrap();
+    let project = create_test_project("Project", "/dir");
+    let created_project = db.create_project(project).await.unwrap();
+
+    let session = create_test_session(created_project.id, "Original", true);
+    let created = db.create_session(session).await.unwrap();
+
+    let mut invalid_update = created.clone();
+    invalid_update.project_id = Uuid::new_v4();
+    invalid_update.name = "Changed".to_string();
+    invalid_update.show_in_gui = !created.show_in_gui;
+
+    let result = db.update_session(invalid_update).await;
+    assert!(result.is_err());
+
+    let retrieved = db.get_session(created.id).await.unwrap().unwrap();
+    assert_eq!(retrieved.project_id, created.project_id);
+    assert_eq!(retrieved.name, created.name);
+    assert_eq!(retrieved.show_in_gui, created.show_in_gui);
+    assert_eq!(retrieved.updated_at, created.updated_at);
+}
+
+#[tokio::test]
 async fn test_update_nonexistent_session_fails() {
     let db = Sqlite::new_in_memory().unwrap();
     let project = create_test_project("Test", "/test/dir");
@@ -452,65 +325,21 @@ async fn test_session_show_in_gui_default() {
     let session = Session {
         id: Uuid::new_v4(),
         project_id: created_project.id,
+        parent_session_id: None,
         show_in_gui: false,
         name: "Test".to_string(),
+        harness_type: "opencode".to_string(),
+        harness_session_id: None,
+        dir: None,
+        summary_additions: None,
+        summary_deletions: None,
+        summary_files: None,
         created_at: now,
         updated_at: now,
     };
 
     let created = db.create_session(session).await.unwrap();
     assert!(!created.show_in_gui);
-}
-
-#[tokio::test]
-async fn test_project_with_special_characters_in_name() {
-    let db = Sqlite::new_in_memory().unwrap();
-    let project = create_test_project(
-        "Test \"Project\" with 'quotes' and \\backslash",
-        "/test/dir",
-    );
-    let created = db.create_project(project.clone()).await.unwrap();
-
-    let retrieved = db.get_project(created.id).await.unwrap().unwrap();
-    assert_eq!(retrieved.name, project.name);
-}
-
-#[tokio::test]
-async fn test_project_with_unicode_name() {
-    let db = Sqlite::new_in_memory().unwrap();
-    let project = create_test_project("テストプロジェクト 🚀 Ñoño", "/test/dir");
-    let created = db.create_project(project.clone()).await.unwrap();
-
-    let retrieved = db.get_project(created.id).await.unwrap().unwrap();
-    assert_eq!(retrieved.name, project.name);
-}
-
-#[tokio::test]
-async fn test_multiple_sequential_operations() {
-    let db = Sqlite::new_in_memory().unwrap();
-
-    for i in 0..10 {
-        let project = create_test_project(&format!("Project {i}"), &format!("/dir/{i}"));
-        db.create_project(project).await.unwrap();
-    }
-
-    let projects = db.list_projects().await.unwrap();
-    assert_eq!(projects.len(), 10);
-}
-
-#[tokio::test]
-async fn test_update_project_preserves_created_at() {
-    let db = Sqlite::new_in_memory().unwrap();
-    let project = create_test_project("Test", "/test/dir");
-    let created = db.create_project(project).await.unwrap();
-    let original_created_at = created.created_at;
-
-    let mut updated = created.clone();
-    updated.name = "Updated".to_string();
-    let result = db.update_project(updated).await.unwrap();
-
-    assert_eq!(result.created_at, original_created_at);
-    assert!(result.updated_at > original_created_at);
 }
 
 #[tokio::test]
@@ -529,16 +358,6 @@ async fn test_update_session_preserves_created_at() {
 
     assert_eq!(result.created_at, original_created_at);
     assert!(result.updated_at > original_created_at);
-}
-
-#[tokio::test]
-async fn test_create_project_with_very_long_name() {
-    let db = Sqlite::new_in_memory().unwrap();
-    let long_name = "a".repeat(1000);
-    let project = create_test_project(&long_name, "/test/dir");
-
-    let created = db.create_project(project.clone()).await.unwrap();
-    assert_eq!(created.name, long_name);
 }
 
 #[tokio::test]
@@ -567,4 +386,75 @@ async fn test_session_isolation_between_projects() {
         .unwrap();
     assert_eq!(sessions2.len(), 1);
     assert_eq!(sessions2[0].id, created_session2.id);
+}
+
+#[tokio::test]
+async fn test_session_harness_type_persists() {
+    let db = Sqlite::new_in_memory().unwrap();
+    let project = db
+        .create_project(create_test_project("Test", "/test/dir"))
+        .await
+        .unwrap();
+    let session = db
+        .create_session(create_test_session(project.id, "Test", true))
+        .await
+        .unwrap();
+
+    assert_eq!(session.harness_type, "opencode");
+}
+
+#[tokio::test]
+async fn test_update_session_harness_type_persists() {
+    let db = Sqlite::new_in_memory().unwrap();
+    let project = db
+        .create_project(create_test_project("Test", "/test/dir"))
+        .await
+        .unwrap();
+    let created = db
+        .create_session(create_test_session(project.id, "Test", true))
+        .await
+        .unwrap();
+
+    let mut updated = created.clone();
+    updated.harness_type = "custom-harness".to_string();
+
+    let result = db.update_session(updated).await.unwrap();
+    assert_eq!(result.harness_type, "custom-harness");
+
+    let retrieved = db.get_session(created.id).await.unwrap().unwrap();
+    assert_eq!(retrieved.harness_type, "custom-harness");
+}
+
+#[tokio::test]
+async fn test_session_name_with_special_characters() {
+    let db = Sqlite::new_in_memory().unwrap();
+    let project = db
+        .create_project(create_test_project("Test", "/test/dir"))
+        .await
+        .unwrap();
+
+    let session = create_test_session(
+        project.id,
+        "Session \"name\" with 'quotes' and \\backslash",
+        true,
+    );
+    let created = db.create_session(session.clone()).await.unwrap();
+
+    let retrieved = db.get_session(created.id).await.unwrap().unwrap();
+    assert_eq!(retrieved.name, session.name);
+}
+
+#[tokio::test]
+async fn test_session_name_with_unicode() {
+    let db = Sqlite::new_in_memory().unwrap();
+    let project = db
+        .create_project(create_test_project("Test", "/test/dir"))
+        .await
+        .unwrap();
+
+    let session = create_test_session(project.id, "セッション 🚀 Ñoño", true);
+    let created = db.create_session(session.clone()).await.unwrap();
+
+    let retrieved = db.get_session(created.id).await.unwrap().unwrap();
+    assert_eq!(retrieved.name, session.name);
 }

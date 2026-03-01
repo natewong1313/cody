@@ -11,6 +11,7 @@ use crate::{
 use tonic::transport::{Channel, Endpoint};
 
 pub struct App {
+    #[allow(dead_code)]
     backend_channel: Channel,
     query_client: QueryClient,
     mutations_client: MutationsClient,

@@ -14,6 +14,10 @@ use uuid::Uuid;
 
 pub use repo::project::Project;
 pub use repo::session::Session;
+pub use repo::{
+    message::{Message, MessageTool},
+    message_part::{MessagePart, MessagePartAttachment, MessagePartFileSource, MessagePartPatchFile},
+};
 mod db;
 mod harness;
 pub mod proto_utils;
@@ -111,7 +115,7 @@ pub fn spawn_backend(
     let backend = Arc::new(BackendService::new()?);
 
     let project_service = ProjectServer::new(backend.clone());
-    let session_service = SessionServer::new(backend);
+    let session_service = SessionServer::new(backend.clone());
 
     Ok(tokio::spawn(async move {
         log::info!("gRPC backend listening on {addr}");

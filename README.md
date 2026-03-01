@@ -8,18 +8,25 @@ You'll need the dioxus cli in order to run the app with hot reloading
 cargo install dioxus-cli
 ```
 
-### Development
-Run with hot reloading
+
+### Commands
+
+Run the app (hot reloading)
 ```shell
 dx serve --hot-patch --features local
 ```
 
-Run tests with
+Run tests
 ```shell
 cargo test
 ```
 
-We use clippy for linting. Run it with
+Run linting
 ```shell
 cargo clippy
+```
+
+Run formatting
+```shell
+cargo fmt
 ```

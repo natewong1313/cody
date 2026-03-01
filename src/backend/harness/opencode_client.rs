@@ -1,6 +1,11 @@
+#![allow(dead_code)]
+
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::pin::Pin;
+
+use crate::backend::harness::{Model, SendMessageRequest};
 
 #[derive(Clone)]
 pub struct OpencodeApiClient {
@@ -16,8 +21,19 @@ pub struct OpencodeSession {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelSelection {
+    #[serde(rename = "providerID", alias = "providerId")]
     pub provider_id: String,
+    #[serde(rename = "modelID", alias = "modelId")]
     pub model_id: String,
+}
+
+impl From<Model> for ModelSelection {
+    fn from(value: Model) -> Self {
+        Self {
+            provider_id: value.provider_id,
+            model_id: value.model_id,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -90,6 +106,7 @@ pub struct OpencodeSourceRange {
 #[serde(rename_all = "camelCase")]
 pub struct OpencodeSendMessageRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "messageID", alias = "messageId")]
     pub message_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<ModelSelection>,
@@ -104,10 +121,25 @@ pub struct OpencodeSendMessageRequest {
     pub parts: Vec<OpencodePartInput>,
 }
 
+impl From<SendMessageRequest> for OpencodeSendMessageRequest {
+    fn from(value: SendMessageRequest) -> Self {
+        Self {
+            message_id: None,
+            model: value.model.map(Into::into),
+            agent: value.agent,
+            no_reply: None,
+            system: value.system_msg,
+            tools: None,
+            parts: Vec::new(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OpencodeCreateSessionRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "parentID", alias = "parentId")]
     pub parent_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
@@ -150,7 +182,9 @@ pub struct MessageSummary {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelInfo {
+    #[serde(rename = "providerID", alias = "providerId")]
     pub provider_id: String,
+    #[serde(rename = "modelID", alias = "modelId")]
     pub model_id: String,
 }
 
@@ -248,8 +282,8 @@ impl OpencodeMessage {
 #[serde(rename_all = "camelCase")]
 pub struct UserMessage {
     pub id: String,
+    #[serde(rename = "sessionID", alias = "sessionId")]
     pub session_id: String,
-    pub role: String,
     pub time: MessageTime,
     pub summary: Option<MessageSummary>,
     pub agent: String,
@@ -262,12 +296,15 @@ pub struct UserMessage {
 #[serde(rename_all = "camelCase")]
 pub struct AssistantMessage {
     pub id: String,
+    #[serde(rename = "sessionID", alias = "sessionId")]
     pub session_id: String,
-    pub role: String,
     pub time: MessageTimeCompleted,
     pub error: Option<OpencodeMessageError>,
+    #[serde(rename = "parentID", alias = "parentId")]
     pub parent_id: String,
+    #[serde(rename = "modelID", alias = "modelId")]
     pub model_id: String,
+    #[serde(rename = "providerID", alias = "providerId")]
     pub provider_id: String,
     pub mode: String,
     pub path: MessagePath,
@@ -288,10 +325,10 @@ pub enum OpencodeMessageError {
 #[serde(rename_all = "camelCase")]
 pub struct OpencodeTextPart {
     pub id: String,
+    #[serde(rename = "sessionID", alias = "sessionId")]
     pub session_id: String,
+    #[serde(rename = "messageID", alias = "messageId")]
     pub message_id: String,
-    #[serde(rename = "type")]
-    pub part_type: String,
     pub text: String,
     pub synthetic: Option<bool>,
     pub ignored: Option<bool>,
@@ -301,10 +338,10 @@ pub struct OpencodeTextPart {
 #[serde(rename_all = "camelCase")]
 pub struct OpencodeReasoningPart {
     pub id: String,
+    #[serde(rename = "sessionID", alias = "sessionId")]
     pub session_id: String,
+    #[serde(rename = "messageID", alias = "messageId")]
     pub message_id: String,
-    #[serde(rename = "type")]
-    pub part_type: String,
     pub text: String,
 }
 
@@ -321,10 +358,11 @@ pub struct OpencodeToolStateCompleted {
 #[serde(rename_all = "camelCase")]
 pub struct OpencodeToolPart {
     pub id: String,
+    #[serde(rename = "sessionID", alias = "sessionId")]
     pub session_id: String,
+    #[serde(rename = "messageID", alias = "messageId")]
     pub message_id: String,
-    #[serde(rename = "type")]
-    pub part_type: String,
+    #[serde(rename = "callID", alias = "callId")]
     pub call_id: String,
     pub tool: String,
     pub state: OpencodeToolState,
@@ -413,7 +451,7 @@ impl OpencodeMessageWithParts {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OpencodeGlobalEvent {
-    pub directory: String,
+    pub directory: Option<String>,
     pub payload: OpencodeEventPayload,
 }
 
@@ -458,13 +496,16 @@ pub struct OpencodeMessagePartUpdatedProps {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OpencodeMessageRemovedProps {
+    #[serde(rename = "sessionID", alias = "sessionId")]
     pub session_id: String,
+    #[serde(rename = "messageID", alias = "messageId")]
     pub message_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OpencodeSessionIdleProps {
+    #[serde(rename = "sessionID", alias = "sessionId")]
     pub session_id: String,
 }
 
@@ -510,10 +551,14 @@ impl OpencodeApiClient {
     pub async fn get_event_stream(
         &self,
     ) -> Result<
-        impl futures::Stream<
-            Item = Result<
-                eventsource_stream::Event,
-                eventsource_stream::EventStreamError<reqwest::Error>,
+        Pin<
+            Box<
+                dyn futures::Stream<
+                        Item = Result<
+                            eventsource_stream::Event,
+                            eventsource_stream::EventStreamError<reqwest::Error>,
+                        >,
+                    > + Send,
             >,
         >,
         reqwest::Error,
@@ -526,7 +571,7 @@ impl OpencodeApiClient {
             .send()
             .await?;
 
-        Ok(response.bytes_stream().eventsource())
+        Ok(Box::pin(response.bytes_stream().eventsource()))
     }
 
     pub async fn send_message(
@@ -545,8 +590,21 @@ impl OpencodeApiClient {
         if let Some(dir) = directory {
             req = req.query(&[("directory", dir)]);
         }
-        let response: OpencodeMessageWithParts = req.send().await?.json().await?;
-        Ok(response)
+        let response = req.send().await?;
+        let status = response.status();
+        let body = response.text().await?;
+
+        if !status.is_success() {
+            return Err(anyhow::anyhow!(
+                "opencode send_message failed with status {status}: {body}"
+            ));
+        }
+
+        serde_json::from_str::<OpencodeMessageWithParts>(&body).map_err(|err| {
+            anyhow::anyhow!(
+                "opencode send_message returned unexpected body: {err}; status={status}; body={body}"
+            )
+        })
     }
 
     pub async fn get_session_messages(

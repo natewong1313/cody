@@ -1,8 +1,7 @@
-use chrono::Utc;
 use tokio_rusqlite::rusqlite::{Connection, OptionalExtension, Row};
 use uuid::Uuid;
 
-use super::{assert_one_row_affected, check_returning_row_error};
+use super::{assert_one_row_affected, check_returning_row_error, now_utc_string};
 use crate::backend::Project;
 use crate::backend::db::DatabaseError;
 
@@ -57,12 +56,7 @@ pub fn update_project(conn: &Connection, project: &Project) -> Result<Project, D
              SET name = ?2, dir = ?3, updated_at = ?4
              WHERE id = ?1
              RETURNING id, name, dir, created_at, updated_at",
-            (
-                &project.id,
-                &project.name,
-                &project.dir,
-                Utc::now().naive_utc(),
-            ),
+            (&project.id, &project.name, &project.dir, now_utc_string()),
             row_to_project,
         )
         .map_err(|e| check_returning_row_error("update_project", e))?;

@@ -2,6 +2,7 @@ use tonic::{Request, transport::Channel};
 
 use crate::backend::{Session, SessionClient, proto_session::CreateSessionRequest};
 
+#[allow(dead_code)]
 pub fn create_session(backend_channel: Channel, session: Session) {
     tokio::spawn(async move {
         log::debug!("creating session");

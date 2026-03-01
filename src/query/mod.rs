@@ -32,7 +32,7 @@ impl QueryClient {
             .connect_lazy();
         let projects = Projects::new(backend_channel.clone());
         projects.listen_updates();
-        let sessions = Sessions::new(backend_channel);
+        let sessions = Sessions::new(backend_channel.clone());
 
         Self { projects, sessions }
     }

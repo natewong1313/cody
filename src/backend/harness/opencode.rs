@@ -1,9 +1,10 @@
 use std::os::unix::process::CommandExt;
+use std::pin::Pin;
 use std::process::{Child, Command};
 use std::sync::{Arc, Mutex};
 use thiserror::Error;
 
-use crate::backend::harness::Harness;
+use crate::backend::harness::{Harness, OpencodeMessageWithParts, OpencodeSendMessageRequest};
 use crate::backend::{
     harness::opencode_client::{OpencodeApiClient, OpencodeCreateSessionRequest},
     repo::session::Session,
@@ -15,6 +16,7 @@ pub enum OpencodeHarnessError {
     Spawn(#[from] std::io::Error),
 
     #[error("Mutex poisoned")]
+    #[allow(dead_code)]
     MutexPoisoned,
 
     #[error("API request failed: {0}")]
@@ -36,7 +38,7 @@ impl Harness for OpencodeHarness {
             Command::new("opencode")
                 .arg("serve")
                 .arg("--port")
-                .arg(&port.to_string())
+                .arg(port.to_string())
                 .arg("--print-logs")
                 .arg("--log-level")
                 .arg("DEBUG")
@@ -160,19 +162,66 @@ impl Harness for OpencodeHarness {
         &self,
         session: Session,
         directory: Option<&str>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<String> {
         let request = OpencodeCreateSessionRequest {
             parent_id: None,
             title: Some(session.name),
             permission: None,
         };
 
-        self.opencode_client
+        let created = self
+            .opencode_client
             .create_session(Some(&request), directory)
             .await
             .map_err(|e| anyhow::anyhow!(OpencodeHarnessError::ApiRequest(e.to_string())))?;
 
-        Ok(())
+        Ok(created.id)
+    }
+
+    async fn send_message(
+        &self,
+        session_id: &str,
+        request: &OpencodeSendMessageRequest,
+        directory: Option<&str>,
+    ) -> anyhow::Result<OpencodeMessageWithParts> {
+        self.opencode_client
+            .send_message(session_id, request, directory)
+            .await
+            .map_err(|e| anyhow::anyhow!(OpencodeHarnessError::ApiRequest(e.to_string())))
+    }
+
+    async fn get_session_messages(
+        &self,
+        session_id: &str,
+        limit: Option<i32>,
+        directory: Option<&str>,
+    ) -> anyhow::Result<Vec<OpencodeMessageWithParts>> {
+        self.opencode_client
+            .get_session_messages(session_id, limit, directory)
+            .await
+            .map_err(|e| anyhow::anyhow!(OpencodeHarnessError::ApiRequest(e.to_string())))
+    }
+
+    async fn get_event_stream(
+        &self,
+    ) -> anyhow::Result<
+        Pin<
+            Box<
+                dyn futures::Stream<
+                        Item = Result<
+                            eventsource_stream::Event,
+                            eventsource_stream::EventStreamError<reqwest::Error>,
+                        >,
+                    > + Send,
+            >,
+        >,
+    > {
+        let stream = self
+            .opencode_client
+            .get_event_stream()
+            .await
+            .map_err(|e| anyhow::anyhow!(OpencodeHarnessError::ApiRequest(e.to_string())))?;
+        Ok(Box::pin(stream))
     }
 }
 
@@ -180,6 +229,7 @@ impl Harness for OpencodeHarness {
 impl OpencodeHarness {
     /// Explicitly shutdown the opencode process.
     /// This is useful for graceful shutdown scenarios.
+    #[allow(dead_code)]
     pub fn shutdown(&self) {
         log::info!("Shutting down opencode harness");
         self.cleanup();

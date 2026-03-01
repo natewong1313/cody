@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::components::text_input::{StyledTextInput, TextInputSize};
 use crate::theme::{BG_50, BG_500, BG_700, BG_800, BG_900, FUCHSIA_500, RADIUS_MD};
 use egui::{

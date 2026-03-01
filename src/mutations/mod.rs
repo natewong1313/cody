@@ -16,10 +16,7 @@ impl MutationsClient {
         Self { backend_channel }
     }
 
-    pub fn create_project(&self, project: Project) {
-        project::create_project(self.backend_channel.clone(), project);
-    }
-
+    #[allow(dead_code)]
     pub fn create_session(&self, session: Session) {
         session::create_session(self.backend_channel.clone(), session);
     }
