@@ -1,10 +1,10 @@
-use tokio_rusqlite::rusqlite::{self, params, Connection, OptionalExtension, Row};
+use tokio_rusqlite::rusqlite::{self, Connection, OptionalExtension, Row, params};
 use uuid::Uuid;
 
 use super::{assert_one_row_affected, check_returning_row_error, now_utc_string};
 use crate::backend::{
-    db::DatabaseError, MessagePart, MessagePartAttachment, MessagePartFileSource,
-    MessagePartPatchFile,
+    MessagePart, MessagePartAttachment, MessagePartFileSource, MessagePartPatchFile,
+    db::DatabaseError,
 };
 
 const PART_COLUMNS: &str = "

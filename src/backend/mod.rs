@@ -16,7 +16,9 @@ pub use repo::project::Project;
 pub use repo::session::Session;
 pub use repo::{
     message::{Message, MessageTool},
-    message_part::{MessagePart, MessagePartAttachment, MessagePartFileSource, MessagePartPatchFile},
+    message_part::{
+        MessagePart, MessagePartAttachment, MessagePartFileSource, MessagePartPatchFile,
+    },
 };
 mod db;
 mod harness;

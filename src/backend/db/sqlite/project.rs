@@ -2,8 +2,8 @@ use tokio_rusqlite::rusqlite::{Connection, OptionalExtension, Row};
 use uuid::Uuid;
 
 use super::{assert_one_row_affected, check_returning_row_error, now_utc_string};
-use crate::backend::db::DatabaseError;
 use crate::backend::Project;
+use crate::backend::db::DatabaseError;
 
 const PROJECT_COLUMNS: &str = "
 id, name, dir, created_at, updated_at

@@ -2,8 +2,8 @@ use tokio_rusqlite::rusqlite::{Connection, OptionalExtension, Row};
 use uuid::Uuid;
 
 use super::{assert_one_row_affected, check_returning_row_error, now_utc_string};
-use crate::backend::db::DatabaseError;
 use crate::backend::Session;
+use crate::backend::db::DatabaseError;
 
 const SESSION_COLUMNS: &str = "
 id, project_id, parent_session_id, show_in_gui, name, harness_type, harness_session_id,

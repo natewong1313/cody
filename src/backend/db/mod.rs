@@ -4,6 +4,8 @@ use uuid::Uuid;
 use crate::backend::{
     Message, MessagePart, MessagePartAttachment, MessagePartFileSource, MessagePartPatchFile,
     MessageTool, Project, Session,
+    repo::assistant_message::{AssistantMessage, AssistantMessagePart},
+    repo::user_message::{UserMessage, UserMessagePart},
 };
 
 mod migrations;
@@ -55,7 +57,8 @@ pub trait Database {
     async fn create_message(&self, message: Message) -> Result<Message, DatabaseError>;
     async fn update_message(&self, message: Message) -> Result<Message, DatabaseError>;
     async fn delete_message(&self, message_id: Uuid) -> Result<(), DatabaseError>;
-    async fn list_message_tools(&self, message_id: Uuid) -> Result<Vec<MessageTool>, DatabaseError>;
+    async fn list_message_tools(&self, message_id: Uuid)
+    -> Result<Vec<MessageTool>, DatabaseError>;
     async fn upsert_message_tool(&self, tool: MessageTool) -> Result<MessageTool, DatabaseError>;
     async fn delete_message_tool(
         &self,
@@ -79,7 +82,10 @@ pub trait Database {
         &self,
         attachment: MessagePartAttachment,
     ) -> Result<MessagePartAttachment, DatabaseError>;
-    async fn delete_message_part_attachment(&self, attachment_id: Uuid) -> Result<(), DatabaseError>;
+    async fn delete_message_part_attachment(
+        &self,
+        attachment_id: Uuid,
+    ) -> Result<(), DatabaseError>;
     async fn get_message_part_file_source(
         &self,
         part_id: Uuid,
@@ -102,4 +108,63 @@ pub trait Database {
         part_id: Uuid,
         file_path: String,
     ) -> Result<(), DatabaseError>;
+
+    async fn get_user_message(
+        &self,
+        user_message_id: Uuid,
+    ) -> Result<Option<UserMessage>, DatabaseError>;
+    async fn create_user_message(
+        &self,
+        user_message: UserMessage,
+    ) -> Result<UserMessage, DatabaseError>;
+    async fn update_user_message(
+        &self,
+        user_message: UserMessage,
+    ) -> Result<UserMessage, DatabaseError>;
+    async fn delete_user_message(&self, user_message_id: Uuid) -> Result<(), DatabaseError>;
+
+    async fn get_user_message_part(
+        &self,
+        part_id: Uuid,
+    ) -> Result<Option<UserMessagePart>, DatabaseError>;
+    async fn create_user_message_part(
+        &self,
+        part: UserMessagePart,
+    ) -> Result<UserMessagePart, DatabaseError>;
+    async fn update_user_message_part(
+        &self,
+        part: UserMessagePart,
+    ) -> Result<UserMessagePart, DatabaseError>;
+    async fn delete_user_message_part(&self, part_id: Uuid) -> Result<(), DatabaseError>;
+
+    async fn get_assistant_message(
+        &self,
+        assistant_message_id: Uuid,
+    ) -> Result<Option<AssistantMessage>, DatabaseError>;
+    async fn create_assistant_message(
+        &self,
+        assistant_message: AssistantMessage,
+    ) -> Result<AssistantMessage, DatabaseError>;
+    async fn update_assistant_message(
+        &self,
+        assistant_message: AssistantMessage,
+    ) -> Result<AssistantMessage, DatabaseError>;
+    async fn delete_assistant_message(
+        &self,
+        assistant_message_id: Uuid,
+    ) -> Result<(), DatabaseError>;
+
+    async fn get_assistant_message_part(
+        &self,
+        part_id: Uuid,
+    ) -> Result<Option<AssistantMessagePart>, DatabaseError>;
+    async fn create_assistant_message_part(
+        &self,
+        part: AssistantMessagePart,
+    ) -> Result<AssistantMessagePart, DatabaseError>;
+    async fn update_assistant_message_part(
+        &self,
+        part: AssistantMessagePart,
+    ) -> Result<AssistantMessagePart, DatabaseError>;
+    async fn delete_assistant_message_part(&self, part_id: Uuid) -> Result<(), DatabaseError>;
 }

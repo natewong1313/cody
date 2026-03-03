@@ -1,8 +1,8 @@
-use tokio_rusqlite::rusqlite::{params, Connection, OptionalExtension, Row};
+use tokio_rusqlite::rusqlite::{Connection, OptionalExtension, Row, params};
 use uuid::Uuid;
 
 use super::{assert_one_row_affected, check_returning_row_error, now_utc_string};
-use crate::backend::{db::DatabaseError, Message, MessageTool};
+use crate::backend::{Message, MessageTool, db::DatabaseError};
 
 const MESSAGE_COLUMNS: &str = "
 id, session_id, parent_message_id, role,

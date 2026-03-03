@@ -1,12 +1,15 @@
 use crate::backend::{
     Message, MessagePart, MessagePartAttachment, MessagePartFileSource, MessagePartPatchFile,
     MessageTool, Project, Session,
+    repo::assistant_message::{AssistantMessage, AssistantMessagePart},
+    repo::user_message::{UserMessage, UserMessagePart},
 };
 
 use super::{Database, DatabaseError, DatabaseStartupError, migrations::SQLITE_MIGRATIONS};
 use tokio_rusqlite::{Connection as AsyncConnection, Error as AsyncError, rusqlite::Connection};
 use uuid::Uuid;
 
+mod assistant_message;
 mod message;
 mod message_part;
 mod project;
@@ -15,6 +18,7 @@ mod project_test;
 mod session;
 #[cfg(test)]
 mod session_test;
+mod user_message;
 
 pub fn now_utc_string() -> String {
     chrono::Utc::now().naive_utc().to_string()
@@ -174,7 +178,10 @@ impl Database for Sqlite {
             .await
     }
 
-    async fn list_message_tools(&self, message_id: Uuid) -> Result<Vec<MessageTool>, DatabaseError> {
+    async fn list_message_tools(
+        &self,
+        message_id: Uuid,
+    ) -> Result<Vec<MessageTool>, DatabaseError> {
         self.with_conn(move |conn| message::list_message_tools(conn, message_id))
             .await
     }
@@ -237,7 +244,10 @@ impl Database for Sqlite {
             .await
     }
 
-    async fn delete_message_part_attachment(&self, attachment_id: Uuid) -> Result<(), DatabaseError> {
+    async fn delete_message_part_attachment(
+        &self,
+        attachment_id: Uuid,
+    ) -> Result<(), DatabaseError> {
         self.with_conn(move |conn| message_part::delete_attachment(conn, attachment_id))
             .await
     }
@@ -285,6 +295,133 @@ impl Database for Sqlite {
         file_path: String,
     ) -> Result<(), DatabaseError> {
         self.with_conn(move |conn| message_part::delete_patch_file(conn, part_id, &file_path))
+            .await
+    }
+
+    async fn get_user_message(
+        &self,
+        user_message_id: Uuid,
+    ) -> Result<Option<UserMessage>, DatabaseError> {
+        self.with_conn(move |conn| user_message::get_user_message(conn, user_message_id))
+            .await
+    }
+
+    async fn create_user_message(
+        &self,
+        user_message_item: UserMessage,
+    ) -> Result<UserMessage, DatabaseError> {
+        self.with_conn(move |conn| user_message::create_user_message(conn, &user_message_item))
+            .await
+    }
+
+    async fn update_user_message(
+        &self,
+        user_message_item: UserMessage,
+    ) -> Result<UserMessage, DatabaseError> {
+        self.with_conn(move |conn| user_message::update_user_message(conn, &user_message_item))
+            .await
+    }
+
+    async fn delete_user_message(&self, user_message_id: Uuid) -> Result<(), DatabaseError> {
+        self.with_conn(move |conn| user_message::delete_user_message(conn, user_message_id))
+            .await
+    }
+
+    async fn get_user_message_part(
+        &self,
+        part_id: Uuid,
+    ) -> Result<Option<UserMessagePart>, DatabaseError> {
+        self.with_conn(move |conn| user_message::get_user_message_part(conn, part_id))
+            .await
+    }
+
+    async fn create_user_message_part(
+        &self,
+        part: UserMessagePart,
+    ) -> Result<UserMessagePart, DatabaseError> {
+        self.with_conn(move |conn| user_message::create_user_message_part(conn, &part))
+            .await
+    }
+
+    async fn update_user_message_part(
+        &self,
+        part: UserMessagePart,
+    ) -> Result<UserMessagePart, DatabaseError> {
+        self.with_conn(move |conn| user_message::update_user_message_part(conn, &part))
+            .await
+    }
+
+    async fn delete_user_message_part(&self, part_id: Uuid) -> Result<(), DatabaseError> {
+        self.with_conn(move |conn| user_message::delete_user_message_part(conn, part_id))
+            .await
+    }
+
+    async fn get_assistant_message(
+        &self,
+        assistant_message_id: Uuid,
+    ) -> Result<Option<AssistantMessage>, DatabaseError> {
+        self.with_conn(move |conn| {
+            assistant_message::get_assistant_message(conn, assistant_message_id)
+        })
+        .await
+    }
+
+    async fn create_assistant_message(
+        &self,
+        assistant_message_item: AssistantMessage,
+    ) -> Result<AssistantMessage, DatabaseError> {
+        self.with_conn(move |conn| {
+            assistant_message::create_assistant_message(conn, &assistant_message_item)
+        })
+        .await
+    }
+
+    async fn update_assistant_message(
+        &self,
+        assistant_message_item: AssistantMessage,
+    ) -> Result<AssistantMessage, DatabaseError> {
+        self.with_conn(move |conn| {
+            assistant_message::update_assistant_message(conn, &assistant_message_item)
+        })
+        .await
+    }
+
+    async fn delete_assistant_message(
+        &self,
+        assistant_message_id: Uuid,
+    ) -> Result<(), DatabaseError> {
+        self.with_conn(move |conn| {
+            assistant_message::delete_assistant_message(conn, assistant_message_id)
+        })
+        .await
+    }
+
+    async fn get_assistant_message_part(
+        &self,
+        part_id: Uuid,
+    ) -> Result<Option<AssistantMessagePart>, DatabaseError> {
+        self.with_conn(move |conn| assistant_message::get_assistant_message_part(conn, part_id))
+            .await
+    }
+
+    async fn create_assistant_message_part(
+        &self,
+        part: AssistantMessagePart,
+    ) -> Result<AssistantMessagePart, DatabaseError> {
+        self.with_conn(move |conn| assistant_message::create_assistant_message_part(conn, &part))
+            .await
+    }
+
+    async fn update_assistant_message_part(
+        &self,
+        part: AssistantMessagePart,
+    ) -> Result<AssistantMessagePart, DatabaseError> {
+        self.with_conn(move |conn| assistant_message::update_assistant_message_part(conn, &part))
+            .await
+    }
+
+    async fn delete_assistant_message_part(&self, part_id: Uuid) -> Result<(), DatabaseError> {
+        self.with_conn(move |conn| assistant_message::delete_assistant_message_part(conn, part_id))
             .await
     }
 }
