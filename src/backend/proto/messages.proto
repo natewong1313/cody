@@ -1,0 +1,128 @@
+syntax = "proto3";
+package messages;
+
+service Messages {
+  rpc ListMessagesBySession (ListMessagesBySessionRequest) returns (ListMessagesBySessionReply);
+}
+
+message UserMessagePartModel {
+  string id = 1;
+  string user_message_id = 2;
+  string session_id = 3;
+  int64 position = 4;
+  string part_type = 5;
+  optional string text = 6;
+  optional string file_name = 7;
+  optional string file_url = 8;
+  optional string agent_name = 9;
+  optional string subtask_prompt = 10;
+  optional string subtask_description = 11;
+  string created_at = 12;
+  string updated_at = 13;
+}
+
+message UserMessageModel {
+  string id = 1;
+  string session_id = 2;
+  string agent = 3;
+  string model_provider_id = 4;
+  string model_id = 5;
+  optional string system_prompt = 6;
+  string structured_output_type = 7;
+  string tools_list = 8;
+  optional string thinking_variant = 9;
+  string created_at = 10;
+  string updated_at = 11;
+  repeated UserMessagePartModel parts = 12;
+}
+
+message AssistantMessagePartModel {
+  string id = 1;
+  string assistant_message_id = 2;
+  string session_id = 3;
+  int64 position = 4;
+  string part_type = 5;
+  optional string text = 6;
+  optional string file_mime = 7;
+  optional string file_filename = 8;
+  optional string file_url = 9;
+  optional string file_source_type = 10;
+  optional string file_source_path = 11;
+  optional string file_source_name = 12;
+  optional int64 file_source_kind = 13;
+  optional string file_source_uri = 14;
+  optional string file_source_text_value = 15;
+  optional int64 file_source_text_start = 16;
+  optional int64 file_source_text_end = 17;
+  optional string agent_name = 18;
+  optional string subtask_prompt = 19;
+  optional string subtask_description = 20;
+  optional string subtask_agent = 21;
+  optional string subtask_model_provider_id = 22;
+  optional string subtask_model_id = 23;
+  optional string subtask_command = 24;
+  optional string tool_call_id = 25;
+  optional string tool_name = 26;
+  optional string tool_status = 27;
+  optional string tool_input_json = 28;
+  optional string tool_output_text = 29;
+  optional string tool_error_text = 30;
+  optional string tool_title = 31;
+  optional string tool_metadata_json = 32;
+  optional int64 tool_compacted_at = 33;
+  optional string finish_reason = 34;
+  optional double cost = 35;
+  optional int64 token_total = 36;
+  optional int64 token_input = 37;
+  optional int64 token_output = 38;
+  optional int64 token_reasoning = 39;
+  optional int64 token_cache_read = 40;
+  optional int64 token_cache_write = 41;
+  optional string snapshot_hash = 42;
+  optional string patch_hash = 43;
+  optional string patch_files_json = 44;
+  optional int64 retry_attempt = 45;
+  optional string retry_error_json = 46;
+  optional int64 retry_created_at = 47;
+  optional bool compaction_auto = 48;
+  string created_at = 49;
+  string updated_at = 50;
+}
+
+message AssistantMessageModel {
+  string id = 1;
+  string session_id = 2;
+  string user_message_id = 3;
+  string agent = 4;
+  string model_provider_id = 5;
+  string model_id = 6;
+  string cwd = 7;
+  string root = 8;
+  double cost = 9;
+  optional int64 token_total = 10;
+  int64 token_input = 11;
+  int64 token_output = 12;
+  int64 token_reasoning = 13;
+  int64 token_cache_read = 14;
+  int64 token_cache_write = 15;
+  optional string error_message = 16;
+  string created_at = 17;
+  string updated_at = 18;
+  optional string completed_at = 19;
+  repeated AssistantMessagePartModel parts = 20;
+}
+
+message MessageHistory {
+  oneof message {
+    UserMessageModel user_message = 1;
+    AssistantMessageModel assistant_message = 2;
+  }
+}
+
+message ListMessagesBySessionRequest {
+  string session_id = 1;
+  int32 limit = 2;
+}
+message ListMessagesBySessionReply {
+  repeated MessageHistory messages = 1;
+}
