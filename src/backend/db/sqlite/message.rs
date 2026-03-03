@@ -4,7 +4,7 @@ use uuid::Uuid;
 use super::{assert_one_row_affected, check_returning_row_error, now_utc_string};
 use crate::backend::{db::DatabaseError, Message, MessageTool};
 
-const SELECT_MESSAGE_COLUMNS: &str = r#"
+const MESSAGE_COLUMNS: &str = "
 id, session_id, parent_message_id, role,
 title, body, agent, system_message, variant,
 is_finished_streaming, is_summary,
@@ -13,7 +13,11 @@ error_name, error_message, error_type,
 cwd, root,
 cost, input_tokens, output_tokens, reasoning_tokens, cached_read_tokens, cached_write_tokens, total_tokens,
 completed_at, created_at, updated_at
-"#;
+";
+
+const MESSAGE_TOOL_COLUMNS: &str = "
+message_id, tool_name, enabled
+";
 
 pub fn row_to_message(row: &Row) -> Result<Message, tokio_rusqlite::rusqlite::Error> {
     Ok(Message {
@@ -53,7 +57,7 @@ pub fn list_messages_by_session(
     session_id: Uuid,
 ) -> Result<Vec<Message>, DatabaseError> {
     let mut stmt = conn.prepare(&format!(
-        "SELECT {SELECT_MESSAGE_COLUMNS}
+        "SELECT {MESSAGE_COLUMNS}
          FROM messages
          WHERE session_id = ?1
          ORDER BY created_at ASC"
@@ -67,7 +71,7 @@ pub fn list_messages_by_session(
 
 pub fn get_message(conn: &Connection, message_id: Uuid) -> Result<Option<Message>, DatabaseError> {
     let mut stmt = conn.prepare(&format!(
-        "SELECT {SELECT_MESSAGE_COLUMNS}
+        "SELECT {MESSAGE_COLUMNS}
          FROM messages
          WHERE id = ?1"
     ))?;
@@ -77,26 +81,19 @@ pub fn get_message(conn: &Connection, message_id: Uuid) -> Result<Option<Message
 
 pub fn create_message(conn: &Connection, message: &Message) -> Result<Message, DatabaseError> {
     let rows = conn.execute(
-        "INSERT INTO messages (
-            id, session_id, parent_message_id, role,
-            title, body, agent, system_message, variant,
-            is_finished_streaming, is_summary,
-            model_id, provider_id,
-            error_name, error_message, error_type,
-            cwd, root,
-            cost, input_tokens, output_tokens, reasoning_tokens, cached_read_tokens, cached_write_tokens, total_tokens,
-            completed_at, created_at, updated_at
-        )
-        VALUES (
-            ?1, ?2, ?3, ?4,
-            ?5, ?6, ?7, ?8, ?9,
-            ?10, ?11,
-            ?12, ?13,
-            ?14, ?15, ?16,
-            ?17, ?18,
-            ?19, ?20, ?21, ?22, ?23, ?24, ?25,
-            ?26, ?27, ?28
-        )",
+        &format!(
+            "INSERT INTO messages ({MESSAGE_COLUMNS})
+             VALUES (
+                 ?1, ?2, ?3, ?4,
+                 ?5, ?6, ?7, ?8, ?9,
+                 ?10, ?11,
+                 ?12, ?13,
+                 ?14, ?15, ?16,
+                 ?17, ?18,
+                 ?19, ?20, ?21, ?22, ?23, ?24, ?25,
+                 ?26, ?27, ?28
+             )"
+        ),
         params![
             &message.id,
             &message.session_id,
@@ -224,12 +221,12 @@ pub fn list_message_tools(
     conn: &Connection,
     message_id: Uuid,
 ) -> Result<Vec<MessageTool>, DatabaseError> {
-    let mut stmt = conn.prepare(
-        "SELECT message_id, tool_name, enabled
-         FROM message_tools
-         WHERE message_id = ?1
-         ORDER BY tool_name ASC",
-    )?;
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {MESSAGE_TOOL_COLUMNS}
+             FROM message_tools
+             WHERE message_id = ?1
+             ORDER BY tool_name ASC"
+    ))?;
 
     let tools = stmt
         .query_map([message_id], row_to_message_tool)?
@@ -242,19 +239,21 @@ pub fn upsert_message_tool(
     tool: &MessageTool,
 ) -> Result<MessageTool, DatabaseError> {
     let rows = conn.execute(
-        "INSERT INTO message_tools (message_id, tool_name, enabled)
-         VALUES (?1, ?2, ?3)
-         ON CONFLICT(message_id, tool_name)
-         DO UPDATE SET enabled = excluded.enabled",
+        &format!(
+            "INSERT INTO message_tools ({MESSAGE_TOOL_COLUMNS})
+             VALUES (?1, ?2, ?3)
+             ON CONFLICT(message_id, tool_name)
+             DO UPDATE SET enabled = excluded.enabled"
+        ),
         params![&tool.message_id, &tool.tool_name, &tool.enabled],
     )?;
     assert_one_row_affected("upsert_message_tool", rows)?;
 
-    let mut stmt = conn.prepare(
-        "SELECT message_id, tool_name, enabled
-         FROM message_tools
-         WHERE message_id = ?1 AND tool_name = ?2",
-    )?;
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {MESSAGE_TOOL_COLUMNS}
+             FROM message_tools
+             WHERE message_id = ?1 AND tool_name = ?2"
+    ))?;
     let out = stmt.query_row(
         params![&tool.message_id, &tool.tool_name],
         row_to_message_tool,

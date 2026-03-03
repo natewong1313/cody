@@ -7,7 +7,7 @@ use crate::backend::{
     MessagePartPatchFile,
 };
 
-const SELECT_PART_COLUMNS: &str = r#"
+const PART_COLUMNS: &str = "
 id, session_id, message_id, position, part_type,
 text_content, synthetic, ignored, part_time_start, part_time_end,
 mime, filename, url,
@@ -17,7 +17,22 @@ subtask_prompt, subtask_description, subtask_agent, subtask_model_provider_id, s
 retry_attempt, retry_error_message, retry_error_status_code, retry_error_is_retryable,
 snapshot_ref, patch_hash, compaction_auto, agent_name, agent_source_value, agent_source_start, agent_source_end,
 created_at, updated_at
-"#;
+";
+
+const PART_ATTACHMENT_COLUMNS: &str = "
+id, part_id, mime, url, filename, created_at
+";
+
+const PART_FILE_SOURCE_COLUMNS: &str = "
+part_id, source_type, path, symbol_name, symbol_kind,
+range_start_line, range_start_col, range_end_line, range_end_col,
+client_name, uri,
+source_text_value, source_text_start, source_text_end
+";
+
+const PART_PATCH_FILE_COLUMNS: &str = "
+part_id, file_path
+";
 
 pub fn row_to_part(row: &Row) -> Result<MessagePart, rusqlite::Error> {
     Ok(MessagePart {
@@ -80,7 +95,7 @@ pub fn list_parts_by_message(
     message_id: Uuid,
 ) -> Result<Vec<MessagePart>, DatabaseError> {
     let mut stmt = conn.prepare(&format!(
-        "SELECT {SELECT_PART_COLUMNS}
+        "SELECT {PART_COLUMNS}
          FROM message_parts
          WHERE message_id = ?1
          ORDER BY position ASC, created_at ASC"
@@ -94,7 +109,7 @@ pub fn list_parts_by_message(
 
 pub fn get_part(conn: &Connection, part_id: Uuid) -> Result<Option<MessagePart>, DatabaseError> {
     let mut stmt = conn.prepare(&format!(
-        "SELECT {SELECT_PART_COLUMNS}
+        "SELECT {PART_COLUMNS}
          FROM message_parts
          WHERE id = ?1"
     ))?;
@@ -104,28 +119,20 @@ pub fn get_part(conn: &Connection, part_id: Uuid) -> Result<Option<MessagePart>,
 
 pub fn create_part(conn: &Connection, part: &MessagePart) -> Result<MessagePart, DatabaseError> {
     let rows = conn.execute(
-        "INSERT INTO message_parts (
-            id, session_id, message_id, position, part_type,
-            text_content, synthetic, ignored, part_time_start, part_time_end,
-            mime, filename, url,
-            call_id, tool_name, tool_status, tool_title, tool_input_text, tool_output_text, tool_error_text, tool_time_start, tool_time_end, tool_time_compacted,
-            step_reason, step_snapshot, step_cost, step_input_tokens, step_output_tokens, step_reasoning_tokens, step_cached_read_tokens, step_cached_write_tokens, step_total_tokens,
-            subtask_prompt, subtask_description, subtask_agent, subtask_model_provider_id, subtask_model_id, subtask_command,
-            retry_attempt, retry_error_message, retry_error_status_code, retry_error_is_retryable,
-            snapshot_ref, patch_hash, compaction_auto, agent_name, agent_source_value, agent_source_start, agent_source_end,
-            created_at, updated_at
-        )
-        VALUES (
-            ?1, ?2, ?3, ?4, ?5,
-            ?6, ?7, ?8, ?9, ?10,
-            ?11, ?12, ?13,
-            ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23,
-            ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32,
-            ?33, ?34, ?35, ?36, ?37, ?38,
-            ?39, ?40, ?41, ?42,
-            ?43, ?44, ?45, ?46, ?47, ?48, ?49,
-            ?50, ?51
-        )",
+        &format!(
+            "INSERT INTO message_parts ({PART_COLUMNS})
+             VALUES (
+                 ?1, ?2, ?3, ?4, ?5,
+                 ?6, ?7, ?8, ?9, ?10,
+                 ?11, ?12, ?13,
+                 ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23,
+                 ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32,
+                 ?33, ?34, ?35, ?36, ?37, ?38,
+                 ?39, ?40, ?41, ?42,
+                 ?43, ?44, ?45, ?46, ?47, ?48, ?49,
+                 ?50, ?51
+             )"
+        ),
         params![
             &part.id,
             &part.session_id,
@@ -325,12 +332,12 @@ pub fn list_attachments_by_part(
     conn: &Connection,
     part_id: Uuid,
 ) -> Result<Vec<MessagePartAttachment>, DatabaseError> {
-    let mut stmt = conn.prepare(
-        "SELECT id, part_id, mime, url, filename, created_at
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {PART_ATTACHMENT_COLUMNS}
          FROM message_part_attachments
          WHERE part_id = ?1
-         ORDER BY created_at ASC",
-    )?;
+         ORDER BY created_at ASC"
+    ))?;
 
     let attachments = stmt
         .query_map([part_id], row_to_attachment)?
@@ -343,8 +350,10 @@ pub fn create_attachment(
     attachment: &MessagePartAttachment,
 ) -> Result<MessagePartAttachment, DatabaseError> {
     let rows = conn.execute(
-        "INSERT INTO message_part_attachments (id, part_id, mime, url, filename, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        &format!(
+            "INSERT INTO message_part_attachments ({PART_ATTACHMENT_COLUMNS})
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)"
+        ),
         params![
             &attachment.id,
             &attachment.part_id,
@@ -356,11 +365,11 @@ pub fn create_attachment(
     )?;
     assert_one_row_affected("create_attachment", rows)?;
 
-    let mut stmt = conn.prepare(
-        "SELECT id, part_id, mime, url, filename, created_at
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {PART_ATTACHMENT_COLUMNS}
          FROM message_part_attachments
-         WHERE id = ?1",
-    )?;
+         WHERE id = ?1"
+    ))?;
     let out = stmt.query_row([attachment.id], row_to_attachment)?;
     Ok(out)
 }
@@ -396,15 +405,11 @@ pub fn get_file_source(
     conn: &Connection,
     part_id: Uuid,
 ) -> Result<Option<MessagePartFileSource>, DatabaseError> {
-    let mut stmt = conn.prepare(
-        "SELECT
-            part_id, source_type, path, symbol_name, symbol_kind,
-            range_start_line, range_start_col, range_end_line, range_end_col,
-            client_name, uri,
-            source_text_value, source_text_start, source_text_end
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {PART_FILE_SOURCE_COLUMNS}
          FROM message_part_file_sources
-         WHERE part_id = ?1",
-    )?;
+         WHERE part_id = ?1"
+    ))?;
     let source = stmt.query_row([part_id], row_to_file_source).optional()?;
     Ok(source)
 }
@@ -414,26 +419,24 @@ pub fn upsert_file_source(
     source: &MessagePartFileSource,
 ) -> Result<MessagePartFileSource, DatabaseError> {
     let rows = conn.execute(
-        "INSERT INTO message_part_file_sources (
-            part_id, source_type, path, symbol_name, symbol_kind,
-            range_start_line, range_start_col, range_end_line, range_end_col,
-            client_name, uri,
-            source_text_value, source_text_start, source_text_end
-         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
-         ON CONFLICT(part_id) DO UPDATE SET
-            source_type = excluded.source_type,
-            path = excluded.path,
-            symbol_name = excluded.symbol_name,
-            symbol_kind = excluded.symbol_kind,
-            range_start_line = excluded.range_start_line,
-            range_start_col = excluded.range_start_col,
-            range_end_line = excluded.range_end_line,
-            range_end_col = excluded.range_end_col,
-            client_name = excluded.client_name,
-            uri = excluded.uri,
-            source_text_value = excluded.source_text_value,
-            source_text_start = excluded.source_text_start,
-            source_text_end = excluded.source_text_end",
+        &format!(
+            "INSERT INTO message_part_file_sources ({PART_FILE_SOURCE_COLUMNS})
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
+             ON CONFLICT(part_id) DO UPDATE SET
+                source_type = excluded.source_type,
+                path = excluded.path,
+                symbol_name = excluded.symbol_name,
+                symbol_kind = excluded.symbol_kind,
+                range_start_line = excluded.range_start_line,
+                range_start_col = excluded.range_start_col,
+                range_end_line = excluded.range_end_line,
+                range_end_col = excluded.range_end_col,
+                client_name = excluded.client_name,
+                uri = excluded.uri,
+                source_text_value = excluded.source_text_value,
+                source_text_start = excluded.source_text_start,
+                source_text_end = excluded.source_text_end"
+        ),
         params![
             &source.part_id,
             &source.source_type,
@@ -479,12 +482,12 @@ pub fn list_patch_files_by_part(
     conn: &Connection,
     part_id: Uuid,
 ) -> Result<Vec<MessagePartPatchFile>, DatabaseError> {
-    let mut stmt = conn.prepare(
-        "SELECT part_id, file_path
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {PART_PATCH_FILE_COLUMNS}
          FROM message_part_patch_files
          WHERE part_id = ?1
-         ORDER BY file_path ASC",
-    )?;
+         ORDER BY file_path ASC"
+    ))?;
 
     let patch_files = stmt
         .query_map([part_id], row_to_patch_file)?
@@ -497,7 +500,9 @@ pub fn create_patch_file(
     patch_file: &MessagePartPatchFile,
 ) -> Result<MessagePartPatchFile, DatabaseError> {
     let rows = conn.execute(
-        "INSERT INTO message_part_patch_files (part_id, file_path) VALUES (?1, ?2)",
+        &format!(
+            "INSERT INTO message_part_patch_files ({PART_PATCH_FILE_COLUMNS}) VALUES (?1, ?2)"
+        ),
         params![&patch_file.part_id, &patch_file.file_path],
     )?;
     assert_one_row_affected("create_patch_file", rows)?;

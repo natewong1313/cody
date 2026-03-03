@@ -5,7 +5,7 @@ use super::{assert_one_row_affected, check_returning_row_error, now_utc_string};
 use crate::backend::db::DatabaseError;
 use crate::backend::Session;
 
-const SELECT_SESSION_COLUMNS: &str = "
+const SESSION_COLUMNS: &str = "
 id, project_id, parent_session_id, show_in_gui, name, harness_type, harness_session_id,
 dir, summary_additions, summary_deletions, summary_files, created_at, updated_at
 ";
@@ -33,7 +33,7 @@ pub fn list_sessions_by_project(
     project_id: Uuid,
 ) -> Result<Vec<Session>, DatabaseError> {
     let mut stmt = conn.prepare(&format!(
-        "SELECT {SELECT_SESSION_COLUMNS}
+        "SELECT {SESSION_COLUMNS}
          FROM sessions
          WHERE project_id = ?1
          ORDER BY updated_at DESC"
@@ -46,7 +46,7 @@ pub fn list_sessions_by_project(
 
 pub fn get_session(conn: &Connection, session_id: Uuid) -> Result<Option<Session>, DatabaseError> {
     let mut stmt = conn.prepare(&format!(
-        "SELECT {SELECT_SESSION_COLUMNS}
+        "SELECT {SESSION_COLUMNS}
          FROM sessions
          WHERE id = ?1"
     ))?;
@@ -57,13 +57,9 @@ pub fn get_session(conn: &Connection, session_id: Uuid) -> Result<Option<Session
 pub fn create_session(conn: &Connection, session: &Session) -> Result<Session, DatabaseError> {
     let created = conn.query_row(
         &format!(
-            "INSERT INTO sessions (
-                id, project_id, parent_session_id, show_in_gui, name, harness_type,
-                harness_session_id, dir, summary_additions, summary_deletions, summary_files,
-                created_at, updated_at
-            )
+            "INSERT INTO sessions ({SESSION_COLUMNS})
             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
-            RETURNING {SELECT_SESSION_COLUMNS}"
+            RETURNING {SESSION_COLUMNS}"
         ),
         (
             &session.id,
@@ -103,7 +99,7 @@ pub fn update_session(conn: &Connection, session: &Session) -> Result<Session, D
                     summary_files = ?11,
                     updated_at = ?12
                  WHERE id = ?1
-                 RETURNING {SELECT_SESSION_COLUMNS}"
+                 RETURNING {SESSION_COLUMNS}"
             ),
             (
                 &session.id,
