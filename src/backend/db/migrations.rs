@@ -41,7 +41,7 @@ CREATE INDEX sessions_parent_session_id_idx ON sessions(parent_session_id);
 ",
     ),
     M::up(
-        r#"
+        "
 CREATE TABLE messages (
     id BLOB PRIMARY KEY NOT NULL CHECK(length(id) = 16),
     session_id BLOB NOT NULL CHECK(length(session_id) = 16) REFERENCES sessions(id) ON DELETE CASCADE,
@@ -84,7 +84,7 @@ CREATE TABLE messages (
 CREATE INDEX messages_session_created_idx ON messages(session_id, created_at);
 CREATE INDEX messages_parent_message_id_idx ON messages(parent_message_id);
 CREATE INDEX messages_role_idx ON messages(role);
-"#,
+",
     ),
     M::up(
         "
@@ -209,6 +209,149 @@ CREATE TABLE message_part_patch_files (
 );
 
 CREATE INDEX message_part_patch_files_part_id_idx ON message_part_patch_files(part_id);
+",
+    ),
+    M::up(
+        "
+CREATE TABLE user_message (
+    id BLOB PRIMARY KEY NOT NULL CHECK(length(id) = 16),
+    session_id BLOB NOT NULL CHECK(length(session_id) = 16) REFERENCES sessions(id) ON DELETE CASCADE,
+
+    agent TEXT NOT NULL DEFAULT 'build',
+    model_provider_id TEXT NOT NULL,
+    model_id TEXT NOT NULL,
+    system_prompt TEXT,
+    structured_output_type TEXT NOT NULL DEFAULT 'text' CHECK(structured_output_type IN ('text', 'json')),
+    tools_list TEXT NOT NULL DEFAULT '{}' CHECK(json_valid(tools_list)),
+    thinking_variant TEXT,
+
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX user_message_session_created_idx ON user_message(session_id, created_at);
+
+CREATE TABLE user_message_part (
+    id BLOB PRIMARY KEY NOT NULL CHECK(length(id) = 16),
+    user_message_id BLOB NOT NULL CHECK(length(user_message_id) = 16) REFERENCES user_message(id) ON DELETE CASCADE,
+    session_id BLOB NOT NULL CHECK(length(session_id) = 16) REFERENCES sessions(id) ON DELETE CASCADE,
+
+    position INTEGER NOT NULL,
+    part_type TEXT NOT NULL,
+
+    text TEXT,
+    file_name TEXT,
+    file_url TEXT,
+    agent_name TEXT,
+    subtask_prompt TEXT,
+    subtask_description TEXT,
+
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+
+    UNIQUE(user_message_id, position)
+);
+CREATE INDEX user_message_part_message_position_idx ON user_message_part(user_message_id, position);
+CREATE INDEX user_message_part_session_created_idx ON user_message_part(session_id, created_at);
+CREATE INDEX user_message_part_type_idx ON user_message_part(part_type);
+
+CREATE TABLE assistant_message (
+    id BLOB PRIMARY KEY NOT NULL CHECK(length(id) = 16),
+    session_id BLOB NOT NULL CHECK(length(session_id) = 16) REFERENCES sessions(id) ON DELETE CASCADE,
+    user_message_id BLOB NOT NULL CHECK(length(user_message_id) = 16) REFERENCES user_message(id) ON DELETE CASCADE,
+
+    agent TEXT NOT NULL,
+    model_provider_id TEXT NOT NULL,
+    model_id TEXT NOT NULL,
+
+    cwd TEXT NOT NULL,
+    root TEXT NOT NULL,
+
+    cost REAL NOT NULL DEFAULT 0,
+
+    token_total INTEGER,
+    token_input INTEGER NOT NULL DEFAULT 0,
+    token_output INTEGER NOT NULL DEFAULT 0,
+    token_reasoning INTEGER NOT NULL DEFAULT 0,
+    token_cache_read INTEGER NOT NULL DEFAULT 0,
+    token_cache_write INTEGER NOT NULL DEFAULT 0,
+
+    error_message TEXT,
+
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    completed_at TEXT
+);
+CREATE INDEX assistant_message_session_created_idx ON assistant_message(session_id, created_at);
+CREATE INDEX assistant_message_user_message_id_idx ON assistant_message(user_message_id);
+
+CREATE TABLE assistant_message_part (
+    id BLOB PRIMARY KEY NOT NULL CHECK(length(id) = 16),
+    assistant_message_id BLOB NOT NULL CHECK(length(assistant_message_id) = 16)
+        REFERENCES assistant_message(id) ON DELETE CASCADE,
+    session_id BLOB NOT NULL CHECK(length(session_id) = 16) REFERENCES sessions(id) ON DELETE CASCADE,
+
+    position INTEGER NOT NULL,
+    part_type TEXT NOT NULL,
+
+    text TEXT,
+
+    file_mime TEXT,
+    file_filename TEXT,
+    file_url TEXT,
+    file_source_type TEXT,
+    file_source_path TEXT,
+    file_source_name TEXT,
+    file_source_kind INTEGER,
+    file_source_uri TEXT,
+    file_source_text_value TEXT,
+    file_source_text_start INTEGER,
+    file_source_text_end INTEGER,
+
+    agent_name TEXT,
+    subtask_prompt TEXT,
+    subtask_description TEXT,
+    subtask_agent TEXT,
+    subtask_model_provider_id TEXT,
+    subtask_model_id TEXT,
+    subtask_command TEXT,
+
+    tool_call_id TEXT,
+    tool_name TEXT,
+    tool_status TEXT CHECK(tool_status IN ('pending', 'running', 'completed', 'error')),
+    tool_input_json TEXT,
+    tool_output_text TEXT,
+    tool_error_text TEXT,
+    tool_title TEXT,
+    tool_metadata_json TEXT,
+    tool_compacted_at INTEGER,
+
+    finish_reason TEXT,
+    cost REAL,
+    token_total INTEGER,
+    token_input INTEGER,
+    token_output INTEGER,
+    token_reasoning INTEGER,
+    token_cache_read INTEGER,
+    token_cache_write INTEGER,
+
+    snapshot_hash TEXT,
+    patch_hash TEXT,
+    patch_files_json TEXT,
+    retry_attempt INTEGER,
+    retry_error_json TEXT,
+    retry_created_at INTEGER,
+
+    compaction_auto INTEGER CHECK(compaction_auto IN (0, 1)),
+
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+
+    UNIQUE(assistant_message_id, position)
+);
+CREATE INDEX assistant_message_part_message_position_idx ON assistant_message_part(assistant_message_id, position);
+CREATE INDEX assistant_message_part_session_created_idx ON assistant_message_part(session_id, created_at);
+CREATE INDEX assistant_message_part_type_idx ON assistant_message_part(part_type);
+CREATE INDEX assistant_message_part_tool_call_id_idx ON assistant_message_part(tool_call_id);
 ",
     ),
 ];

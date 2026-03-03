@@ -3,6 +3,7 @@ use futures::Stream;
 use std::pin::Pin;
 use uuid::Uuid;
 
+pub mod event_forwarder;
 pub mod opencode;
 mod opencode_client;
 pub(crate) use opencode_client::{
@@ -15,11 +16,11 @@ pub struct Model {
     pub model_id: String,
 }
 
-pub struct SendMessageRequest {
+pub struct UserMessageRequest {
+    pub id: Uuid,
     pub session_id: Uuid,
-    pub model: Option<Model>,
-    pub agent: Option<String>,
-    pub system_msg: Option<String>,
+    pub model_id: String,
+    pub provider_id: String,
     // pub msg_parts: Vec<MessageParts>,
 }
 
