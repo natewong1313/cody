@@ -7,10 +7,12 @@ use crate::backend::{
     repo::user_message::{UserMessage, UserMessagePart},
 };
 
-const USER_MESSAGE_COLUMNS: &str = "
+pub const USER_MESSAGE_COLUMNS: &str = "
 id, session_id, agent, model_provider_id, model_id, system_prompt,
 structured_output_type, tools_list, thinking_variant, created_at, updated_at
 ";
+
+pub const USER_MESSAGE_COLUMN_COUNT: usize = 11;
 
 const USER_MESSAGE_PART_COLUMNS: &str = "
 id, user_message_id, session_id, position, part_type,
@@ -19,18 +21,22 @@ created_at, updated_at
 ";
 
 pub fn row_to_user_message(row: &Row) -> Result<UserMessage, rusqlite::Error> {
+    row_to_user_message_at(row, 0)
+}
+
+pub fn row_to_user_message_at(row: &Row, start: usize) -> Result<UserMessage, rusqlite::Error> {
     Ok(UserMessage {
-        id: row.get(0)?,
-        session_id: row.get(1)?,
-        agent: row.get(2)?,
-        model_provider_id: row.get(3)?,
-        model_id: row.get(4)?,
-        system_prompt: row.get(5)?,
-        structured_output_type: row.get(6)?,
-        tools_list: row.get(7)?,
-        thinking_variant: row.get(8)?,
-        created_at: row.get(9)?,
-        updated_at: row.get(10)?,
+        id: row.get(start)?,
+        session_id: row.get(start + 1)?,
+        agent: row.get(start + 2)?,
+        model_provider_id: row.get(start + 3)?,
+        model_id: row.get(start + 4)?,
+        system_prompt: row.get(start + 5)?,
+        structured_output_type: row.get(start + 6)?,
+        tools_list: row.get(start + 7)?,
+        thinking_variant: row.get(start + 8)?,
+        created_at: row.get(start + 9)?,
+        updated_at: row.get(start + 10)?,
     })
 }
 

@@ -1,7 +1,7 @@
 use crate::backend::{
-    Message, MessagePart, MessagePartAttachment, MessagePartFileSource, MessagePartPatchFile,
-    MessageTool, Project, Session,
+    Project, Session,
     repo::assistant_message::{AssistantMessage, AssistantMessagePart},
+    repo::message::Message,
     repo::user_message::{UserMessage, UserMessagePart},
 };
 
@@ -11,7 +11,6 @@ use uuid::Uuid;
 
 mod assistant_message;
 mod message;
-mod message_part;
 mod project;
 #[cfg(test)]
 mod project_test;
@@ -153,148 +152,9 @@ impl Database for Sqlite {
     async fn list_messages_by_session(
         &self,
         session_id: Uuid,
+        limit: u32,
     ) -> Result<Vec<Message>, DatabaseError> {
-        self.with_conn(move |conn| message::list_messages_by_session(conn, session_id))
-            .await
-    }
-
-    async fn get_message(&self, message_id: Uuid) -> Result<Option<Message>, DatabaseError> {
-        self.with_conn(move |conn| message::get_message(conn, message_id))
-            .await
-    }
-
-    async fn create_message(&self, message_item: Message) -> Result<Message, DatabaseError> {
-        self.with_conn(move |conn| message::create_message(conn, &message_item))
-            .await
-    }
-
-    async fn update_message(&self, message_item: Message) -> Result<Message, DatabaseError> {
-        self.with_conn(move |conn| message::update_message(conn, &message_item))
-            .await
-    }
-
-    async fn delete_message(&self, message_id: Uuid) -> Result<(), DatabaseError> {
-        self.with_conn(move |conn| message::delete_message(conn, message_id))
-            .await
-    }
-
-    async fn list_message_tools(
-        &self,
-        message_id: Uuid,
-    ) -> Result<Vec<MessageTool>, DatabaseError> {
-        self.with_conn(move |conn| message::list_message_tools(conn, message_id))
-            .await
-    }
-
-    async fn upsert_message_tool(&self, tool: MessageTool) -> Result<MessageTool, DatabaseError> {
-        self.with_conn(move |conn| message::upsert_message_tool(conn, &tool))
-            .await
-    }
-
-    async fn delete_message_tool(
-        &self,
-        message_id: Uuid,
-        tool_name: String,
-    ) -> Result<(), DatabaseError> {
-        self.with_conn(move |conn| message::delete_message_tool(conn, message_id, &tool_name))
-            .await
-    }
-
-    async fn list_message_parts_by_message(
-        &self,
-        message_id: Uuid,
-    ) -> Result<Vec<MessagePart>, DatabaseError> {
-        self.with_conn(move |conn| message_part::list_parts_by_message(conn, message_id))
-            .await
-    }
-
-    async fn get_message_part(&self, part_id: Uuid) -> Result<Option<MessagePart>, DatabaseError> {
-        self.with_conn(move |conn| message_part::get_part(conn, part_id))
-            .await
-    }
-
-    async fn create_message_part(&self, part: MessagePart) -> Result<MessagePart, DatabaseError> {
-        self.with_conn(move |conn| message_part::create_part(conn, &part))
-            .await
-    }
-
-    async fn update_message_part(&self, part: MessagePart) -> Result<MessagePart, DatabaseError> {
-        self.with_conn(move |conn| message_part::update_part(conn, &part))
-            .await
-    }
-
-    async fn delete_message_part(&self, part_id: Uuid) -> Result<(), DatabaseError> {
-        self.with_conn(move |conn| message_part::delete_part(conn, part_id))
-            .await
-    }
-
-    async fn list_message_part_attachments(
-        &self,
-        part_id: Uuid,
-    ) -> Result<Vec<MessagePartAttachment>, DatabaseError> {
-        self.with_conn(move |conn| message_part::list_attachments_by_part(conn, part_id))
-            .await
-    }
-
-    async fn create_message_part_attachment(
-        &self,
-        attachment: MessagePartAttachment,
-    ) -> Result<MessagePartAttachment, DatabaseError> {
-        self.with_conn(move |conn| message_part::create_attachment(conn, &attachment))
-            .await
-    }
-
-    async fn delete_message_part_attachment(
-        &self,
-        attachment_id: Uuid,
-    ) -> Result<(), DatabaseError> {
-        self.with_conn(move |conn| message_part::delete_attachment(conn, attachment_id))
-            .await
-    }
-
-    async fn get_message_part_file_source(
-        &self,
-        part_id: Uuid,
-    ) -> Result<Option<MessagePartFileSource>, DatabaseError> {
-        self.with_conn(move |conn| message_part::get_file_source(conn, part_id))
-            .await
-    }
-
-    async fn upsert_message_part_file_source(
-        &self,
-        source: MessagePartFileSource,
-    ) -> Result<MessagePartFileSource, DatabaseError> {
-        self.with_conn(move |conn| message_part::upsert_file_source(conn, &source))
-            .await
-    }
-
-    async fn delete_message_part_file_source(&self, part_id: Uuid) -> Result<(), DatabaseError> {
-        self.with_conn(move |conn| message_part::delete_file_source(conn, part_id))
-            .await
-    }
-
-    async fn list_message_part_patch_files(
-        &self,
-        part_id: Uuid,
-    ) -> Result<Vec<MessagePartPatchFile>, DatabaseError> {
-        self.with_conn(move |conn| message_part::list_patch_files_by_part(conn, part_id))
-            .await
-    }
-
-    async fn create_message_part_patch_file(
-        &self,
-        patch_file: MessagePartPatchFile,
-    ) -> Result<MessagePartPatchFile, DatabaseError> {
-        self.with_conn(move |conn| message_part::create_patch_file(conn, &patch_file))
-            .await
-    }
-
-    async fn delete_message_part_patch_file(
-        &self,
-        part_id: Uuid,
-        file_path: String,
-    ) -> Result<(), DatabaseError> {
-        self.with_conn(move |conn| message_part::delete_patch_file(conn, part_id, &file_path))
+        self.with_conn(move |conn| message::list_messages_by_session(conn, session_id, limit))
             .await
     }
 

@@ -7,12 +7,14 @@ use crate::backend::{
     repo::assistant_message::{AssistantMessage, AssistantMessagePart},
 };
 
-const ASSISTANT_MESSAGE_COLUMNS: &str = "
+pub const ASSISTANT_MESSAGE_COLUMNS: &str = "
 id, session_id, user_message_id, agent, model_provider_id, model_id,
 cwd, root, cost,
 token_total, token_input, token_output, token_reasoning, token_cache_read, token_cache_write,
 error_message, created_at, updated_at, completed_at
 ";
+
+pub const ASSISTANT_MESSAGE_COLUMN_COUNT: usize = 19;
 
 const ASSISTANT_MESSAGE_PART_COLUMNS: &str = "
 id, assistant_message_id, session_id, position, part_type, text,
@@ -30,26 +32,33 @@ compaction_auto, created_at, updated_at
 ";
 
 pub fn row_to_assistant_message(row: &Row) -> Result<AssistantMessage, rusqlite::Error> {
+    row_to_assistant_message_at(row, 0)
+}
+
+pub fn row_to_assistant_message_at(
+    row: &Row,
+    start: usize,
+) -> Result<AssistantMessage, rusqlite::Error> {
     Ok(AssistantMessage {
-        id: row.get(0)?,
-        session_id: row.get(1)?,
-        user_message_id: row.get(2)?,
-        agent: row.get(3)?,
-        model_provider_id: row.get(4)?,
-        model_id: row.get(5)?,
-        cwd: row.get(6)?,
-        root: row.get(7)?,
-        cost: row.get(8)?,
-        token_total: row.get(9)?,
-        token_input: row.get(10)?,
-        token_output: row.get(11)?,
-        token_reasoning: row.get(12)?,
-        token_cache_read: row.get(13)?,
-        token_cache_write: row.get(14)?,
-        error_message: row.get(15)?,
-        created_at: row.get(16)?,
-        updated_at: row.get(17)?,
-        completed_at: row.get(18)?,
+        id: row.get(start)?,
+        session_id: row.get(start + 1)?,
+        user_message_id: row.get(start + 2)?,
+        agent: row.get(start + 3)?,
+        model_provider_id: row.get(start + 4)?,
+        model_id: row.get(start + 5)?,
+        cwd: row.get(start + 6)?,
+        root: row.get(start + 7)?,
+        cost: row.get(start + 8)?,
+        token_total: row.get(start + 9)?,
+        token_input: row.get(start + 10)?,
+        token_output: row.get(start + 11)?,
+        token_reasoning: row.get(start + 12)?,
+        token_cache_read: row.get(start + 13)?,
+        token_cache_write: row.get(start + 14)?,
+        error_message: row.get(start + 15)?,
+        created_at: row.get(start + 16)?,
+        updated_at: row.get(start + 17)?,
+        completed_at: row.get(start + 18)?,
     })
 }
 

@@ -2,9 +2,9 @@ use thiserror::Error;
 use uuid::Uuid;
 
 use crate::backend::{
-    Message, MessagePart, MessagePartAttachment, MessagePartFileSource, MessagePartPatchFile,
-    MessageTool, Project, Session,
+    Project, Session,
     repo::assistant_message::{AssistantMessage, AssistantMessagePart},
+    repo::message::Message,
     repo::user_message::{UserMessage, UserMessagePart},
 };
 
@@ -52,62 +52,8 @@ pub trait Database {
     async fn list_messages_by_session(
         &self,
         session_id: Uuid,
+        limit: u32,
     ) -> Result<Vec<Message>, DatabaseError>;
-    async fn get_message(&self, message_id: Uuid) -> Result<Option<Message>, DatabaseError>;
-    async fn create_message(&self, message: Message) -> Result<Message, DatabaseError>;
-    async fn update_message(&self, message: Message) -> Result<Message, DatabaseError>;
-    async fn delete_message(&self, message_id: Uuid) -> Result<(), DatabaseError>;
-    async fn list_message_tools(&self, message_id: Uuid)
-    -> Result<Vec<MessageTool>, DatabaseError>;
-    async fn upsert_message_tool(&self, tool: MessageTool) -> Result<MessageTool, DatabaseError>;
-    async fn delete_message_tool(
-        &self,
-        message_id: Uuid,
-        tool_name: String,
-    ) -> Result<(), DatabaseError>;
-
-    async fn list_message_parts_by_message(
-        &self,
-        message_id: Uuid,
-    ) -> Result<Vec<MessagePart>, DatabaseError>;
-    async fn get_message_part(&self, part_id: Uuid) -> Result<Option<MessagePart>, DatabaseError>;
-    async fn create_message_part(&self, part: MessagePart) -> Result<MessagePart, DatabaseError>;
-    async fn update_message_part(&self, part: MessagePart) -> Result<MessagePart, DatabaseError>;
-    async fn delete_message_part(&self, part_id: Uuid) -> Result<(), DatabaseError>;
-    async fn list_message_part_attachments(
-        &self,
-        part_id: Uuid,
-    ) -> Result<Vec<MessagePartAttachment>, DatabaseError>;
-    async fn create_message_part_attachment(
-        &self,
-        attachment: MessagePartAttachment,
-    ) -> Result<MessagePartAttachment, DatabaseError>;
-    async fn delete_message_part_attachment(
-        &self,
-        attachment_id: Uuid,
-    ) -> Result<(), DatabaseError>;
-    async fn get_message_part_file_source(
-        &self,
-        part_id: Uuid,
-    ) -> Result<Option<MessagePartFileSource>, DatabaseError>;
-    async fn upsert_message_part_file_source(
-        &self,
-        source: MessagePartFileSource,
-    ) -> Result<MessagePartFileSource, DatabaseError>;
-    async fn delete_message_part_file_source(&self, part_id: Uuid) -> Result<(), DatabaseError>;
-    async fn list_message_part_patch_files(
-        &self,
-        part_id: Uuid,
-    ) -> Result<Vec<MessagePartPatchFile>, DatabaseError>;
-    async fn create_message_part_patch_file(
-        &self,
-        patch_file: MessagePartPatchFile,
-    ) -> Result<MessagePartPatchFile, DatabaseError>;
-    async fn delete_message_part_patch_file(
-        &self,
-        part_id: Uuid,
-        file_path: String,
-    ) -> Result<(), DatabaseError>;
 
     async fn get_user_message(
         &self,

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::pin::Pin;
 
-use crate::backend::harness::{Model, SendMessageRequest};
+use crate::backend::harness::Model;
 
 #[derive(Clone)]
 pub struct OpencodeApiClient {
@@ -121,19 +121,19 @@ pub struct OpencodeSendMessageRequest {
     pub parts: Vec<OpencodePartInput>,
 }
 
-impl From<SendMessageRequest> for OpencodeSendMessageRequest {
-    fn from(value: SendMessageRequest) -> Self {
-        Self {
-            message_id: None,
-            model: value.model.map(Into::into),
-            agent: value.agent,
-            no_reply: None,
-            system: value.system_msg,
-            tools: None,
-            parts: Vec::new(),
-        }
-    }
-}
+// impl From<SendMessageRequest> for OpencodeSendMessageRequest {
+//     fn from(value: SendMessageRequest) -> Self {
+//         Self {
+//             message_id: None,
+//             model: value.model.map(Into::into),
+//             agent: value.agent,
+//             no_reply: None,
+//             system: value.system_msg,
+//             tools: None,
+//             parts: Vec::new(),
+//         }
+//     }
+// }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
