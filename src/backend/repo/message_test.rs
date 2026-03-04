@@ -1,4 +1,8 @@
 use chrono::{Duration, NaiveDateTime};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::TcpListener,
+};
 use uuid::Uuid;
 
 use crate::backend::{
@@ -8,14 +12,14 @@ use crate::backend::{
     harness::opencode::OpencodeHarness,
     repo::{
         assistant_message::AssistantMessage,
-        message::{Message, MessageRepo},
+        message::{Message, MessageRepo, MessageRepoError},
         project::Project,
         session::Session,
         user_message::{UserMessage, UserMessagePart},
     },
 };
 
-use super::test_utils::{closed_port, fixed_datetime};
+use super::test_utils::{closed_port, fixed_datetime, wait_for_port};
 
 fn test_project(id: Uuid, at: NaiveDateTime) -> Project {
     Project {
@@ -50,8 +54,8 @@ fn user_message(id: Uuid, session_id: Uuid, at: NaiveDateTime) -> UserMessage {
         id,
         session_id,
         agent: "build".to_string(),
-        model_provider_id: "openai".to_string(),
-        model_id: "gpt-5".to_string(),
+        model_provider_id: "workers-ai".to_string(),
+        model_id: "@cf/moonshotai/kimi-k2.5".to_string(),
         system_prompt: None,
         structured_output_type: "text".to_string(),
         tools_list: "{}".to_string(),
@@ -115,8 +119,44 @@ fn user_message_part(
     }
 }
 
+async fn spawn_fake_opencode_server() -> (u32, tokio::task::JoinHandle<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("listener bind should succeed");
+    let port = listener
+        .local_addr()
+        .expect("listener local addr should exist")
+        .port() as u32;
+
+    let handle = tokio::spawn(async move {
+        loop {
+            let Ok((mut socket, _)) = listener.accept().await else {
+                break;
+            };
+
+            tokio::spawn(async move {
+                let mut buf = [0_u8; 2048];
+                let _ = socket.read(&mut buf).await;
+
+                let body = r#"{"info":{"role":"assistant","id":"msg-assistant-1","sessionID":"ses-fake","time":{"created":1730000000000,"completed":1730000001000},"error":null,"parentID":"msg-user-1","modelID":"gpt-5","providerID":"openai","mode":"chat","path":{"cwd":"/tmp","root":"/tmp"},"cost":0.0,"tokens":{"input":1,"output":2,"reasoning":0,"cache":{"read":0,"write":0}},"finish":"stop"},"parts":[{"id":"part-1","sessionID":"ses-fake","messageID":"msg-assistant-1","type":"text","text":"hello"}]}"#;
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
+                    body.len(),
+                    body
+                );
+
+                let _ = socket.write_all(response.as_bytes()).await;
+                let _ = socket.shutdown().await;
+            });
+        }
+    });
+
+    (port, handle)
+}
+
 #[tokio::test]
 async fn create_user_message_persists_message() {
+    let (port, server) = spawn_fake_opencode_server().await;
     let db = Sqlite::new_in_memory().expect("in-memory db should initialize");
     let now = fixed_datetime();
     let project_id = Uuid::new_v4();
@@ -130,7 +170,7 @@ async fn create_user_message_persists_message() {
         .await
         .expect("create session should succeed");
 
-    let ctx = BackendContext::new(db, OpencodeHarness::new_for_test(closed_port()));
+    let ctx = BackendContext::new(db, OpencodeHarness::new_for_test(port));
     let repo = MessageRepo::new(ctx);
 
     let created = repo
@@ -161,6 +201,8 @@ async fn create_user_message_persists_message() {
         Message::User(m) => assert_eq!(m.id, message_id),
         _ => panic!("expected user message"),
     }
+
+    server.abort();
 }
 
 #[tokio::test]
@@ -179,6 +221,48 @@ async fn create_user_message_maps_database_errors() {
         err,
         crate::backend::repo::message::MessageRepoError::SessionNotFound(_)
     ));
+}
+
+#[tokio::test]
+async fn create_user_message_does_not_persist_when_harness_unavailable() {
+    let db = Sqlite::new_in_memory().expect("in-memory db should initialize");
+    let now = fixed_datetime();
+    let project_id = Uuid::new_v4();
+    let session_id = Uuid::new_v4();
+    let message_id = Uuid::new_v4();
+
+    db.create_project(test_project(project_id, now))
+        .await
+        .expect("create project should succeed");
+    db.create_session(test_session(session_id, project_id, now))
+        .await
+        .expect("create session should succeed");
+
+    let ctx = BackendContext::new(db, OpencodeHarness::new_for_test(closed_port()));
+    let repo = MessageRepo::new(ctx);
+
+    let err = repo
+        .create_user_message(
+            user_message(message_id, session_id, now + Duration::seconds(1)),
+            vec![user_message_part(
+                Uuid::new_v4(),
+                message_id,
+                session_id,
+                0,
+                "hello",
+                now + Duration::seconds(1),
+            )],
+        )
+        .await
+        .expect_err("create_user_message should fail when harness is unavailable");
+
+    assert!(matches!(err, MessageRepoError::Harness(_)));
+
+    let listed = repo
+        .list_by_session(&session_id, 10)
+        .await
+        .expect("list_by_session should succeed");
+    assert!(listed.is_empty());
 }
 
 #[tokio::test]
@@ -206,19 +290,12 @@ async fn list_by_session_returns_empty_for_new_session() {
 }
 
 #[tokio::test]
-#[ignore = "requires local opencode binary"]
+// #[ignore = "requires local opencode binary"]
 async fn create_user_message_sends_message_to_real_opencode() {
-    let has_opencode = std::process::Command::new("opencode")
-        .arg("--help")
-        .output()
-        .is_ok();
-    if !has_opencode {
-        return;
-    }
-
     let port = closed_port();
     let harness = OpencodeHarness::new_with_process_for_test(port)
         .expect("test harness with process should start");
+    wait_for_port(port);
 
     let db = Sqlite::new_in_memory().expect("in-memory db should initialize");
     let now = fixed_datetime();
@@ -249,12 +326,13 @@ async fn create_user_message_sends_message_to_real_opencode() {
         .expect("create opencode session should succeed");
 
     let mut session = test_session(session_id, project_id, now);
-    session.harness_session_id = harness_session_id;
+    session.harness_session_id = harness_session_id.clone();
     session.dir = Some(project_dir_string.clone());
     db.create_session(session)
         .await
         .expect("create session should succeed");
 
+    let harness_for_asserts = harness.clone();
     let ctx = BackendContext::new(db, harness);
     let repo = MessageRepo::new(ctx);
 
@@ -275,6 +353,17 @@ async fn create_user_message_sends_message_to_real_opencode() {
 
     assert_eq!(created.id, message_id);
     assert_eq!(created.session_id, session_id);
+
+    let messages = harness_for_asserts
+        .get_session_messages(&harness_session_id, Some(50), Some(&project_dir_string))
+        .await
+        .expect("get_session_messages should succeed");
+    assert!(
+        messages
+            .iter()
+            .all(|m| m.session_id() == harness_session_id),
+        "all returned messages should belong to test harness session"
+    );
 }
 
 #[tokio::test]
