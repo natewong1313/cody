@@ -89,6 +89,19 @@ message AssistantMessagePartModel {
   optional bool compaction_auto = 48;
   string created_at = 49;
   string updated_at = 50;
+  optional string tool_state_raw = 51;
+  optional int64 tool_state_time_start = 52;
+  optional int64 tool_state_time_end = 53;
+  optional int64 tool_state_time_compacted = 54;
+  optional string tool_attachments_json = 55;
+  optional string delta_field = 56;
+  optional string delta_text = 57;
+  optional int64 part_time_start = 58;
+  optional int64 part_time_end = 59;
+  optional string part_metadata_json = 60;
+  optional bool text_synthetic = 61;
+  optional bool text_ignored = 62;
+  optional string step_snapshot_hash = 63;
 }
 
 message AssistantMessageModel {

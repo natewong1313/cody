@@ -324,6 +324,11 @@ CREATE TABLE assistant_message_part (
     tool_title TEXT,
     tool_metadata_json TEXT,
     tool_compacted_at INTEGER,
+    tool_state_raw TEXT,
+    tool_state_time_start INTEGER,
+    tool_state_time_end INTEGER,
+    tool_state_time_compacted INTEGER,
+    tool_attachments_json TEXT,
 
     finish_reason TEXT,
     cost REAL,
@@ -342,6 +347,15 @@ CREATE TABLE assistant_message_part (
     retry_created_at INTEGER,
 
     compaction_auto INTEGER CHECK(compaction_auto IN (0, 1)),
+
+    delta_field TEXT,
+    delta_text TEXT,
+    part_time_start INTEGER,
+    part_time_end INTEGER,
+    part_metadata_json TEXT,
+    text_synthetic INTEGER CHECK(text_synthetic IN (0, 1)),
+    text_ignored INTEGER CHECK(text_ignored IN (0, 1)),
+    step_snapshot_hash TEXT,
 
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,

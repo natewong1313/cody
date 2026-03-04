@@ -77,6 +77,8 @@ pub trait Harness: Sized {
         directory: Option<&str>,
     ) -> Result<Vec<HarnessMessage>, HarnessError>;
 
+    async fn listen_assistant_messages(&self) {}
+
     async fn get_event_stream(
         &self,
     ) -> anyhow::Result<
