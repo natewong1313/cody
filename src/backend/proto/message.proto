@@ -3,6 +3,7 @@ package messages;
 
 service Messages {
   rpc ListMessagesBySession (ListMessagesBySessionRequest) returns (ListMessagesBySessionReply);
+  rpc SubscribeMessagesBySession (SubscribeMessagesBySessionRequest) returns (stream SubscribeMessagesBySessionReply);
   rpc CreateUserMessage (CreateUserMessageRequest) returns (CreateUserMessageReply);
 }
 
@@ -125,6 +126,13 @@ message ListMessagesBySessionRequest {
   int32 limit = 2;
 }
 message ListMessagesBySessionReply {
+  repeated MessageHistory messages = 1;
+}
+
+message SubscribeMessagesBySessionRequest {
+  string session_id = 1;
+}
+message SubscribeMessagesBySessionReply {
   repeated MessageHistory messages = 1;
 }
 
