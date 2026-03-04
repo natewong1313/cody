@@ -25,7 +25,7 @@ CREATE TABLE sessions (
 
     name TEXT NOT NULL DEFAULT 'New Session',
     harness_type TEXT NOT NULL DEFAULT 'opencode',
-    harness_session_id TEXT,
+    harness_session_id TEXT NOT NULL,
 
     dir TEXT,
     summary_additions INTEGER,

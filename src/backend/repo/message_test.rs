@@ -47,7 +47,7 @@ fn test_session(id: Uuid, project_id: Uuid, at: NaiveDateTime) -> Session {
         show_in_gui: true,
         name: "sess".to_string(),
         harness_type: "opencode".to_string(),
-        harness_session_id: None,
+        harness_session_id: format!("hs-{id}"),
         dir: Some("/tmp/proj".to_string()),
         summary_additions: None,
         summary_deletions: None,

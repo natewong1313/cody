@@ -291,7 +291,7 @@ impl ProjectsPage {
             show_in_gui: true,
             name: "New Session".to_string(),
             harness_type: "opencode".to_string(),
-            harness_session_id: None,
+            harness_session_id: String::new(),
             dir: None,
             summary_additions: None,
             summary_deletions: None,

@@ -19,7 +19,7 @@ pub struct Session {
     pub show_in_gui: bool,
     pub name: String,
     pub harness_type: String,
-    pub harness_session_id: Option<String>,
+    pub harness_session_id: String,
     pub dir: Option<String>,
     pub summary_additions: Option<i64>,
     pub summary_deletions: Option<i64>,
@@ -74,7 +74,7 @@ impl TryFrom<proto_session::SessionModel> for Session {
             show_in_gui: model.show_in_gui,
             name: model.name,
             harness_type: "opencode".to_string(),
-            harness_session_id: None,
+            harness_session_id: String::new(),
             dir: None,
             summary_additions: None,
             summary_deletions: None,
@@ -128,7 +128,7 @@ where
             .map_err(|e| SessionRepoError::Harness(e.to_string()))?;
 
         let mut created = session.clone();
-        created.harness_session_id = Some(harness_session_id);
+        created.harness_session_id = harness_session_id;
         if created.dir.is_none() {
             created.dir = Some(project.dir);
         }
@@ -137,7 +137,14 @@ where
     }
 
     pub async fn update(&self, session: &Session) -> Result<Session, SessionRepoError> {
-        Ok(self.ctx.db.update_session(session.clone()).await?)
+        let mut updated = session.clone();
+        if updated.harness_session_id.is_empty() {
+            if let Some(existing) = self.ctx.db.get_session(updated.id).await? {
+                updated.harness_session_id = existing.harness_session_id;
+            }
+        }
+
+        Ok(self.ctx.db.update_session(updated).await?)
     }
 
     pub async fn delete(&self, session_id: &Uuid) -> Result<(), SessionRepoError> {

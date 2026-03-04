@@ -4,7 +4,7 @@ use std::process::{Child, Command};
 use std::sync::{Arc, Mutex};
 use thiserror::Error;
 
-use crate::backend::harness::{Harness, OpencodeMessageWithParts, OpencodeSendMessageRequest};
+use crate::backend::harness::{Harness, OpencodeMessageWithParts};
 use crate::backend::repo::user_message::UserMessage;
 use crate::backend::{
     harness::opencode_client::{OpencodeApiClient, OpencodeCreateSessionRequest},
