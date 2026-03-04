@@ -1,4 +1,4 @@
-use tokio_rusqlite::rusqlite::{self, params, Connection, Row};
+use tokio_rusqlite::rusqlite::{self, Connection, Row, params};
 use uuid::Uuid;
 
 use super::{assistant_message, user_message};

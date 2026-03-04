@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use thiserror::Error;
 
 use crate::backend::harness::{Harness, OpencodeMessageWithParts, OpencodeSendMessageRequest};
+use crate::backend::repo::user_message::UserMessage;
 use crate::backend::{
     harness::opencode_client::{OpencodeApiClient, OpencodeCreateSessionRequest},
     repo::session::Session,
@@ -180,12 +181,14 @@ impl Harness for OpencodeHarness {
 
     async fn send_message(
         &self,
-        session_id: &str,
-        request: &OpencodeSendMessageRequest,
-        directory: Option<&str>,
+        harness_session_id: String,
+        message: UserMessage,
+        directory: Option<String>,
     ) -> anyhow::Result<OpencodeMessageWithParts> {
+        let request = (&message).into();
+
         self.opencode_client
-            .send_message(session_id, request, directory)
+            .send_message(&harness_session_id, &request, directory.as_deref())
             .await
             .map_err(|e| anyhow::anyhow!(OpencodeHarnessError::ApiRequest(e.to_string())))
     }

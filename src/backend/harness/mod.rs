@@ -36,9 +36,8 @@ pub trait Harness: Sized {
 
     async fn send_message(
         &self,
+        harness_session_id: String,
         message: UserMessage,
-        // session_id: &str,
-        // request: &OpencodeSendMessageRequest,
         directory: Option<String>,
     ) -> anyhow::Result<OpencodeMessageWithParts>;
 

@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::pin::Pin;
 
 use crate::backend::harness::Model;
+use crate::backend::repo::user_message::UserMessage;
 
 #[derive(Clone)]
 pub struct OpencodeApiClient {
@@ -121,19 +122,32 @@ pub struct OpencodeSendMessageRequest {
     pub parts: Vec<OpencodePartInput>,
 }
 
-// impl From<SendMessageRequest> for OpencodeSendMessageRequest {
-//     fn from(value: SendMessageRequest) -> Self {
-//         Self {
-//             message_id: None,
-//             model: value.model.map(Into::into),
-//             agent: value.agent,
-//             no_reply: None,
-//             system: value.system_msg,
-//             tools: None,
-//             parts: Vec::new(),
-//         }
-//     }
-// }
+impl From<&UserMessage> for OpencodeSendMessageRequest {
+    fn from(value: &UserMessage) -> Self {
+        let tools = serde_json::from_str::<HashMap<String, bool>>(&value.tools_list)
+            .ok()
+            .and_then(|parsed| {
+                if parsed.is_empty() {
+                    None
+                } else {
+                    Some(parsed)
+                }
+            });
+
+        Self {
+            message_id: Some(value.id.to_string()),
+            model: Some(ModelSelection {
+                provider_id: value.model_provider_id.clone(),
+                model_id: value.model_id.clone(),
+            }),
+            agent: Some(value.agent.clone()),
+            no_reply: None,
+            system: value.system_prompt.clone(),
+            tools,
+            parts: Vec::new(),
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -257,7 +271,7 @@ pub struct ApiErrorData {
 #[serde(rename_all = "camelCase", tag = "role")]
 pub enum OpencodeMessage {
     #[serde(rename = "user")]
-    User(UserMessage),
+    User(OpencodeUserMessage),
     #[serde(rename = "assistant")]
     Assistant(AssistantMessage),
 }
@@ -280,7 +294,7 @@ impl OpencodeMessage {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct UserMessage {
+pub struct OpencodeUserMessage {
     pub id: String,
     #[serde(rename = "sessionID", alias = "sessionId")]
     pub session_id: String,

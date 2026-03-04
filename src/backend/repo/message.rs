@@ -18,6 +18,8 @@ pub enum MessageRepoError {
     Database(#[from] DatabaseError),
     #[error("session not found for {0}")]
     SessionNotFound(Uuid),
+    #[error("harness session not found for {0}")]
+    HarnessSessionNotFound(Uuid),
 }
 
 pub struct MessageRepo<D>
@@ -58,10 +60,19 @@ where
             .await?
             .ok_or(MessageRepoError::SessionNotFound(message.session_id))?;
 
-        // TODO: finish
-        self.ctx.harness.send_message(message, session.dir).await;
+        let Some(harness_session_id) = session.harness_session_id else {
+            return Err(MessageRepoError::HarnessSessionNotFound(message.session_id));
+        };
 
-        let created_message = self.ctx.db.create_user_message(message).await?;
+        let created_message = self.ctx.db.create_user_message(message.clone()).await?;
+
+        log::debug!("sending message to harness");
+        let _ = self
+            .ctx
+            .harness
+            .send_message(harness_session_id, message, session.dir)
+            .await;
+        log::debug!("sent message to harness");
 
         Ok(created_message)
     }

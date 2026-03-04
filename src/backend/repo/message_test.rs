@@ -121,7 +121,11 @@ async fn create_user_message_persists_message() {
     let repo = MessageRepo::new(ctx);
 
     let created = repo
-        .create_user_message(user_message(message_id, session_id, now + Duration::seconds(1)))
+        .create_user_message(user_message(
+            message_id,
+            session_id,
+            now + Duration::seconds(1),
+        ))
         .await
         .expect("create_user_message should succeed");
 
@@ -152,7 +156,10 @@ async fn create_user_message_maps_database_errors() {
         .await
         .expect_err("create_user_message should fail for missing session");
 
-    assert!(matches!(err, crate::backend::repo::message::MessageRepoError::Database(_)));
+    assert!(matches!(
+        err,
+        crate::backend::repo::message::MessageRepoError::Database(_)
+    ));
 }
 
 #[tokio::test]
@@ -198,9 +205,13 @@ async fn list_by_session_returns_latest_n_mixed_messages() {
     let user_2_id = Uuid::new_v4();
     let assistant_2_id = Uuid::new_v4();
 
-    db.create_user_message(user_message(user_1_id, session_id, base + Duration::seconds(1)))
-        .await
-        .expect("create user message 1 should succeed");
+    db.create_user_message(user_message(
+        user_1_id,
+        session_id,
+        base + Duration::seconds(1),
+    ))
+    .await
+    .expect("create user message 1 should succeed");
     db.create_assistant_message(assistant_message(
         assistant_1_id,
         session_id,
@@ -209,9 +220,13 @@ async fn list_by_session_returns_latest_n_mixed_messages() {
     ))
     .await
     .expect("create assistant message 1 should succeed");
-    db.create_user_message(user_message(user_2_id, session_id, base + Duration::seconds(3)))
-        .await
-        .expect("create user message 2 should succeed");
+    db.create_user_message(user_message(
+        user_2_id,
+        session_id,
+        base + Duration::seconds(3),
+    ))
+    .await
+    .expect("create user message 2 should succeed");
     db.create_assistant_message(assistant_message(
         assistant_2_id,
         session_id,
@@ -258,9 +273,13 @@ async fn list_by_session_filters_to_requested_session() {
     db.create_session(test_session(session_a, project_id, base))
         .await
         .expect("create session a should succeed");
-    db.create_session(test_session(session_b, project_id, base + Duration::seconds(1)))
-        .await
-        .expect("create session b should succeed");
+    db.create_session(test_session(
+        session_b,
+        project_id,
+        base + Duration::seconds(1),
+    ))
+    .await
+    .expect("create session b should succeed");
 
     let user_a = Uuid::new_v4();
     let user_b = Uuid::new_v4();
@@ -301,9 +320,13 @@ async fn list_by_session_zero_limit_returns_empty() {
     db.create_session(test_session(session_id, project_id, now))
         .await
         .expect("create session should succeed");
-    db.create_user_message(user_message(user_id, session_id, now + Duration::seconds(1)))
-        .await
-        .expect("create user message should succeed");
+    db.create_user_message(user_message(
+        user_id,
+        session_id,
+        now + Duration::seconds(1),
+    ))
+    .await
+    .expect("create user message should succeed");
 
     let ctx = BackendContext::new(db, OpencodeHarness::new_for_test(closed_port()));
     let repo = MessageRepo::new(ctx);
