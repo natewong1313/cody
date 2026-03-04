@@ -3,6 +3,7 @@ use crate::backend::repo::{
     user_message::{UserMessage, UserMessagePart},
 };
 use futures::Stream;
+use serde::{Deserialize, Serialize};
 use std::pin::Pin;
 use uuid::Uuid;
 
@@ -42,6 +43,52 @@ pub struct HarnessMessage {
     pub session_id: String,
 }
 
+pub type HarnessAssistantEventStream =
+    Pin<Box<dyn Stream<Item = Result<HarnessAssistantEvent, HarnessError>> + Send>>;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum HarnessSessionStatus {
+    Idle,
+    Busy,
+    Retry {
+        attempt: i64,
+        message: String,
+        next: i64,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum HarnessAssistantEvent {
+    SessionStatus {
+        harness_session_id: String,
+        status: HarnessSessionStatus,
+    },
+    MessageUpdated {
+        harness_session_id: String,
+        message_id: String,
+        completed_at: Option<i64>,
+        error: Option<String>,
+    },
+    MessagePartUpdated {
+        harness_session_id: String,
+        message_id: String,
+        part_id: String,
+        part_type: String,
+        payload: serde_json::Value,
+    },
+    MessagePartDelta {
+        harness_session_id: String,
+        message_id: String,
+        part_id: String,
+        field: String,
+        delta: String,
+    },
+    SessionError {
+        harness_session_id: Option<String>,
+        error: String,
+    },
+}
+
 impl HarnessMessage {
     pub fn id(&self) -> &str {
         &self.id
@@ -77,7 +124,11 @@ pub trait Harness: Sized {
         directory: Option<&str>,
     ) -> Result<Vec<HarnessMessage>, HarnessError>;
 
-    async fn listen_assistant_messages(&self) {}
+    async fn listen_assistant_events(
+        &self,
+        harness_session_id: String,
+        directory: Option<String>,
+    ) -> Result<HarnessAssistantEventStream, HarnessError>;
 
     async fn get_event_stream(
         &self,

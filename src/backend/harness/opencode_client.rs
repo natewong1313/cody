@@ -494,6 +494,26 @@ pub enum OpencodePart {
 }
 
 impl OpencodePart {
+    pub fn id(&self) -> &str {
+        match self {
+            OpencodePart::StepStart(s) => &s.id,
+            OpencodePart::Text(t) => &t.id,
+            OpencodePart::Reasoning(r) => &r.id,
+            OpencodePart::Tool(t) => &t.id,
+            OpencodePart::StepFinish(s) => &s.id,
+        }
+    }
+
+    pub fn part_type(&self) -> &'static str {
+        match self {
+            OpencodePart::StepStart(_) => "step-start",
+            OpencodePart::Text(_) => "text",
+            OpencodePart::Reasoning(_) => "reasoning",
+            OpencodePart::Tool(_) => "tool",
+            OpencodePart::StepFinish(_) => "step-finish",
+        }
+    }
+
     pub fn session_id(&self) -> &str {
         match self {
             OpencodePart::StepStart(s) => &s.session_id,
@@ -553,15 +573,25 @@ pub enum OpencodeEventPayload {
         #[serde(rename = "properties")]
         props: OpencodeMessagePartUpdatedProps,
     },
+    #[serde(rename = "message.part.delta")]
+    MessagePartDelta {
+        #[serde(rename = "properties")]
+        props: OpencodeMessagePartDeltaProps,
+    },
     #[serde(rename = "message.removed")]
     MessageRemoved {
         #[serde(rename = "properties")]
         props: OpencodeMessageRemovedProps,
     },
-    #[serde(rename = "session.idle")]
-    SessionIdle {
+    #[serde(rename = "session.status")]
+    SessionStatus {
         #[serde(rename = "properties")]
-        props: OpencodeSessionIdleProps,
+        props: OpencodeSessionStatusProps,
+    },
+    #[serde(rename = "session.error")]
+    SessionError {
+        #[serde(rename = "properties")]
+        props: OpencodeSessionErrorProps,
     },
 }
 
@@ -575,7 +605,19 @@ pub struct OpencodeMessageUpdatedProps {
 #[serde(rename_all = "camelCase")]
 pub struct OpencodeMessagePartUpdatedProps {
     pub part: OpencodePart,
-    pub delta: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpencodeMessagePartDeltaProps {
+    #[serde(rename = "sessionID", alias = "sessionId")]
+    pub session_id: String,
+    #[serde(rename = "messageID", alias = "messageId")]
+    pub message_id: String,
+    #[serde(rename = "partID", alias = "partId")]
+    pub part_id: String,
+    pub field: String,
+    pub delta: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -592,6 +634,37 @@ pub struct OpencodeMessageRemovedProps {
 pub struct OpencodeSessionIdleProps {
     #[serde(rename = "sessionID", alias = "sessionId")]
     pub session_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpencodeSessionStatusProps {
+    #[serde(rename = "sessionID", alias = "sessionId")]
+    pub session_id: String,
+    pub status: OpencodeSessionStatus,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "type")]
+pub enum OpencodeSessionStatus {
+    #[serde(rename = "idle")]
+    Idle,
+    #[serde(rename = "busy")]
+    Busy,
+    #[serde(rename = "retry")]
+    Retry {
+        attempt: i64,
+        message: String,
+        next: i64,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpencodeSessionErrorProps {
+    #[serde(rename = "sessionID", alias = "sessionId")]
+    pub session_id: Option<String>,
+    pub error: serde_json::Value,
 }
 
 impl OpencodeApiClient {
@@ -635,6 +708,7 @@ impl OpencodeApiClient {
 
     pub async fn get_event_stream(
         &self,
+        directory: Option<&str>,
     ) -> Result<
         Pin<
             Box<
@@ -650,11 +724,11 @@ impl OpencodeApiClient {
     > {
         use eventsource_stream::Eventsource;
 
-        let response = self
-            .http_client
-            .get(format!("{}/event", self.server_url))
-            .send()
-            .await?;
+        let mut request = self.http_client.get(format!("{}/event", self.server_url));
+        if let Some(dir) = directory {
+            request = request.query(&[("directory", dir)]);
+        }
+        let response = request.send().await?;
 
         Ok(Box::pin(response.bytes_stream().eventsource()))
     }
