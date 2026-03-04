@@ -1,4 +1,4 @@
-use chrono::{NaiveDateTime, Utc};
+use chrono::Utc;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpListener,
@@ -16,6 +16,8 @@ use crate::backend::{
         session::{Session, SessionRepo, SessionRepoError},
     },
 };
+
+use super::test_utils::{closed_port, fixed_datetime};
 
 fn test_project(name: &str, dir: &str) -> Project {
     let now = Utc::now().naive_utc();
@@ -52,11 +54,6 @@ fn test_repos(port: u32) -> (ProjectRepo<Sqlite>, SessionRepo<Sqlite>) {
     let harness = OpencodeHarness::new_for_test(port);
     let ctx = BackendContext::new(db, harness);
     (ProjectRepo::new(ctx.clone()), SessionRepo::new(ctx))
-}
-
-fn fixed_datetime() -> NaiveDateTime {
-    NaiveDateTime::parse_from_str("2025-01-02 03:04:05.123456", "%Y-%m-%d %H:%M:%S%.f")
-        .expect("fixed datetime should parse")
 }
 
 #[test]
@@ -164,16 +161,6 @@ fn session_proto_deserialize_rejects_invalid_datetime() {
     let err = Session::try_from(model).expect_err("invalid datetime should fail");
     assert_eq!(err.code(), Code::InvalidArgument);
     assert!(err.message().contains("session.created_at"));
-}
-
-fn closed_port() -> u32 {
-    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("port bind should succeed");
-    let port = listener
-        .local_addr()
-        .expect("listener local addr should exist")
-        .port();
-    drop(listener);
-    port as u32
 }
 
 async fn spawn_fake_opencode_server() -> (u32, tokio::task::JoinHandle<()>) {

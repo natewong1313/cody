@@ -4,8 +4,10 @@ use std::process::{Child, Command};
 use std::sync::{Arc, Mutex};
 use thiserror::Error;
 
-use crate::backend::harness::{Harness, OpencodeMessageWithParts};
-use crate::backend::repo::user_message::UserMessage;
+use crate::backend::harness::{
+    Harness, OpencodeMessageWithParts, OpencodePartInput, OpencodeSendMessageRequest,
+};
+use crate::backend::repo::user_message::{UserMessage, UserMessagePart};
 use crate::backend::{
     harness::opencode_client::{OpencodeApiClient, OpencodeCreateSessionRequest},
     repo::session::Session,
@@ -33,32 +35,7 @@ pub struct OpencodeHarness {
 
 impl Harness for OpencodeHarness {
     fn new() -> anyhow::Result<Self> {
-        let port = 6767;
-        log::debug!("Starting opencode on port {port}");
-        let proc = unsafe {
-            Command::new("opencode")
-                .arg("serve")
-                .arg("--port")
-                .arg(port.to_string())
-                .arg("--print-logs")
-                .arg("--log-level")
-                .arg("DEBUG")
-                .pre_exec(|| {
-                    libc::setpgid(0, 0);
-                    Ok(())
-                })
-                .spawn()
-                .map_err(|e| anyhow::anyhow!(OpencodeHarnessError::Spawn(e)))?
-        };
-
-        log::debug!("Opencode running on port {port}");
-
-        let opencode_client = OpencodeApiClient::new(port);
-
-        Ok(Self {
-            proc: Arc::new(Mutex::new(Some(proc))),
-            opencode_client,
-        })
+        Self::new_with_port(6767)
     }
 
     fn cleanup(&self) {
@@ -183,9 +160,17 @@ impl Harness for OpencodeHarness {
         &self,
         harness_session_id: String,
         message: UserMessage,
+        message_parts: Vec<UserMessagePart>,
         directory: Option<String>,
     ) -> anyhow::Result<OpencodeMessageWithParts> {
-        let request = (&message).into();
+        let mut request = OpencodeSendMessageRequest::from(&message);
+        let mut message_parts = message_parts;
+        message_parts.sort_by_key(|part| part.position);
+        request.parts = message_parts
+            .into_iter()
+            .map(OpencodePartInput::try_from)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| anyhow::anyhow!(OpencodeHarnessError::ApiRequest(e.to_string())))?;
 
         self.opencode_client
             .send_message(&harness_session_id, &request, directory.as_deref())
@@ -228,6 +213,36 @@ impl Harness for OpencodeHarness {
     }
 }
 
+impl OpencodeHarness {
+    fn new_with_port(port: u32) -> anyhow::Result<Self> {
+        log::debug!("Starting opencode on port {port}");
+        let proc = unsafe {
+            Command::new("opencode")
+                .arg("serve")
+                .arg("--port")
+                .arg(port.to_string())
+                .arg("--print-logs")
+                .arg("--log-level")
+                .arg("DEBUG")
+                .pre_exec(|| {
+                    libc::setpgid(0, 0);
+                    Ok(())
+                })
+                .spawn()
+                .map_err(|e| anyhow::anyhow!(OpencodeHarnessError::Spawn(e)))?
+        };
+
+        log::debug!("Opencode running on port {port}");
+
+        let opencode_client = OpencodeApiClient::new(port);
+
+        Ok(Self {
+            proc: Arc::new(Mutex::new(Some(proc))),
+            opencode_client,
+        })
+    }
+}
+
 #[cfg(test)]
 impl OpencodeHarness {
     /// Explicitly shutdown the opencode process.
@@ -243,6 +258,10 @@ impl OpencodeHarness {
             proc: Arc::new(Mutex::new(None)),
             opencode_client: OpencodeApiClient::new(port),
         }
+    }
+
+    pub(crate) fn new_with_process_for_test(port: u32) -> anyhow::Result<Self> {
+        Self::new_with_port(port)
     }
 }
 

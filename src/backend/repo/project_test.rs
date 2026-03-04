@@ -1,4 +1,4 @@
-use chrono::{NaiveDateTime, Utc};
+use chrono::Utc;
 use tonic::Code;
 use uuid::Uuid;
 
@@ -9,6 +9,8 @@ use crate::backend::{
     proto_project::ProjectModel,
     repo::project::{Project, ProjectRepo, ProjectRepoError},
 };
+
+use super::test_utils::fixed_datetime;
 
 fn test_project(name: &str, dir: &str) -> Project {
     let now = Utc::now().naive_utc();
@@ -26,11 +28,6 @@ fn test_repo() -> ProjectRepo<Sqlite> {
     let harness = OpencodeHarness::new_for_test(1);
     let ctx = BackendContext::new(db, harness);
     ProjectRepo::new(ctx)
-}
-
-fn fixed_datetime() -> NaiveDateTime {
-    NaiveDateTime::parse_from_str("2025-01-02 03:04:05.123456", "%Y-%m-%d %H:%M:%S%.f")
-        .expect("fixed datetime should parse")
 }
 
 #[test]

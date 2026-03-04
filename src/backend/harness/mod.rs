@@ -1,4 +1,7 @@
-use crate::backend::repo::{session::Session, user_message::UserMessage};
+use crate::backend::repo::{
+    session::Session,
+    user_message::{UserMessage, UserMessagePart},
+};
 use futures::Stream;
 use std::pin::Pin;
 use uuid::Uuid;
@@ -38,6 +41,7 @@ pub trait Harness: Sized {
         &self,
         harness_session_id: String,
         message: UserMessage,
+        message_parts: Vec<UserMessagePart>,
         directory: Option<String>,
     ) -> anyhow::Result<OpencodeMessageWithParts>;
 

@@ -130,6 +130,7 @@ message ListMessagesBySessionReply {
 
 message CreateUserMessageRequest {
   UserMessageModel message = 1;
+  repeated UserMessagePartModel parts = 2;
 }
 message CreateUserMessageReply {
   UserMessageModel message = 1;

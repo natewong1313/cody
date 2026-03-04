@@ -4,30 +4,18 @@ use uuid::Uuid;
 use crate::backend::{
     BackendContext,
     db::{Database, sqlite::Sqlite},
+    harness::Harness,
     harness::opencode::OpencodeHarness,
     repo::{
         assistant_message::AssistantMessage,
         message::{Message, MessageRepo},
         project::Project,
         session::Session,
-        user_message::UserMessage,
+        user_message::{UserMessage, UserMessagePart},
     },
 };
 
-fn fixed_datetime() -> NaiveDateTime {
-    NaiveDateTime::parse_from_str("2025-01-02 03:04:05.123456", "%Y-%m-%d %H:%M:%S%.f")
-        .expect("fixed datetime should parse")
-}
-
-fn closed_port() -> u32 {
-    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("port bind should succeed");
-    let port = listener
-        .local_addr()
-        .expect("listener local addr should exist")
-        .port();
-    drop(listener);
-    port as u32
-}
+use super::test_utils::{closed_port, fixed_datetime};
 
 fn test_project(id: Uuid, at: NaiveDateTime) -> Project {
     Project {
@@ -102,6 +90,31 @@ fn assistant_message(
     }
 }
 
+fn user_message_part(
+    id: Uuid,
+    user_message_id: Uuid,
+    session_id: Uuid,
+    position: i64,
+    text: &str,
+    at: NaiveDateTime,
+) -> UserMessagePart {
+    UserMessagePart {
+        id,
+        user_message_id,
+        session_id,
+        position,
+        part_type: "text".to_string(),
+        text: Some(text.to_string()),
+        file_name: None,
+        file_url: None,
+        agent_name: None,
+        subtask_prompt: None,
+        subtask_description: None,
+        created_at: at,
+        updated_at: at,
+    }
+}
+
 #[tokio::test]
 async fn create_user_message_persists_message() {
     let db = Sqlite::new_in_memory().expect("in-memory db should initialize");
@@ -121,11 +134,17 @@ async fn create_user_message_persists_message() {
     let repo = MessageRepo::new(ctx);
 
     let created = repo
-        .create_user_message(user_message(
-            message_id,
-            session_id,
-            now + Duration::seconds(1),
-        ))
+        .create_user_message(
+            user_message(message_id, session_id, now + Duration::seconds(1)),
+            vec![user_message_part(
+                Uuid::new_v4(),
+                message_id,
+                session_id,
+                0,
+                "hello",
+                now + Duration::seconds(1),
+            )],
+        )
         .await
         .expect("create_user_message should succeed");
 
@@ -152,13 +171,13 @@ async fn create_user_message_maps_database_errors() {
     let repo = MessageRepo::new(ctx);
 
     let err = repo
-        .create_user_message(user_message(Uuid::new_v4(), Uuid::new_v4(), now))
+        .create_user_message(user_message(Uuid::new_v4(), Uuid::new_v4(), now), vec![])
         .await
         .expect_err("create_user_message should fail for missing session");
 
     assert!(matches!(
         err,
-        crate::backend::repo::message::MessageRepoError::Database(_)
+        crate::backend::repo::message::MessageRepoError::SessionNotFound(_)
     ));
 }
 
@@ -184,6 +203,78 @@ async fn list_by_session_returns_empty_for_new_session() {
         .await
         .expect("list_by_session should succeed");
     assert!(out.is_empty());
+}
+
+#[tokio::test]
+#[ignore = "requires local opencode binary"]
+async fn create_user_message_sends_message_to_real_opencode() {
+    let has_opencode = std::process::Command::new("opencode")
+        .arg("--help")
+        .output()
+        .is_ok();
+    if !has_opencode {
+        return;
+    }
+
+    let port = closed_port();
+    let harness = OpencodeHarness::new_with_process_for_test(port)
+        .expect("test harness with process should start");
+
+    let db = Sqlite::new_in_memory().expect("in-memory db should initialize");
+    let now = fixed_datetime();
+    let project_id = Uuid::new_v4();
+    let session_id = Uuid::new_v4();
+    let message_id = Uuid::new_v4();
+
+    let project_dir = std::env::temp_dir().join(format!("cody-opencode-test-{session_id}"));
+    std::fs::create_dir_all(&project_dir).expect("project temp directory should be created");
+    let project_dir_string = project_dir.to_string_lossy().to_string();
+
+    db.create_project(Project {
+        id: project_id,
+        name: "proj".to_string(),
+        dir: project_dir_string.clone(),
+        created_at: now,
+        updated_at: now,
+    })
+    .await
+    .expect("create project should succeed");
+
+    let harness_session_id = harness
+        .create_session(
+            test_session(session_id, project_id, now),
+            Some(&project_dir_string),
+        )
+        .await
+        .expect("create opencode session should succeed");
+
+    let mut session = test_session(session_id, project_id, now);
+    session.harness_session_id = harness_session_id;
+    session.dir = Some(project_dir_string.clone());
+    db.create_session(session)
+        .await
+        .expect("create session should succeed");
+
+    let ctx = BackendContext::new(db, harness);
+    let repo = MessageRepo::new(ctx);
+
+    let created = repo
+        .create_user_message(
+            user_message(message_id, session_id, now + Duration::seconds(1)),
+            vec![user_message_part(
+                Uuid::new_v4(),
+                message_id,
+                session_id,
+                0,
+                "hello from integration test",
+                now + Duration::seconds(1),
+            )],
+        )
+        .await
+        .expect("create_user_message should succeed");
+
+    assert_eq!(created.id, message_id);
+    assert_eq!(created.session_id, session_id);
 }
 
 #[tokio::test]

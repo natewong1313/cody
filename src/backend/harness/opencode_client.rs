@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::pin::Pin;
 
 use crate::backend::harness::Model;
-use crate::backend::repo::user_message::UserMessage;
+use crate::backend::repo::user_message::{UserMessage, UserMessagePart};
 
 #[derive(Clone)]
 pub struct OpencodeApiClient {
@@ -145,6 +145,49 @@ impl From<&UserMessage> for OpencodeSendMessageRequest {
             system: value.system_prompt.clone(),
             tools,
             parts: Vec::new(),
+        }
+    }
+}
+
+impl TryFrom<UserMessagePart> for OpencodePartInput {
+    type Error = anyhow::Error;
+
+    fn try_from(value: UserMessagePart) -> Result<Self, Self::Error> {
+        match value.part_type.as_str() {
+            "text" => Ok(Self::Text {
+                id: Some(value.id.to_string()),
+                text: value
+                    .text
+                    .ok_or_else(|| anyhow::anyhow!("text part missing text"))?,
+                synthetic: None,
+                ignored: None,
+            }),
+            "file" | "opencode_file" => Ok(Self::OpencodeFile {
+                id: Some(value.id.to_string()),
+                mime: "application/octet-stream".to_string(),
+                filename: value.file_name,
+                url: value
+                    .file_url
+                    .ok_or_else(|| anyhow::anyhow!("file part missing file_url"))?,
+            }),
+            "agent" => Ok(Self::Agent {
+                id: Some(value.id.to_string()),
+                name: value
+                    .agent_name
+                    .ok_or_else(|| anyhow::anyhow!("agent part missing agent_name"))?,
+                source: None,
+            }),
+            "subtask" => Ok(Self::Subtask {
+                id: Some(value.id.to_string()),
+                prompt: value
+                    .subtask_prompt
+                    .ok_or_else(|| anyhow::anyhow!("subtask part missing subtask_prompt"))?,
+                description: value.subtask_description.unwrap_or_default(),
+                agent: value.agent_name.unwrap_or_else(|| "build".to_string()),
+            }),
+            other => Err(anyhow::anyhow!(
+                "unsupported user message part_type: {other}"
+            )),
         }
     }
 }

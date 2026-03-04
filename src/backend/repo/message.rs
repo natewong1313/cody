@@ -4,7 +4,10 @@ use crate::backend::{
     BackendContext,
     db::{Database, DatabaseError},
     harness::Harness,
-    repo::{assistant_message::AssistantMessage, user_message::UserMessage},
+    repo::{
+        assistant_message::AssistantMessage,
+        user_message::{UserMessage, UserMessagePart},
+    },
 };
 
 pub enum Message {
@@ -50,6 +53,7 @@ where
     pub async fn create_user_message(
         &self,
         message: UserMessage,
+        mut message_parts: Vec<UserMessagePart>,
     ) -> Result<UserMessage, MessageRepoError> {
         let session = self
             .ctx
@@ -60,11 +64,26 @@ where
 
         let created_message = self.ctx.db.create_user_message(message.clone()).await?;
 
+        for message_part in &mut message_parts {
+            message_part.user_message_id = created_message.id;
+            message_part.session_id = created_message.session_id;
+            let _ = self
+                .ctx
+                .db
+                .create_user_message_part(message_part.clone())
+                .await?;
+        }
+
         log::debug!("sending message to harness");
         let _ = self
             .ctx
             .harness
-            .send_message(session.harness_session_id, message, session.dir)
+            .send_message(
+                session.harness_session_id,
+                message,
+                message_parts,
+                session.dir,
+            )
             .await;
         log::debug!("sent message to harness");
 

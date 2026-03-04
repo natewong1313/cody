@@ -10,3 +10,5 @@ mod message_test;
 mod project_test;
 #[cfg(test)]
 mod session_test;
+#[cfg(test)]
+mod test_utils;
