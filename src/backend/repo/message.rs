@@ -21,6 +21,8 @@ pub enum MessageRepoError {
     Database(#[from] DatabaseError),
     #[error("session not found for {0}")]
     SessionNotFound(Uuid),
+    #[error("harness error: {0}")]
+    Harness(#[from] crate::backend::harness::HarnessError),
 }
 
 pub struct MessageRepo<D>
@@ -62,6 +64,19 @@ where
             .await?
             .ok_or(MessageRepoError::SessionNotFound(message.session_id))?;
 
+        log::debug!("sending message to harness");
+        let _ = self
+            .ctx
+            .harness
+            .send_message(
+                session.harness_session_id,
+                message.clone(),
+                message_parts.clone(),
+                session.dir,
+            )
+            .await?;
+        log::debug!("sent message to harness");
+
         let created_message = self.ctx.db.create_user_message(message.clone()).await?;
 
         for message_part in &mut message_parts {
@@ -73,19 +88,6 @@ where
                 .create_user_message_part(message_part.clone())
                 .await?;
         }
-
-        log::debug!("sending message to harness");
-        let _ = self
-            .ctx
-            .harness
-            .send_message(
-                session.harness_session_id,
-                message,
-                message_parts,
-                session.dir,
-            )
-            .await;
-        log::debug!("sent message to harness");
 
         Ok(created_message)
     }

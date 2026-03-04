@@ -135,7 +135,7 @@ impl From<&UserMessage> for OpencodeSendMessageRequest {
             });
 
         Self {
-            message_id: Some(value.id.to_string()),
+            message_id: None,
             model: Some(ModelSelection {
                 provider_id: value.model_provider_id.clone(),
                 model_id: value.model_id.clone(),
@@ -459,30 +459,58 @@ pub struct OpencodeToolStateError {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpencodeStepStartPart {
+    pub id: String,
+    #[serde(rename = "sessionID", alias = "sessionId")]
+    pub session_id: String,
+    #[serde(rename = "messageID", alias = "messageId")]
+    pub message_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpencodeStepFinishPart {
+    pub id: String,
+    #[serde(rename = "sessionID", alias = "sessionId")]
+    pub session_id: String,
+    #[serde(rename = "messageID", alias = "messageId")]
+    pub message_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum OpencodePart {
+    #[serde(rename = "step-start")]
+    StepStart(OpencodeStepStartPart),
     #[serde(rename = "text")]
     Text(OpencodeTextPart),
     #[serde(rename = "reasoning")]
     Reasoning(OpencodeReasoningPart),
     #[serde(rename = "tool")]
     Tool(OpencodeToolPart),
+    #[serde(rename = "step-finish")]
+    StepFinish(OpencodeStepFinishPart),
 }
 
 impl OpencodePart {
     pub fn session_id(&self) -> &str {
         match self {
+            OpencodePart::StepStart(s) => &s.session_id,
             OpencodePart::Text(t) => &t.session_id,
             OpencodePart::Reasoning(r) => &r.session_id,
             OpencodePart::Tool(t) => &t.session_id,
+            OpencodePart::StepFinish(s) => &s.session_id,
         }
     }
 
     pub fn message_id(&self) -> &str {
         match self {
+            OpencodePart::StepStart(s) => &s.message_id,
             OpencodePart::Text(t) => &t.message_id,
             OpencodePart::Reasoning(r) => &r.message_id,
             OpencodePart::Tool(t) => &t.message_id,
+            OpencodePart::StepFinish(s) => &s.message_id,
         }
     }
 }
@@ -650,6 +678,7 @@ impl OpencodeApiClient {
         let response = req.send().await?;
         let status = response.status();
         let body = response.text().await?;
+        log::debug!("{body}");
 
         if !status.is_success() {
             return Err(anyhow::anyhow!(

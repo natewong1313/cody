@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use thiserror::Error;
 
 use crate::backend::harness::{
-    Harness, OpencodeMessageWithParts, OpencodePartInput, OpencodeSendMessageRequest,
+    Harness, HarnessError, HarnessMessage, OpencodePartInput, OpencodeSendMessageRequest,
 };
 use crate::backend::repo::user_message::{UserMessage, UserMessagePart};
 use crate::backend::{
@@ -23,7 +23,10 @@ pub enum OpencodeHarnessError {
     MutexPoisoned,
 
     #[error("API request failed: {0}")]
-    ApiRequest(String),
+    ApiRequest(#[from] anyhow::Error),
+
+    #[error("API transport failed: {0}")]
+    ApiTransport(#[from] reqwest::Error),
 }
 
 // Needs to be clonable since we pass this around in the repos
@@ -151,7 +154,7 @@ impl Harness for OpencodeHarness {
             .opencode_client
             .create_session(Some(&request), directory)
             .await
-            .map_err(|e| anyhow::anyhow!(OpencodeHarnessError::ApiRequest(e.to_string())))?;
+            .map_err(OpencodeHarnessError::ApiRequest)?;
 
         Ok(created.id)
     }
@@ -162,7 +165,7 @@ impl Harness for OpencodeHarness {
         message: UserMessage,
         message_parts: Vec<UserMessagePart>,
         directory: Option<String>,
-    ) -> anyhow::Result<OpencodeMessageWithParts> {
+    ) -> Result<HarnessMessage, HarnessError> {
         let mut request = OpencodeSendMessageRequest::from(&message);
         let mut message_parts = message_parts;
         message_parts.sort_by_key(|part| part.position);
@@ -170,12 +173,18 @@ impl Harness for OpencodeHarness {
             .into_iter()
             .map(OpencodePartInput::try_from)
             .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| anyhow::anyhow!(OpencodeHarnessError::ApiRequest(e.to_string())))?;
+            .map_err(|e| HarnessError::InvalidRequest(e.to_string()))?;
 
-        self.opencode_client
+        let response = self
+            .opencode_client
             .send_message(&harness_session_id, &request, directory.as_deref())
             .await
-            .map_err(|e| anyhow::anyhow!(OpencodeHarnessError::ApiRequest(e.to_string())))
+            .map_err(HarnessError::ApiRequest)?;
+
+        Ok(HarnessMessage {
+            id: response.id().to_string(),
+            session_id: response.session_id().to_string(),
+        })
     }
 
     async fn get_session_messages(
@@ -183,11 +192,20 @@ impl Harness for OpencodeHarness {
         session_id: &str,
         limit: Option<i32>,
         directory: Option<&str>,
-    ) -> anyhow::Result<Vec<OpencodeMessageWithParts>> {
-        self.opencode_client
+    ) -> Result<Vec<HarnessMessage>, HarnessError> {
+        let messages = self
+            .opencode_client
             .get_session_messages(session_id, limit, directory)
             .await
-            .map_err(|e| anyhow::anyhow!(OpencodeHarnessError::ApiRequest(e.to_string())))
+            .map_err(HarnessError::ApiRequest)?;
+
+        Ok(messages
+            .into_iter()
+            .map(|message| HarnessMessage {
+                id: message.id().to_string(),
+                session_id: message.session_id().to_string(),
+            })
+            .collect())
     }
 
     async fn get_event_stream(
@@ -208,7 +226,7 @@ impl Harness for OpencodeHarness {
             .opencode_client
             .get_event_stream()
             .await
-            .map_err(|e| anyhow::anyhow!(OpencodeHarnessError::ApiRequest(e.to_string())))?;
+            .map_err(OpencodeHarnessError::ApiTransport)?;
         Ok(Box::pin(stream))
     }
 }
@@ -229,7 +247,7 @@ impl OpencodeHarness {
                     Ok(())
                 })
                 .spawn()
-                .map_err(|e| anyhow::anyhow!(OpencodeHarnessError::Spawn(e)))?
+                .map_err(OpencodeHarnessError::Spawn)?
         };
 
         log::debug!("Opencode running on port {port}");
