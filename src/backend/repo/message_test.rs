@@ -136,14 +136,22 @@ async fn spawn_fake_opencode_server() -> (u32, tokio::task::JoinHandle<()>) {
 
             tokio::spawn(async move {
                 let mut buf = [0_u8; 2048];
-                let _ = socket.read(&mut buf).await;
+                let read = socket.read(&mut buf).await.unwrap_or_default();
+                let request = String::from_utf8_lossy(&buf[..read]);
+                let first_line = request.lines().next().unwrap_or_default();
 
-                let body = r#"{"info":{"role":"assistant","id":"msg-assistant-1","sessionID":"ses-fake","time":{"created":1730000000000,"completed":1730000001000},"error":null,"parentID":"msg-user-1","modelID":"gpt-5","providerID":"openai","mode":"chat","path":{"cwd":"/tmp","root":"/tmp"},"cost":0.0,"tokens":{"input":1,"output":2,"reasoning":0,"cache":{"read":0,"write":0}},"finish":"stop"},"parts":[{"id":"part-1","sessionID":"ses-fake","messageID":"msg-assistant-1","type":"text","text":"hello"}]}"#;
-                let response = format!(
-                    "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
-                    body.len(),
-                    body
-                );
+                let response = if first_line.starts_with("POST /session/")
+                    && first_line.contains("/prompt_async")
+                {
+                    "HTTP/1.1 204 No Content\r\nconnection: close\r\n\r\n".to_string()
+                } else {
+                    let body = r#"{"info":{"role":"assistant","id":"msg-assistant-1","sessionID":"ses-fake","time":{"created":1730000000000,"completed":1730000001000},"error":null,"parentID":"msg-user-1","modelID":"gpt-5","providerID":"openai","mode":"chat","path":{"cwd":"/tmp","root":"/tmp"},"cost":0.0,"tokens":{"input":1,"output":2,"reasoning":0,"cache":{"read":0,"write":0}},"finish":"stop"},"parts":[{"id":"part-1","sessionID":"ses-fake","messageID":"msg-assistant-1","type":"text","text":"hello"}]}"#;
+                    format!(
+                        "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
+                        body.len(),
+                        body
+                    )
+                };
 
                 let _ = socket.write_all(response.as_bytes()).await;
                 let _ = socket.shutdown().await;

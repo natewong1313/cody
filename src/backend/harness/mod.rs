@@ -62,13 +62,13 @@ pub trait Harness: Sized {
         directory: Option<&str>,
     ) -> anyhow::Result<String>;
 
-    async fn send_message(
+    async fn send_message_async(
         &self,
         harness_session_id: String,
         message: UserMessage,
         message_parts: Vec<UserMessagePart>,
         directory: Option<String>,
-    ) -> Result<HarnessMessage, HarnessError>;
+    ) -> Result<(), HarnessError>;
 
     async fn get_session_messages(
         &self,

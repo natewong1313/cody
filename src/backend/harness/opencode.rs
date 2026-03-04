@@ -159,13 +159,13 @@ impl Harness for OpencodeHarness {
         Ok(created.id)
     }
 
-    async fn send_message(
+    async fn send_message_async(
         &self,
         harness_session_id: String,
         message: UserMessage,
         message_parts: Vec<UserMessagePart>,
         directory: Option<String>,
-    ) -> Result<HarnessMessage, HarnessError> {
+    ) -> Result<(), HarnessError> {
         let mut request = OpencodeSendMessageRequest::from(&message);
         let mut message_parts = message_parts;
         message_parts.sort_by_key(|part| part.position);
@@ -175,16 +175,12 @@ impl Harness for OpencodeHarness {
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| HarnessError::InvalidRequest(e.to_string()))?;
 
-        let response = self
-            .opencode_client
-            .send_message(&harness_session_id, &request, directory.as_deref())
+        self.opencode_client
+            .send_message_async(&harness_session_id, &request, directory.as_deref())
             .await
             .map_err(HarnessError::ApiRequest)?;
 
-        Ok(HarnessMessage {
-            id: response.id().to_string(),
-            session_id: response.session_id().to_string(),
-        })
+        Ok(())
     }
 
     async fn get_session_messages(

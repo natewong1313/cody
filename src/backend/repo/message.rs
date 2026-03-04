@@ -68,7 +68,7 @@ where
         let _ = self
             .ctx
             .harness
-            .send_message(
+            .send_message_async(
                 session.harness_session_id,
                 message.clone(),
                 message_parts.clone(),

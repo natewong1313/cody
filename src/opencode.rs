@@ -561,24 +561,33 @@ impl OpencodeApiClient {
         Ok(response.bytes_stream().eventsource())
     }
 
-    pub async fn send_message(
+    pub async fn send_message_async(
         &self,
         session_id: &str,
         request: &OpencodeSendMessageRequest,
         directory: Option<&str>,
-    ) -> anyhow::Result<OpencodeMessageWithParts> {
+    ) -> anyhow::Result<()> {
         let mut req = self
             .http_client
             .post(format!(
-                "{}/session/{}/message",
+                "{}/session/{}/prompt_async",
                 self.server_url, session_id
             ))
             .json(request);
         if let Some(dir) = directory {
             req = req.query(&[("directory", dir)]);
         }
-        let response: OpencodeMessageWithParts = req.send().await?.json().await?;
-        Ok(response)
+        let response = req.send().await?;
+        let status = response.status();
+        let body = response.text().await?;
+
+        if !status.is_success() {
+            return Err(anyhow::anyhow!(
+                "opencode send_message_async failed with status {status}: {body}"
+            ));
+        }
+
+        Ok(())
     }
 
     pub async fn get_session_messages(
