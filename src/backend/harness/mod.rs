@@ -1,4 +1,4 @@
-use crate::backend::repo::session::Session;
+use crate::backend::repo::{session::Session, user_message::UserMessage};
 use futures::Stream;
 use std::pin::Pin;
 use uuid::Uuid;
@@ -36,9 +36,10 @@ pub trait Harness: Sized {
 
     async fn send_message(
         &self,
-        session_id: &str,
-        request: &OpencodeSendMessageRequest,
-        directory: Option<&str>,
+        message: UserMessage,
+        // session_id: &str,
+        // request: &OpencodeSendMessageRequest,
+        directory: Option<String>,
     ) -> anyhow::Result<OpencodeMessageWithParts>;
 
     async fn get_session_messages(

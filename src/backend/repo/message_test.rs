@@ -103,6 +103,59 @@ fn assistant_message(
 }
 
 #[tokio::test]
+async fn create_user_message_persists_message() {
+    let db = Sqlite::new_in_memory().expect("in-memory db should initialize");
+    let now = fixed_datetime();
+    let project_id = Uuid::new_v4();
+    let session_id = Uuid::new_v4();
+    let message_id = Uuid::new_v4();
+
+    db.create_project(test_project(project_id, now))
+        .await
+        .expect("create project should succeed");
+    db.create_session(test_session(session_id, project_id, now))
+        .await
+        .expect("create session should succeed");
+
+    let ctx = BackendContext::new(db, OpencodeHarness::new_for_test(closed_port()));
+    let repo = MessageRepo::new(ctx);
+
+    let created = repo
+        .create_user_message(user_message(message_id, session_id, now + Duration::seconds(1)))
+        .await
+        .expect("create_user_message should succeed");
+
+    assert_eq!(created.id, message_id);
+    assert_eq!(created.session_id, session_id);
+
+    let listed = repo
+        .list_by_session(&session_id, 10)
+        .await
+        .expect("list_by_session should succeed");
+
+    assert_eq!(listed.len(), 1);
+    match &listed[0] {
+        Message::User(m) => assert_eq!(m.id, message_id),
+        _ => panic!("expected user message"),
+    }
+}
+
+#[tokio::test]
+async fn create_user_message_maps_database_errors() {
+    let db = Sqlite::new_in_memory().expect("in-memory db should initialize");
+    let now = fixed_datetime();
+    let ctx = BackendContext::new(db, OpencodeHarness::new_for_test(closed_port()));
+    let repo = MessageRepo::new(ctx);
+
+    let err = repo
+        .create_user_message(user_message(Uuid::new_v4(), Uuid::new_v4(), now))
+        .await
+        .expect_err("create_user_message should fail for missing session");
+
+    assert!(matches!(err, crate::backend::repo::message::MessageRepoError::Database(_)));
+}
+
+#[tokio::test]
 async fn list_by_session_returns_empty_for_new_session() {
     let db = Sqlite::new_in_memory().expect("in-memory db should initialize");
     let now = fixed_datetime();

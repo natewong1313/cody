@@ -3,6 +3,7 @@ package messages;
 
 service Messages {
   rpc ListMessagesBySession (ListMessagesBySessionRequest) returns (ListMessagesBySessionReply);
+  rpc CreateUserMessage (CreateUserMessageRequest) returns (CreateUserMessageReply);
 }
 
 message UserMessagePartModel {
@@ -125,4 +126,11 @@ message ListMessagesBySessionRequest {
 }
 message ListMessagesBySessionReply {
   repeated MessageHistory messages = 1;
+}
+
+message CreateUserMessageRequest {
+  UserMessageModel message = 1;
+}
+message CreateUserMessageReply {
+  UserMessageModel message = 1;
 }
