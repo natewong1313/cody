@@ -16,7 +16,7 @@ use crate::backend::{
     harness::opencode::OpencodeHarness,
     proto_project::ProjectModel,
     proto_session::SessionModel,
-    repo::{project::ProjectRepo, session::SessionRepo},
+    repo::{message::MessageRepo, project::ProjectRepo, session::SessionRepo},
 };
 
 pub fn closed_port() -> u32 {
@@ -54,6 +54,10 @@ pub async fn spawn_fake_opencode_server() -> (u32, tokio::task::JoinHandle<()>) 
                     && first_line.contains("/message")
                 {
                     r#"{"info":{"role":"assistant","id":"msg-assistant-1","sessionID":"ses-fake","time":{"created":1730000000000,"completed":1730000001000},"error":null,"parentID":"msg-user-1","modelID":"gpt-5","providerID":"openai","mode":"chat","path":{"cwd":"/tmp","root":"/tmp"},"cost":0.0,"tokens":{"input":1,"output":2,"reasoning":0,"cache":{"read":0,"write":0}},"finish":"stop"},"parts":[{"id":"part-1","sessionID":"ses-fake","messageID":"msg-assistant-1","type":"text","text":"hello"}]}"#.to_string()
+                } else if first_line.starts_with("POST /session/")
+                    && first_line.contains("/prompt_async")
+                {
+                    String::new()
                 } else if first_line.starts_with("GET /session/") && first_line.contains("/message")
                 {
                     r#"[{"info":{"role":"user","id":"msg-user-1","sessionID":"ses-fake","time":{"created":1730000000000},"summary":null,"agent":"build","model":{"providerID":"openai","modelID":"gpt-5"},"system":null,"tools":null},"parts":[{"id":"part-user-1","sessionID":"ses-fake","messageID":"msg-user-1","type":"text","text":"hi"}]},{"info":{"role":"assistant","id":"msg-assistant-1","sessionID":"ses-fake","time":{"created":1730000000000,"completed":1730000001000},"error":null,"parentID":"msg-user-1","modelID":"gpt-5","providerID":"openai","mode":"chat","path":{"cwd":"/tmp","root":"/tmp"},"cost":0.0,"tokens":{"input":1,"output":2,"reasoning":0,"cache":{"read":0,"write":0}},"finish":"stop"},"parts":[{"id":"part-1","sessionID":"ses-fake","messageID":"msg-assistant-1","type":"text","text":"hello"}]}]"#.to_string()
@@ -61,11 +65,17 @@ pub async fn spawn_fake_opencode_server() -> (u32, tokio::task::JoinHandle<()>) 
                     return_create_session_body()
                 };
 
-                let response = format!(
-                    "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
-                    body.len(),
-                    body
-                );
+                let response = if first_line.starts_with("POST /session/")
+                    && first_line.contains("/prompt_async")
+                {
+                    "HTTP/1.1 204 No Content\r\nconnection: close\r\n\r\n".to_string()
+                } else {
+                    format!(
+                        "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
+                        body.len(),
+                        body
+                    )
+                };
 
                 let _ = socket.write_all(response.as_bytes()).await;
                 let _ = socket.shutdown().await;
@@ -90,10 +100,12 @@ pub fn test_backend(port: u32) -> Arc<BackendService> {
     let (projects_sender, _) = watch::channel(Vec::new());
 
     Arc::new(BackendService {
+        ctx: ctx.clone(),
         project_repo: ProjectRepo::new(ctx.clone()),
         projects_sender,
         project_sender_by_id: Mutex::new(HashMap::new()),
-        session_repo: SessionRepo::new(ctx),
+        session_repo: SessionRepo::new(ctx.clone()),
+        message_repo: MessageRepo::new(ctx),
     })
 }
 

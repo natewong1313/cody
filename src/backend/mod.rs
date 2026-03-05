@@ -1,7 +1,7 @@
 use crate::backend::{
     db::{Database, DatabaseStartupError, sqlite::Sqlite},
     harness::{Harness, opencode::OpencodeHarness},
-    repo::{project::ProjectRepo, session::SessionRepo},
+    repo::{message::MessageRepo, project::ProjectRepo, session::SessionRepo},
 };
 use std::{
     collections::HashMap,
@@ -16,6 +16,7 @@ pub use repo::project::Project;
 pub use repo::session::Session;
 mod db;
 mod harness;
+mod models;
 pub mod proto_utils;
 mod repo;
 mod service;
@@ -35,6 +36,16 @@ pub(crate) mod proto_session {
 use proto_session::session_server::SessionServer;
 pub use proto_session::{
     ListSessionsByProjectReply, ListSessionsByProjectRequest, session_client::SessionClient,
+};
+
+pub(crate) mod proto_message {
+    tonic::include_proto!("messages");
+}
+use proto_message::messages_server::MessagesServer;
+pub use proto_message::{
+    CreateUserMessageReply, CreateUserMessageRequest, ListMessagesBySessionReply,
+    ListMessagesBySessionRequest, SubscribeMessagesBySessionReply,
+    SubscribeMessagesBySessionRequest, messages_client::MessagesClient,
 };
 
 pub struct BackendContext<D>
@@ -70,10 +81,12 @@ where
 }
 
 pub struct BackendService {
+    ctx: BackendContext<Sqlite>,
     project_repo: ProjectRepo<Sqlite>,
     projects_sender: watch::Sender<Vec<Project>>,
     project_sender_by_id: Mutex<HashMap<Uuid, watch::Sender<Option<Project>>>>,
     session_repo: SessionRepo<Sqlite>,
+    message_repo: MessageRepo<Sqlite>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -95,12 +108,15 @@ impl BackendService {
         let (projects_sender, _) = watch::channel(Vec::new());
         let project_sender_by_id = Mutex::new(HashMap::new());
         let session_repo = SessionRepo::new(ctx.clone());
+        let message_repo = MessageRepo::new(ctx.clone());
 
         Ok(Self {
+            ctx,
             project_repo,
             projects_sender,
             project_sender_by_id,
             session_repo,
+            message_repo,
         })
     }
 }
@@ -112,12 +128,14 @@ pub fn spawn_backend(
 
     let project_service = ProjectServer::new(backend.clone());
     let session_service = SessionServer::new(backend.clone());
+    let message_service = MessagesServer::new(backend.clone());
 
     Ok(tokio::spawn(async move {
         log::info!("gRPC backend listening on {addr}");
         Server::builder()
             .add_service(project_service)
             .add_service(session_service)
+            .add_service(message_service)
             .serve(addr)
             .await
     }))
