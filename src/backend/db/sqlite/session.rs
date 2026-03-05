@@ -1,7 +1,9 @@
-use tokio_rusqlite::rusqlite::{Connection, OptionalExtension, Row};
+use serde_rusqlite::{from_rows, to_params_named, to_params_named_with_fields};
+use tokio_rusqlite::named_params;
+use tokio_rusqlite::rusqlite::Connection;
 use uuid::Uuid;
 
-use super::{assert_one_row_affected, check_returning_row_error, now_utc_string};
+use super::{assert_one_row_affected, expect_one_returned_row};
 use crate::backend::Session;
 use crate::backend::db::DatabaseError;
 
@@ -10,24 +12,6 @@ id, project_id, parent_session_id, show_in_gui, name, harness_type, harness_sess
 dir, summary_additions, summary_deletions, summary_files, created_at, updated_at
 ";
 
-pub fn row_to_session(row: &Row) -> Result<Session, tokio_rusqlite::rusqlite::Error> {
-    Ok(Session {
-        id: row.get(0)?,
-        project_id: row.get(1)?,
-        parent_session_id: row.get(2)?,
-        show_in_gui: row.get(3)?,
-        name: row.get(4)?,
-        harness_type: row.get(5)?,
-        harness_session_id: row.get(6)?,
-        dir: row.get(7)?,
-        summary_additions: row.get(8)?,
-        summary_deletions: row.get(9)?,
-        summary_files: row.get(10)?,
-        created_at: row.get(11)?,
-        updated_at: row.get(12)?,
-    })
-}
-
 pub fn list_sessions_by_project(
     conn: &Connection,
     project_id: Uuid,
@@ -35,93 +19,84 @@ pub fn list_sessions_by_project(
     let mut stmt = conn.prepare(&format!(
         "SELECT {SESSION_COLUMNS}
          FROM sessions
-         WHERE project_id = ?1
+         WHERE project_id = :project_id
          ORDER BY updated_at DESC"
     ))?;
-    let sessions = stmt
-        .query_map([project_id], row_to_session)?
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(sessions)
+    let rows =
+        from_rows::<Session>(stmt.query(named_params! {":project_id": project_id.to_string()})?);
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
 pub fn get_session(conn: &Connection, session_id: Uuid) -> Result<Option<Session>, DatabaseError> {
-    let mut stmt = conn.prepare(&format!(
-        "SELECT {SESSION_COLUMNS}
-         FROM sessions
-         WHERE id = ?1"
-    ))?;
-    let session = stmt.query_row([session_id], row_to_session).optional()?;
-    Ok(session)
+    let mut stmt = conn.prepare("SELECT * FROM sessions WHERE id = :id")?;
+    let mut rows = from_rows::<Session>(stmt.query(named_params! {":id": session_id.to_string()})?);
+    Ok(rows.next().transpose()?)
 }
 
 pub fn create_session(conn: &Connection, session: &Session) -> Result<Session, DatabaseError> {
-    let created = conn.query_row(
-        &format!(
-            "INSERT INTO sessions ({SESSION_COLUMNS})
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
-            RETURNING {SESSION_COLUMNS}"
-        ),
-        (
-            &session.id,
-            &session.project_id,
-            &session.parent_session_id,
-            &session.show_in_gui,
-            &session.name,
-            &session.harness_type,
-            &session.harness_session_id,
-            &session.dir,
-            &session.summary_additions,
-            &session.summary_deletions,
-            &session.summary_files,
-            &session.created_at,
-            &session.updated_at,
-        ),
-        row_to_session,
+    let params = to_params_named(session)?;
+    let mut stmt = conn.prepare(
+        &format!("
+        INSERT INTO sessions ({SESSION_COLUMNS})
+        VALUES (
+            :id, :project_id, :parent_session_id, :show_in_gui, :name, :harness_type, :harness_session_id,
+            :dir, :summary_additions, :summary_deletions, :summary_files, :created_at, :updated_at
+        )
+        RETURNING *
+    "),
     )?;
-    Ok(created)
+    let rows = from_rows::<Session>(stmt.query(params.to_slice().as_slice())?);
+    expect_one_returned_row("create_session", rows)
 }
 
 pub fn update_session(conn: &Connection, session: &Session) -> Result<Session, DatabaseError> {
-    let updated = conn
-        .query_row(
-            &format!(
-                "UPDATE sessions
-                 SET
-                    project_id = ?2,
-                    parent_session_id = ?3,
-                    show_in_gui = ?4,
-                    name = ?5,
-                    harness_type = ?6,
-                    harness_session_id = ?7,
-                    dir = ?8,
-                    summary_additions = ?9,
-                    summary_deletions = ?10,
-                    summary_files = ?11,
-                    updated_at = ?12
-                 WHERE id = ?1
-                 RETURNING {SESSION_COLUMNS}"
-            ),
-            (
-                &session.id,
-                &session.project_id,
-                &session.parent_session_id,
-                &session.show_in_gui,
-                &session.name,
-                &session.harness_type,
-                &session.harness_session_id,
-                &session.dir,
-                &session.summary_additions,
-                &session.summary_deletions,
-                &session.summary_files,
-                now_utc_string(),
-            ),
-            row_to_session,
-        )
-        .map_err(|e| check_returning_row_error("update_session", e))?;
-    Ok(updated)
+    let mut updated = session.clone();
+    updated.updated_at = chrono::Utc::now().naive_utc();
+
+    let params = to_params_named_with_fields(
+        &updated,
+        &[
+            "id",
+            "project_id",
+            "parent_session_id",
+            "show_in_gui",
+            "name",
+            "harness_type",
+            "harness_session_id",
+            "dir",
+            "summary_additions",
+            "summary_deletions",
+            "summary_files",
+            "updated_at",
+        ],
+    )?;
+    let mut stmt = conn.prepare(
+        "
+        UPDATE sessions
+        SET
+            project_id = :project_id,
+            parent_session_id = :parent_session_id,
+            show_in_gui = :show_in_gui,
+            name = :name,
+            harness_type = :harness_type,
+            harness_session_id = :harness_session_id,
+            dir = :dir,
+            summary_additions = :summary_additions,
+            summary_deletions = :summary_deletions,
+            summary_files = :summary_files,
+            updated_at = :updated_at
+        WHERE id = :id
+        RETURNING *
+    ",
+    )?;
+    let rows = from_rows::<Session>(stmt.query(params.to_slice().as_slice())?);
+    expect_one_returned_row("update_session", rows)
 }
 
 pub fn delete_session(conn: &Connection, session_id: Uuid) -> Result<(), DatabaseError> {
-    let rows = conn.execute("DELETE FROM sessions WHERE id = ?1", [session_id])?;
+    let rows = conn.execute(
+        "DELETE FROM sessions WHERE id = :id",
+        named_params! {":id": session_id.to_string()},
+    )?;
     assert_one_row_affected("delete_session", rows)
 }

@@ -32,6 +32,8 @@ pub enum DatabaseError {
         expected: usize,
         actual: usize,
     },
+    #[error("Serde rusqlite error {0}")]
+    SerdeError(#[from] serde_rusqlite::Error),
 }
 
 pub trait Database {

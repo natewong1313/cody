@@ -4,7 +4,7 @@ const SQLITE_MIGRATIONS_SLICE: &[M<'_>] = &[
     M::up(
         "
 CREATE TABLE projects (
-    id BLOB PRIMARY KEY NOT NULL CHECK(length(id) = 16),
+    id TEXT PRIMARY KEY NOT NULL CHECK(length(id) = 36),
     name TEXT NOT NULL CHECK(length(trim(name)) > 0),
     dir TEXT NOT NULL CHECK(length(trim(dir)) > 0),
     created_at TEXT NOT NULL,
@@ -16,10 +16,10 @@ CREATE INDEX projects_dir_idx ON projects(dir);
     M::up(
         "
 CREATE TABLE sessions (
-    id BLOB PRIMARY KEY NOT NULL CHECK(length(id) = 16),
-    project_id BLOB NOT NULL CHECK(length(project_id) = 16) REFERENCES projects(id) ON DELETE CASCADE,
+    id TEXT PRIMARY KEY NOT NULL CHECK(length(id) = 36),
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
 
-    parent_session_id BLOB REFERENCES sessions(id) ON DELETE SET NULL,
+    parent_session_id TEXT REFERENCES sessions(id) ON DELETE SET NULL,
 
     show_in_gui INTEGER NOT NULL DEFAULT 0 CHECK(show_in_gui IN (0, 1)),
 
@@ -44,7 +44,7 @@ CREATE INDEX sessions_parent_session_id_idx ON sessions(parent_session_id);
         "
 CREATE TABLE user_message (
     id BLOB PRIMARY KEY NOT NULL CHECK(length(id) = 16),
-    session_id BLOB NOT NULL CHECK(length(session_id) = 16) REFERENCES sessions(id) ON DELETE CASCADE,
+    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
 
     agent TEXT NOT NULL DEFAULT 'build',
     model_provider_id TEXT NOT NULL,
@@ -62,7 +62,7 @@ CREATE INDEX user_message_session_created_idx ON user_message(session_id, create
 CREATE TABLE user_message_part (
     id BLOB PRIMARY KEY NOT NULL CHECK(length(id) = 16),
     user_message_id BLOB NOT NULL CHECK(length(user_message_id) = 16) REFERENCES user_message(id) ON DELETE CASCADE,
-    session_id BLOB NOT NULL CHECK(length(session_id) = 16) REFERENCES sessions(id) ON DELETE CASCADE,
+    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
 
     position INTEGER NOT NULL,
     part_type TEXT NOT NULL,
@@ -85,7 +85,7 @@ CREATE INDEX user_message_part_type_idx ON user_message_part(part_type);
 
 CREATE TABLE assistant_message (
     id BLOB PRIMARY KEY NOT NULL CHECK(length(id) = 16),
-    session_id BLOB NOT NULL CHECK(length(session_id) = 16) REFERENCES sessions(id) ON DELETE CASCADE,
+    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
     user_message_id BLOB NOT NULL CHECK(length(user_message_id) = 16) REFERENCES user_message(id) ON DELETE CASCADE,
 
     agent TEXT NOT NULL,
@@ -117,7 +117,7 @@ CREATE TABLE assistant_message_part (
     id BLOB PRIMARY KEY NOT NULL CHECK(length(id) = 16),
     assistant_message_id BLOB NOT NULL CHECK(length(assistant_message_id) = 16)
         REFERENCES assistant_message(id) ON DELETE CASCADE,
-    session_id BLOB NOT NULL CHECK(length(session_id) = 16) REFERENCES sessions(id) ON DELETE CASCADE,
+    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
 
     position INTEGER NOT NULL,
     part_type TEXT NOT NULL,

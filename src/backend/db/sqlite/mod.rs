@@ -57,6 +57,19 @@ pub fn assert_one_row_affected(
     }
 }
 
+pub fn expect_one_returned_row<T>(
+    op: &'static str,
+    mut rows: impl Iterator<Item = serde_rusqlite::Result<T>>,
+) -> Result<T, DatabaseError> {
+    rows.next()
+        .transpose()?
+        .ok_or(DatabaseError::UnexpectedRowsAffected {
+            op,
+            expected: 1,
+            actual: 0,
+        })
+}
+
 pub struct Sqlite {
     conn: AsyncConnection,
 }

@@ -1,80 +1,55 @@
-use tokio_rusqlite::rusqlite::{Connection, OptionalExtension, Row};
+use serde_rusqlite::{from_rows, to_params, to_params_named, to_params_named_with_fields};
+use tokio_rusqlite::named_params;
+use tokio_rusqlite::rusqlite::Connection;
 use uuid::Uuid;
 
-use super::{assert_one_row_affected, check_returning_row_error, now_utc_string};
+use super::{assert_one_row_affected, expect_one_returned_row, now_utc_string};
 use crate::backend::Project;
 use crate::backend::db::DatabaseError;
 
-const PROJECT_COLUMNS: &str = "
-id, name, dir, created_at, updated_at
-";
-
-pub fn row_to_project(row: &Row) -> Result<Project, tokio_rusqlite::rusqlite::Error> {
-    Ok(Project {
-        id: row.get(0)?,
-        name: row.get(1)?,
-        dir: row.get(2)?,
-        created_at: row.get(3)?,
-        updated_at: row.get(4)?,
-    })
-}
-
 pub fn list_projects(conn: &Connection) -> Result<Vec<Project>, DatabaseError> {
-    let mut stmt = conn.prepare(&format!(
-        "SELECT {PROJECT_COLUMNS}
-         FROM projects
-         ORDER BY updated_at DESC"
-    ))?;
-    let projects = stmt
-        .query_map([], row_to_project)?
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(projects)
+    let mut stmt = conn.prepare("SELECT * FROM projects ORDER BY updated_at DESC")?;
+    let rows = from_rows::<Project>(stmt.query([])?);
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
 pub fn get_project(conn: &Connection, project_id: Uuid) -> Result<Option<Project>, DatabaseError> {
-    let mut stmt = conn.prepare(&format!(
-        "SELECT {PROJECT_COLUMNS}
-         FROM projects
-         WHERE id = ?1"
-    ))?;
-    let project = stmt.query_row([project_id], row_to_project).optional()?;
-    Ok(project)
+    let mut stmt = conn.prepare("SELECT * FROM projects WHERE id = :id")?;
+    let mut rows = from_rows::<Project>(stmt.query(named_params! {":id": project_id.to_string()})?);
+    Ok(rows.next().transpose()?)
 }
 
 pub fn create_project(conn: &Connection, project: &Project) -> Result<Project, DatabaseError> {
-    let created = conn.query_row(
-        &format!(
-            "INSERT INTO projects ({PROJECT_COLUMNS})
-             VALUES (?1, ?2, ?3, ?4, ?5)
-             RETURNING {PROJECT_COLUMNS}"
-        ),
-        (
-            &project.id,
-            &project.name,
-            &project.dir,
-            &project.created_at,
-            &project.updated_at,
-        ),
-        row_to_project,
+    let params = to_params_named(project)?;
+    let mut stmt = conn.prepare(
+        "
+        INSERT INTO projects (id, name, dir, created_at, updated_at)
+        VALUES (:id, :name, :dir, :created_at, :updated_at)
+        RETURNING *
+    ",
     )?;
-    Ok(created)
+    let rows = from_rows::<Project>(stmt.query(params.to_slice().as_slice())?);
+    expect_one_returned_row("create_project", rows)
 }
 
 pub fn update_project(conn: &Connection, project: &Project) -> Result<Project, DatabaseError> {
-    let updated = conn
-        .query_row(
-            "UPDATE projects
-             SET name = ?2, dir = ?3, updated_at = ?4
-             WHERE id = ?1
-             RETURNING id, name, dir, created_at, updated_at",
-            (&project.id, &project.name, &project.dir, now_utc_string()),
-            row_to_project,
-        )
-        .map_err(|e| check_returning_row_error("update_project", e))?;
-    Ok(updated)
+    let params = to_params_named_with_fields(project, &["id", "name", "dir", "updated_at"])?;
+    let mut stmt = conn.prepare(
+        "
+        UPDATE projects
+        SET name = :name, dir = :dir, updated_at = :updated_at
+        WHERE id = :id
+        RETURNING *
+    ",
+    )?;
+    let rows = from_rows::<Project>(stmt.query(params.to_slice().as_slice())?);
+    expect_one_returned_row("update_project", rows)
 }
 
 pub fn delete_project(conn: &Connection, project_id: Uuid) -> Result<(), DatabaseError> {
-    let rows = conn.execute("DELETE FROM projects WHERE id = ?1", [project_id])?;
+    let rows = conn.execute(
+        "DELETE FROM projects WHERE id = :id",
+        named_params! {":id": project_id.to_string()},
+    )?;
     assert_one_row_affected("delete_project", rows)
 }

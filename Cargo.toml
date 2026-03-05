@@ -42,6 +42,7 @@ tonic = "0.14.5"
 prost = "0.14.3"
 tonic-prost = "0.14.5"
 tokio-rusqlite = { version = "0.7.0", features = ["bundled", "chrono", "uuid"] }
+serde_rusqlite = "0.40.0"
 
 [build-dependencies]
 tonic-prost-build = "0.14.5"
