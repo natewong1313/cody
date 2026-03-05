@@ -1,18 +1,32 @@
-use tokio_rusqlite::rusqlite::{self, Connection, Row, params};
+use serde_rusqlite::from_row;
+use tokio_rusqlite::rusqlite::{self, params, Connection, Row};
 use uuid::Uuid;
 
-use super::{assistant_message, user_message};
-use crate::backend::{db::DatabaseError, repo::message::Message};
+use crate::backend::{
+    db::DatabaseError,
+    repo::{assistant_message::AssistantMessage, message::Message, user_message::UserMessage},
+};
 
 fn row_to_message(row: &Row) -> Result<Message, rusqlite::Error> {
     let kind: String = row.get(0)?;
     match kind.as_str() {
-        "user" => Ok(Message::User(user_message::row_to_user_message_at(row, 1)?)),
+        "user" => Ok(Message::User(from_row::<UserMessage>(row).map_err(
+            |err| {
+                rusqlite::Error::FromSqlConversionFailure(
+                    0,
+                    rusqlite::types::Type::Null,
+                    err.into(),
+                )
+            },
+        )?)),
         "assistant" => Ok(Message::Assistant(
-            assistant_message::row_to_assistant_message_at(
-                row,
-                1 + user_message::USER_MESSAGE_COLUMN_COUNT,
-            )?,
+            from_row::<AssistantMessage>(row).map_err(|err| {
+                rusqlite::Error::FromSqlConversionFailure(
+                    0,
+                    rusqlite::types::Type::Null,
+                    err.into(),
+                )
+            })?,
         )),
         _ => Err(rusqlite::Error::FromSqlConversionFailure(
             0,
@@ -20,16 +34,6 @@ fn row_to_message(row: &Row) -> Result<Message, rusqlite::Error> {
             format!("unknown message kind: {kind}").into(),
         )),
     }
-}
-
-fn qualify_columns(columns: &str, alias: &str) -> String {
-    columns
-        .split(',')
-        .map(str::trim)
-        .filter(|c| !c.is_empty())
-        .map(|c| format!("{alias}.{c}"))
-        .collect::<Vec<_>>()
-        .join(", ")
 }
 
 pub fn list_messages_by_session(
@@ -40,9 +44,6 @@ pub fn list_messages_by_session(
     if limit == 0 {
         return Ok(Vec::new());
     }
-
-    let user_columns = qualify_columns(user_message::USER_MESSAGE_COLUMNS, "u");
-    let assistant_columns = qualify_columns(assistant_message::ASSISTANT_MESSAGE_COLUMNS, "a");
 
     let mut stmt = conn.prepare(&format!(
         "WITH latest AS (
@@ -63,14 +64,34 @@ pub fn list_messages_by_session(
          )
          SELECT
             latest.kind,
-            {user_columns},
-            {assistant_columns}
+            COALESCE(u.id, a.id) AS id,
+            a.harness_message_id AS harness_message_id,
+            COALESCE(u.session_id, a.session_id) AS session_id,
+            a.user_message_id AS user_message_id,
+            COALESCE(u.agent, a.agent) AS agent,
+            COALESCE(u.model_provider_id, a.model_provider_id) AS model_provider_id,
+            COALESCE(u.model_id, a.model_id) AS model_id,
+            u.system_prompt AS system_prompt,
+            u.structured_output_type AS structured_output_type,
+            u.tools_list AS tools_list,
+            u.thinking_variant AS thinking_variant,
+            a.cwd AS cwd,
+            a.root AS root,
+            a.cost AS cost,
+            a.token_total AS token_total,
+            a.token_input AS token_input,
+            a.token_output AS token_output,
+            a.token_reasoning AS token_reasoning,
+            a.token_cache_read AS token_cache_read,
+            a.token_cache_write AS token_cache_write,
+            a.error_message AS error_message,
+            COALESCE(u.created_at, a.created_at) AS created_at,
+            COALESCE(u.updated_at, a.updated_at) AS updated_at,
+            a.completed_at AS completed_at
          FROM latest
          LEFT JOIN user_message u ON latest.kind = 'user' AND u.id = latest.id
          LEFT JOIN assistant_message a ON latest.kind = 'assistant' AND a.id = latest.id
          ORDER BY latest.created_at DESC",
-        user_columns = user_columns,
-        assistant_columns = assistant_columns,
     ))?;
 
     let mut rows = stmt

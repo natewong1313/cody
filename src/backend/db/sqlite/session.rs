@@ -12,10 +12,7 @@ id, project_id, parent_session_id, show_in_gui, name, harness_type, harness_sess
 dir, summary_additions, summary_deletions, summary_files, created_at, updated_at
 ";
 
-pub fn list_sessions_by_project(
-    conn: &Connection,
-    project_id: Uuid,
-) -> Result<Vec<Session>, DatabaseError> {
+pub fn list_by_project(conn: &Connection, project_id: Uuid) -> Result<Vec<Session>, DatabaseError> {
     let mut stmt = conn.prepare(&format!(
         "SELECT {SESSION_COLUMNS}
          FROM sessions
@@ -27,13 +24,13 @@ pub fn list_sessions_by_project(
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
-pub fn get_session(conn: &Connection, session_id: Uuid) -> Result<Option<Session>, DatabaseError> {
+pub fn get(conn: &Connection, session_id: Uuid) -> Result<Option<Session>, DatabaseError> {
     let mut stmt = conn.prepare("SELECT * FROM sessions WHERE id = :id")?;
     let mut rows = from_rows::<Session>(stmt.query(named_params! {":id": session_id.to_string()})?);
     Ok(rows.next().transpose()?)
 }
 
-pub fn create_session(conn: &Connection, session: &Session) -> Result<Session, DatabaseError> {
+pub fn create(conn: &Connection, session: &Session) -> Result<Session, DatabaseError> {
     let params = to_params_named(session)?;
     let mut stmt = conn.prepare(
         &format!("
@@ -49,7 +46,7 @@ pub fn create_session(conn: &Connection, session: &Session) -> Result<Session, D
     expect_one_returned_row("create_session", rows)
 }
 
-pub fn update_session(conn: &Connection, session: &Session) -> Result<Session, DatabaseError> {
+pub fn update(conn: &Connection, session: &Session) -> Result<Session, DatabaseError> {
     let mut updated = session.clone();
     updated.updated_at = chrono::Utc::now().naive_utc();
 
@@ -93,7 +90,7 @@ pub fn update_session(conn: &Connection, session: &Session) -> Result<Session, D
     expect_one_returned_row("update_session", rows)
 }
 
-pub fn delete_session(conn: &Connection, session_id: Uuid) -> Result<(), DatabaseError> {
+pub fn delete(conn: &Connection, session_id: Uuid) -> Result<(), DatabaseError> {
     let rows = conn.execute(
         "DELETE FROM sessions WHERE id = :id",
         named_params! {":id": session_id.to_string()},

@@ -43,7 +43,7 @@ CREATE INDEX sessions_parent_session_id_idx ON sessions(parent_session_id);
     M::up(
         "
 CREATE TABLE user_message (
-    id BLOB PRIMARY KEY NOT NULL CHECK(length(id) = 16),
+    id TEXT PRIMARY KEY NOT NULL CHECK(length(id) = 36),
     session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
 
     agent TEXT NOT NULL DEFAULT 'build',
@@ -60,8 +60,8 @@ CREATE TABLE user_message (
 CREATE INDEX user_message_session_created_idx ON user_message(session_id, created_at);
 
 CREATE TABLE user_message_part (
-    id BLOB PRIMARY KEY NOT NULL CHECK(length(id) = 16),
-    user_message_id BLOB NOT NULL CHECK(length(user_message_id) = 16) REFERENCES user_message(id) ON DELETE CASCADE,
+    id TEXT PRIMARY KEY NOT NULL CHECK(length(id) = 36),
+    user_message_id TEXT NOT NULL REFERENCES user_message(id) ON DELETE CASCADE,
     session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
 
     position INTEGER NOT NULL,
@@ -84,9 +84,9 @@ CREATE INDEX user_message_part_session_created_idx ON user_message_part(session_
 CREATE INDEX user_message_part_type_idx ON user_message_part(part_type);
 
 CREATE TABLE assistant_message (
-    id BLOB PRIMARY KEY NOT NULL CHECK(length(id) = 16),
+    id TEXT PRIMARY KEY NOT NULL CHECK(length(id) = 36),
     session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-    user_message_id BLOB NOT NULL CHECK(length(user_message_id) = 16) REFERENCES user_message(id) ON DELETE CASCADE,
+    user_message_id TEXT NOT NULL REFERENCES user_message(id) ON DELETE CASCADE,
 
     agent TEXT NOT NULL,
     model_provider_id TEXT NOT NULL,
@@ -114,8 +114,8 @@ CREATE INDEX assistant_message_session_created_idx ON assistant_message(session_
 CREATE INDEX assistant_message_user_message_id_idx ON assistant_message(user_message_id);
 
 CREATE TABLE assistant_message_part (
-    id BLOB PRIMARY KEY NOT NULL CHECK(length(id) = 16),
-    assistant_message_id BLOB NOT NULL CHECK(length(assistant_message_id) = 16)
+    id TEXT PRIMARY KEY NOT NULL CHECK(length(id) = 36),
+    assistant_message_id TEXT NOT NULL
         REFERENCES assistant_message(id) ON DELETE CASCADE,
     session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
 

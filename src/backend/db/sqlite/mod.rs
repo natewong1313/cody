@@ -114,26 +114,26 @@ impl Sqlite {
 
 impl Database for Sqlite {
     async fn list_projects(&self) -> Result<Vec<Project>, DatabaseError> {
-        self.with_conn(project::list_projects).await
+        self.with_conn(project::list).await
     }
 
     async fn get_project(&self, project_id: Uuid) -> Result<Option<Project>, DatabaseError> {
-        self.with_conn(move |conn| project::get_project(conn, project_id))
+        self.with_conn(move |conn| project::get(conn, project_id))
             .await
     }
 
     async fn create_project(&self, project: Project) -> Result<Project, DatabaseError> {
-        self.with_conn(move |conn| project::create_project(conn, &project))
+        self.with_conn(move |conn| project::create(conn, &project))
             .await
     }
 
     async fn update_project(&self, project: Project) -> Result<Project, DatabaseError> {
-        self.with_conn(move |conn| project::update_project(conn, &project))
+        self.with_conn(move |conn| project::update(conn, &project))
             .await
     }
 
     async fn delete_project(&self, project_id: Uuid) -> Result<(), DatabaseError> {
-        self.with_conn(move |conn| project::delete_project(conn, project_id))
+        self.with_conn(move |conn| project::delete(conn, project_id))
             .await
     }
 
@@ -141,27 +141,27 @@ impl Database for Sqlite {
         &self,
         project_id: Uuid,
     ) -> Result<Vec<Session>, DatabaseError> {
-        self.with_conn(move |conn| session::list_sessions_by_project(conn, project_id))
+        self.with_conn(move |conn| session::list_by_project(conn, project_id))
             .await
     }
 
     async fn get_session(&self, session_id: Uuid) -> Result<Option<Session>, DatabaseError> {
-        self.with_conn(move |conn| session::get_session(conn, session_id))
+        self.with_conn(move |conn| session::get(conn, session_id))
             .await
     }
 
     async fn create_session(&self, session: Session) -> Result<Session, DatabaseError> {
-        self.with_conn(move |conn| session::create_session(conn, &session))
+        self.with_conn(move |conn| session::create(conn, &session))
             .await
     }
 
     async fn update_session(&self, session: Session) -> Result<Session, DatabaseError> {
-        self.with_conn(move |conn| session::update_session(conn, &session))
+        self.with_conn(move |conn| session::update(conn, &session))
             .await
     }
 
     async fn delete_session(&self, session_id: uuid::Uuid) -> Result<(), DatabaseError> {
-        self.with_conn(move |conn| session::delete_session(conn, session_id))
+        self.with_conn(move |conn| session::delete(conn, session_id))
             .await
     }
 
@@ -179,7 +179,7 @@ impl Database for Sqlite {
         session_id: Uuid,
         limit: u32,
     ) -> Result<Vec<UserMessage>, DatabaseError> {
-        self.with_conn(move |conn| user_message::list_messages_by_session(conn, session_id, limit))
+        self.with_conn(move |conn| user_message::list_by_session(conn, session_id, limit))
             .await
     }
 
@@ -187,7 +187,7 @@ impl Database for Sqlite {
         &self,
         user_message_id: Uuid,
     ) -> Result<Option<UserMessage>, DatabaseError> {
-        self.with_conn(move |conn| user_message::get_user_message(conn, user_message_id))
+        self.with_conn(move |conn| user_message::get(conn, user_message_id))
             .await
     }
 
@@ -195,7 +195,7 @@ impl Database for Sqlite {
         &self,
         user_message_item: UserMessage,
     ) -> Result<UserMessage, DatabaseError> {
-        self.with_conn(move |conn| user_message::create_user_message(conn, &user_message_item))
+        self.with_conn(move |conn| user_message::create(conn, &user_message_item))
             .await
     }
 
@@ -203,12 +203,12 @@ impl Database for Sqlite {
         &self,
         user_message_item: UserMessage,
     ) -> Result<UserMessage, DatabaseError> {
-        self.with_conn(move |conn| user_message::update_user_message(conn, &user_message_item))
+        self.with_conn(move |conn| user_message::update(conn, &user_message_item))
             .await
     }
 
     async fn delete_user_message(&self, user_message_id: Uuid) -> Result<(), DatabaseError> {
-        self.with_conn(move |conn| user_message::delete_user_message(conn, user_message_id))
+        self.with_conn(move |conn| user_message::delete(conn, user_message_id))
             .await
     }
 
@@ -245,10 +245,8 @@ impl Database for Sqlite {
         &self,
         assistant_message_id: Uuid,
     ) -> Result<Option<AssistantMessage>, DatabaseError> {
-        self.with_conn(move |conn| {
-            assistant_message::get_assistant_message(conn, assistant_message_id)
-        })
-        .await
+        self.with_conn(move |conn| assistant_message::get(conn, assistant_message_id))
+            .await
     }
 
     async fn get_assistant_message_by_harness_id(
@@ -257,11 +255,7 @@ impl Database for Sqlite {
         harness_message_id: String,
     ) -> Result<Option<AssistantMessage>, DatabaseError> {
         self.with_conn(move |conn| {
-            assistant_message::get_assistant_message_by_harness_id(
-                conn,
-                session_id,
-                &harness_message_id,
-            )
+            assistant_message::get_by_harness_id(conn, session_id, &harness_message_id)
         })
         .await
     }
@@ -270,30 +264,24 @@ impl Database for Sqlite {
         &self,
         assistant_message_item: AssistantMessage,
     ) -> Result<AssistantMessage, DatabaseError> {
-        self.with_conn(move |conn| {
-            assistant_message::create_assistant_message(conn, &assistant_message_item)
-        })
-        .await
+        self.with_conn(move |conn| assistant_message::create(conn, &assistant_message_item))
+            .await
     }
 
     async fn update_assistant_message(
         &self,
         assistant_message_item: AssistantMessage,
     ) -> Result<AssistantMessage, DatabaseError> {
-        self.with_conn(move |conn| {
-            assistant_message::update_assistant_message(conn, &assistant_message_item)
-        })
-        .await
+        self.with_conn(move |conn| assistant_message::update(conn, &assistant_message_item))
+            .await
     }
 
     async fn delete_assistant_message(
         &self,
         assistant_message_id: Uuid,
     ) -> Result<(), DatabaseError> {
-        self.with_conn(move |conn| {
-            assistant_message::delete_assistant_message(conn, assistant_message_id)
-        })
-        .await
+        self.with_conn(move |conn| assistant_message::delete(conn, assistant_message_id))
+            .await
     }
 
     async fn get_assistant_message_part(
