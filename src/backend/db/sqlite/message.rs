@@ -1,5 +1,5 @@
 use serde_rusqlite::from_row;
-use tokio_rusqlite::rusqlite::{self, params, Connection, Row};
+use tokio_rusqlite::rusqlite::{self, Connection, Row, params};
 use uuid::Uuid;
 
 use crate::backend::{
@@ -7,32 +7,22 @@ use crate::backend::{
     repo::{assistant_message::AssistantMessage, message::Message, user_message::UserMessage},
 };
 
-fn row_to_message(row: &Row) -> Result<Message, rusqlite::Error> {
+fn row_to_message(row: &Row) -> Result<Message, DatabaseError> {
     let kind: String = row.get(0)?;
+
     match kind.as_str() {
-        "user" => Ok(Message::User(from_row::<UserMessage>(row).map_err(
-            |err| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    0,
-                    rusqlite::types::Type::Null,
-                    err.into(),
-                )
-            },
-        )?)),
-        "assistant" => Ok(Message::Assistant(
-            from_row::<AssistantMessage>(row).map_err(|err| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    0,
-                    rusqlite::types::Type::Null,
-                    err.into(),
-                )
-            })?,
-        )),
+        "user" => from_row::<UserMessage>(row)
+            .map(Message::User)
+            .map_err(Into::into),
+        "assistant" => from_row::<AssistantMessage>(row)
+            .map(Message::Assistant)
+            .map_err(Into::into),
         _ => Err(rusqlite::Error::FromSqlConversionFailure(
             0,
             rusqlite::types::Type::Text,
             format!("unknown message kind: {kind}").into(),
-        )),
+        )
+        .into()),
     }
 }
 
@@ -45,7 +35,7 @@ pub fn list_messages_by_session(
         return Ok(Vec::new());
     }
 
-    let mut stmt = conn.prepare(&format!(
+    let mut stmt = conn.prepare(
         "WITH latest AS (
             SELECT kind, id, created_at
             FROM (
@@ -92,11 +82,11 @@ pub fn list_messages_by_session(
          LEFT JOIN user_message u ON latest.kind = 'user' AND u.id = latest.id
          LEFT JOIN assistant_message a ON latest.kind = 'assistant' AND a.id = latest.id
          ORDER BY latest.created_at DESC",
-    ))?;
+    )?;
 
     let mut rows = stmt
-        .query_map(params![session_id, i64::from(limit)], row_to_message)?
-        .collect::<Result<Vec<_>, _>>()?;
+        .query_and_then(params![session_id, i64::from(limit)], row_to_message)?
+        .collect::<Result<Vec<_>, DatabaseError>>()?;
     rows.reverse();
     Ok(rows)
 }
