@@ -5,7 +5,8 @@ use crate::backend::{
     Project, Session,
     repo::assistant_message::{AssistantMessage, AssistantMessagePart},
     repo::message::Message,
-    repo::user_message::{UserMessage, UserMessagePart},
+    repo::user_message::UserMessage,
+    repo::user_message_part::UserMessagePart,
 };
 
 mod migrations;
@@ -55,6 +56,11 @@ pub trait Database {
         limit: u32,
     ) -> Result<Vec<Message>, DatabaseError>;
 
+    async fn list_user_messages_by_session(
+        &self,
+        session_id: Uuid,
+        limit: u32,
+    ) -> Result<Vec<UserMessage>, DatabaseError>;
     async fn get_user_message(
         &self,
         user_message_id: Uuid,
@@ -87,6 +93,11 @@ pub trait Database {
         &self,
         assistant_message_id: Uuid,
     ) -> Result<Option<AssistantMessage>, DatabaseError>;
+    async fn get_assistant_message_by_harness_id(
+        &self,
+        session_id: Uuid,
+        harness_message_id: String,
+    ) -> Result<Option<AssistantMessage>, DatabaseError>;
     async fn create_assistant_message(
         &self,
         assistant_message: AssistantMessage,
@@ -103,6 +114,11 @@ pub trait Database {
     async fn get_assistant_message_part(
         &self,
         part_id: Uuid,
+    ) -> Result<Option<AssistantMessagePart>, DatabaseError>;
+    async fn get_assistant_message_part_by_harness_id(
+        &self,
+        assistant_message_id: Uuid,
+        harness_part_id: String,
     ) -> Result<Option<AssistantMessagePart>, DatabaseError>;
     async fn create_assistant_message_part(
         &self,

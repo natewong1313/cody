@@ -2,7 +2,8 @@ use crate::backend::{
     Project, Session,
     repo::assistant_message::{AssistantMessage, AssistantMessagePart},
     repo::message::Message,
-    repo::user_message::{UserMessage, UserMessagePart},
+    repo::user_message::UserMessage,
+    repo::user_message_part::UserMessagePart,
 };
 
 use super::{Database, DatabaseError, DatabaseStartupError, migrations::SQLITE_MIGRATIONS};
@@ -10,6 +11,7 @@ use tokio_rusqlite::{Connection as AsyncConnection, Error as AsyncError, rusqlit
 use uuid::Uuid;
 
 mod assistant_message;
+mod assistant_message_part;
 mod message;
 mod project;
 #[cfg(test)]
@@ -18,6 +20,7 @@ mod session;
 #[cfg(test)]
 mod session_test;
 mod user_message;
+mod user_message_part;
 
 pub fn now_utc_string() -> String {
     chrono::Utc::now().naive_utc().to_string()
@@ -158,6 +161,15 @@ impl Database for Sqlite {
             .await
     }
 
+    async fn list_user_messages_by_session(
+        &self,
+        session_id: Uuid,
+        limit: u32,
+    ) -> Result<Vec<UserMessage>, DatabaseError> {
+        self.with_conn(move |conn| user_message::list_messages_by_session(conn, session_id, limit))
+            .await
+    }
+
     async fn get_user_message(
         &self,
         user_message_id: Uuid,
@@ -191,7 +203,7 @@ impl Database for Sqlite {
         &self,
         part_id: Uuid,
     ) -> Result<Option<UserMessagePart>, DatabaseError> {
-        self.with_conn(move |conn| user_message::get_user_message_part(conn, part_id))
+        self.with_conn(move |conn| user_message_part::get(conn, part_id))
             .await
     }
 
@@ -199,7 +211,7 @@ impl Database for Sqlite {
         &self,
         part: UserMessagePart,
     ) -> Result<UserMessagePart, DatabaseError> {
-        self.with_conn(move |conn| user_message::create_user_message_part(conn, &part))
+        self.with_conn(move |conn| user_message_part::create(conn, &part))
             .await
     }
 
@@ -207,12 +219,12 @@ impl Database for Sqlite {
         &self,
         part: UserMessagePart,
     ) -> Result<UserMessagePart, DatabaseError> {
-        self.with_conn(move |conn| user_message::update_user_message_part(conn, &part))
+        self.with_conn(move |conn| user_message_part::update(conn, &part))
             .await
     }
 
     async fn delete_user_message_part(&self, part_id: Uuid) -> Result<(), DatabaseError> {
-        self.with_conn(move |conn| user_message::delete_user_message_part(conn, part_id))
+        self.with_conn(move |conn| user_message_part::delete(conn, part_id))
             .await
     }
 
@@ -222,6 +234,21 @@ impl Database for Sqlite {
     ) -> Result<Option<AssistantMessage>, DatabaseError> {
         self.with_conn(move |conn| {
             assistant_message::get_assistant_message(conn, assistant_message_id)
+        })
+        .await
+    }
+
+    async fn get_assistant_message_by_harness_id(
+        &self,
+        session_id: Uuid,
+        harness_message_id: String,
+    ) -> Result<Option<AssistantMessage>, DatabaseError> {
+        self.with_conn(move |conn| {
+            assistant_message::get_assistant_message_by_harness_id(
+                conn,
+                session_id,
+                &harness_message_id,
+            )
         })
         .await
     }
@@ -260,15 +287,26 @@ impl Database for Sqlite {
         &self,
         part_id: Uuid,
     ) -> Result<Option<AssistantMessagePart>, DatabaseError> {
-        self.with_conn(move |conn| assistant_message::get_assistant_message_part(conn, part_id))
+        self.with_conn(move |conn| assistant_message_part::get(conn, part_id))
             .await
+    }
+
+    async fn get_assistant_message_part_by_harness_id(
+        &self,
+        assistant_message_id: Uuid,
+        harness_part_id: String,
+    ) -> Result<Option<AssistantMessagePart>, DatabaseError> {
+        self.with_conn(move |conn| {
+            assistant_message_part::get_by_harness_id(conn, assistant_message_id, &harness_part_id)
+        })
+        .await
     }
 
     async fn create_assistant_message_part(
         &self,
         part: AssistantMessagePart,
     ) -> Result<AssistantMessagePart, DatabaseError> {
-        self.with_conn(move |conn| assistant_message::create_assistant_message_part(conn, &part))
+        self.with_conn(move |conn| assistant_message_part::create(conn, &part))
             .await
     }
 
@@ -276,12 +314,12 @@ impl Database for Sqlite {
         &self,
         part: AssistantMessagePart,
     ) -> Result<AssistantMessagePart, DatabaseError> {
-        self.with_conn(move |conn| assistant_message::update_assistant_message_part(conn, &part))
+        self.with_conn(move |conn| assistant_message_part::update(conn, &part))
             .await
     }
 
     async fn delete_assistant_message_part(&self, part_id: Uuid) -> Result<(), DatabaseError> {
-        self.with_conn(move |conn| assistant_message::delete_assistant_message_part(conn, part_id))
+        self.with_conn(move |conn| assistant_message_part::delete(conn, part_id))
             .await
     }
 }
