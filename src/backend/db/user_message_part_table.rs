@@ -3,13 +3,7 @@ use tokio_rusqlite::named_params;
 use tokio_rusqlite::rusqlite::Connection;
 use uuid::Uuid;
 
-use crate::backend::{
-    db::{
-        DatabaseError,
-        sqlite::{assert_one_row_affected, expect_one_returned_row},
-    },
-    repo::user_message_part::UserMessagePart,
-};
+use crate::backend::{db::DatabaseError, repo::user_message_part::UserMessagePart};
 
 const USER_MESSAGE_PART_COLUMNS: &str = "
 id, user_message_id, session_id, position, part_type,
@@ -41,7 +35,7 @@ pub fn create(conn: &Connection, part: &UserMessagePart) -> Result<UserMessagePa
          RETURNING *"
     ))?;
     let rows = from_rows::<UserMessagePart>(stmt.query(params.to_slice().as_slice())?);
-    expect_one_returned_row("create_user_message_part", rows)
+    super::expect_one_returned_row("create_user_message_part", rows)
 }
 
 pub fn update(conn: &Connection, part: &UserMessagePart) -> Result<UserMessagePart, DatabaseError> {
@@ -83,7 +77,7 @@ pub fn update(conn: &Connection, part: &UserMessagePart) -> Result<UserMessagePa
          RETURNING *",
     )?;
     let rows = from_rows::<UserMessagePart>(stmt.query(params.to_slice().as_slice())?);
-    expect_one_returned_row("update_user_message_part", rows)
+    super::expect_one_returned_row("update_user_message_part", rows)
 }
 
 pub fn delete(conn: &Connection, part_id: Uuid) -> Result<(), DatabaseError> {
@@ -91,5 +85,5 @@ pub fn delete(conn: &Connection, part_id: Uuid) -> Result<(), DatabaseError> {
         "DELETE FROM user_message_part WHERE id = :id",
         named_params! {":id": part_id.to_string()},
     )?;
-    assert_one_row_affected("delete_user_message_part", rows)
+    super::assert_one_row_affected("delete_user_message_part", rows)
 }

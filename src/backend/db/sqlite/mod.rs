@@ -10,17 +10,17 @@ use super::{Database, DatabaseError, DatabaseStartupError, migrations::SQLITE_MI
 use tokio_rusqlite::{Connection as AsyncConnection, Error as AsyncError, rusqlite::Connection};
 use uuid::Uuid;
 
-mod assistant_message;
-mod assistant_message_part;
-mod message;
+pub mod assistant_message;
+pub mod assistant_message_part;
+pub mod message;
 mod project;
 #[cfg(test)]
 mod project_test;
-mod session;
+pub mod session;
 #[cfg(test)]
 mod session_test;
-mod user_message;
-mod user_message_part;
+pub mod user_message;
+pub mod user_message_part;
 
 pub fn now_utc_string() -> String {
     chrono::Utc::now().naive_utc().to_string()
@@ -38,7 +38,7 @@ pub fn check_returning_row_error(
                 actual: 0,
             }
         }
-        other => DatabaseError::SqliteQueryError(other),
+        other => DatabaseError::UnknownError(other),
     }
 }
 
@@ -105,7 +105,7 @@ impl Sqlite {
             .await
             .map_err(|err| match err {
                 AsyncError::ConnectionClosed => DatabaseError::ConnectionClosed,
-                AsyncError::Close((_conn, err)) => DatabaseError::SqliteQueryError(err),
+                AsyncError::Close((_conn, err)) => DatabaseError::UnknownError(err),
                 AsyncError::Error(err) => err,
                 _ => DatabaseError::ConnectionClosed,
             })
