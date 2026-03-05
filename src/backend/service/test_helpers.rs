@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::backend::{
     BackendContext, BackendService, Project, Session,
-    db::sqlite::Sqlite,
+    db::Database,
     harness::opencode::OpencodeHarness,
     proto_project::ProjectModel,
     proto_session::SessionModel,
@@ -93,8 +93,8 @@ fn return_create_session_body() -> String {
     )
 }
 
-pub fn test_backend(port: u32) -> Arc<BackendService> {
-    let db = Sqlite::new_in_memory().expect("in-memory db should initialize");
+pub async fn test_backend(port: u32) -> Arc<BackendService> {
+    let db = Database::new_in_memory().await.expect("in-memory db should initialize");
     let harness = OpencodeHarness::new_for_test(port);
     let ctx = BackendContext::new(db, harness);
     let (projects_sender, _) = watch::channel(Vec::new());

@@ -154,7 +154,7 @@ async fn main() -> Result<()> {
     log::info!("Starting opencode gui (production mode)");
 
     let grpc_addr = BACKEND_ADDR.parse()?;
-    let _backend_task = backend::spawn_backend(grpc_addr)
+    let _backend_task = backend::spawn_backend(grpc_addr).await
         .map_err(|e| anyhow::anyhow!("Failed to start backend gRPC server: {e}"))?;
 
     let env = AppEnv::new();
@@ -173,7 +173,7 @@ async fn main() -> Result<()> {
     log::info!("Run with: dx serve --hot-patch");
 
     let grpc_addr = BACKEND_ADDR.parse()?;
-    let _backend_task = backend::spawn_backend(grpc_addr)
+    let _backend_task = backend::spawn_backend(grpc_addr).await
         .map_err(|e| anyhow::anyhow!("Failed to start backend gRPC server: {e}"))?;
 
     // let backend_client = backend::rpc::start_local_backend_rpc()

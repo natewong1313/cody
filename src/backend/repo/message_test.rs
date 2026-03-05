@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::backend::{
     BackendContext,
-    db::{Database, sqlite::Sqlite},
+    db::Database,
     harness::Harness,
     harness::opencode::OpencodeHarness,
     repo::{
@@ -128,7 +128,7 @@ async fn create_user_message_sends_message_to_harness() {
         .expect("test harness with process should start");
     wait_for_port(port);
 
-    let db = Sqlite::new_in_memory().expect("in-memory db should initialize");
+    let db = Database::new_in_memory().await.expect("in-memory db should initialize");
     let now = fixed_datetime();
     let project_id = Uuid::new_v4();
     let session_id = Uuid::new_v4();

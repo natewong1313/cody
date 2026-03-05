@@ -14,7 +14,7 @@ use crate::backend::{
 
 #[tokio::test]
 async fn list_projects_returns_models() {
-    let backend = test_backend(closed_port());
+    let backend = test_backend(closed_port()).await;
     let seeded = test_project("proj", "/tmp/proj");
     backend
         .project_repo
@@ -36,7 +36,7 @@ async fn list_projects_returns_models() {
 
 #[tokio::test]
 async fn get_project_returns_none_for_missing() {
-    let backend = test_backend(closed_port());
+    let backend = test_backend(closed_port()).await;
 
     let response = backend
         .get_project(Request::new(GetProjectRequest {
@@ -50,7 +50,7 @@ async fn get_project_returns_none_for_missing() {
 
 #[tokio::test]
 async fn get_project_rejects_invalid_uuid() {
-    let backend = test_backend(closed_port());
+    let backend = test_backend(closed_port()).await;
 
     let err = backend
         .get_project(Request::new(GetProjectRequest {
@@ -65,7 +65,7 @@ async fn get_project_rejects_invalid_uuid() {
 
 #[tokio::test]
 async fn create_project_rejects_missing_project_field() {
-    let backend = test_backend(closed_port());
+    let backend = test_backend(closed_port()).await;
 
     let err = backend
         .create_project(Request::new(CreateProjectRequest { project: None }))
@@ -78,7 +78,7 @@ async fn create_project_rejects_missing_project_field() {
 
 #[tokio::test]
 async fn create_project_rejects_invalid_model() {
-    let backend = test_backend(closed_port());
+    let backend = test_backend(closed_port()).await;
     let mut invalid = valid_project_model();
     invalid.id = "bad-uuid".to_string();
 
@@ -95,7 +95,7 @@ async fn create_project_rejects_invalid_model() {
 
 #[tokio::test]
 async fn update_project_rejects_invalid_model() {
-    let backend = test_backend(closed_port());
+    let backend = test_backend(closed_port()).await;
     let mut invalid = valid_project_model();
     invalid.created_at = "not-a-datetime".to_string();
 
@@ -112,7 +112,7 @@ async fn update_project_rejects_invalid_model() {
 
 #[tokio::test]
 async fn create_and_delete_project_happy_path() {
-    let backend = test_backend(closed_port());
+    let backend = test_backend(closed_port()).await;
     let model = valid_project_model();
 
     let created = backend
@@ -146,7 +146,7 @@ async fn create_and_delete_project_happy_path() {
 
 #[tokio::test]
 async fn subscribe_projects_returns_snapshot_once() {
-    let backend = test_backend(closed_port());
+    let backend = test_backend(closed_port()).await;
     let seeded = test_project("proj", "/tmp/proj");
     backend
         .project_repo
@@ -181,7 +181,7 @@ async fn subscribe_projects_returns_snapshot_once() {
 
 #[tokio::test]
 async fn subscribe_project_returns_current_snapshot_for_existing_project() {
-    let backend = test_backend(closed_port());
+    let backend = test_backend(closed_port()).await;
     let seeded = test_project("proj", "/tmp/proj");
     backend
         .project_repo
@@ -211,7 +211,7 @@ async fn subscribe_project_returns_current_snapshot_for_existing_project() {
 
 #[tokio::test]
 async fn subscribe_project_emits_update_and_delete_events() {
-    let backend = test_backend(closed_port());
+    let backend = test_backend(closed_port()).await;
     let seeded = test_project("proj", "/tmp/proj");
     let created = backend
         .project_repo

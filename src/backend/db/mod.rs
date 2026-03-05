@@ -19,7 +19,6 @@ mod message_table;
 mod migrations;
 mod project_table;
 mod session_table;
-pub mod sqlite;
 mod user_message_part_table;
 mod user_message_table;
 
@@ -105,20 +104,20 @@ impl From<tokio_rusqlite::Error<DatabaseError>> for DatabaseError {
     }
 }
 
-pub struct Sqlite {
+pub struct Database {
     conn: Connection,
 }
 
-impl Sqlite {
+impl Database {
     pub async fn new() -> Result<Self, DatabaseStartupError> {
         let conn = Connection::open("./cody.db").await?;
-        Sqlite::new_with_conn(conn).await
+        Database::new_with_conn(conn).await
     }
 
     #[allow(dead_code)]
     pub async fn new_in_memory() -> Result<Self, DatabaseStartupError> {
         let conn = Connection::open_in_memory().await?;
-        Sqlite::new_with_conn(conn).await
+        Database::new_with_conn(conn).await
     }
 
     async fn new_with_conn(conn: Connection) -> Result<Self, DatabaseStartupError> {
@@ -131,39 +130,39 @@ impl Sqlite {
         Ok(Self { conn: conn.into() })
     }
 
-    async fn list_projects(&self) -> Result<Vec<Project>, DatabaseError> {
+    pub async fn list_projects(&self) -> Result<Vec<Project>, DatabaseError> {
         Ok(self.conn.call(|conn| project_table::list(conn)).await?)
     }
 
-    async fn get_project(&self, project_id: Uuid) -> Result<Option<Project>, DatabaseError> {
+    pub async fn get_project(&self, project_id: Uuid) -> Result<Option<Project>, DatabaseError> {
         Ok(self
             .conn
             .call(move |conn| project_table::get(conn, project_id))
             .await?)
     }
 
-    async fn create_project(&self, project: Project) -> Result<Project, DatabaseError> {
+    pub async fn create_project(&self, project: Project) -> Result<Project, DatabaseError> {
         Ok(self
             .conn
             .call(move |conn| project_table::create(conn, &project))
             .await?)
     }
 
-    async fn update_project(&self, project: Project) -> Result<Project, DatabaseError> {
+    pub async fn update_project(&self, project: Project) -> Result<Project, DatabaseError> {
         Ok(self
             .conn
             .call(move |conn| project_table::update(conn, &project))
             .await?)
     }
 
-    async fn delete_project(&self, project_id: Uuid) -> Result<(), DatabaseError> {
+    pub async fn delete_project(&self, project_id: Uuid) -> Result<(), DatabaseError> {
         Ok(self
             .conn
             .call(move |conn| project_table::delete(conn, project_id))
             .await?)
     }
 
-    async fn list_sessions_by_project(
+    pub async fn list_sessions_by_project(
         &self,
         project_id: Uuid,
     ) -> Result<Vec<Session>, DatabaseError> {
@@ -173,35 +172,35 @@ impl Sqlite {
             .await?)
     }
 
-    async fn get_session(&self, session_id: Uuid) -> Result<Option<Session>, DatabaseError> {
+    pub async fn get_session(&self, session_id: Uuid) -> Result<Option<Session>, DatabaseError> {
         Ok(self
             .conn
             .call(move |conn| session_table::get(conn, session_id))
             .await?)
     }
 
-    async fn create_session(&self, session: Session) -> Result<Session, DatabaseError> {
+    pub async fn create_session(&self, session: Session) -> Result<Session, DatabaseError> {
         Ok(self
             .conn
             .call(move |conn| session_table::create(conn, &session))
             .await?)
     }
 
-    async fn update_session(&self, session: Session) -> Result<Session, DatabaseError> {
+    pub async fn update_session(&self, session: Session) -> Result<Session, DatabaseError> {
         Ok(self
             .conn
             .call(move |conn| session_table::update(conn, &session))
             .await?)
     }
 
-    async fn delete_session(&self, session_id: Uuid) -> Result<(), DatabaseError> {
+    pub async fn delete_session(&self, session_id: Uuid) -> Result<(), DatabaseError> {
         Ok(self
             .conn
             .call(move |conn| session_table::delete(conn, session_id))
             .await?)
     }
 
-    async fn list_messages_by_session(
+    pub async fn list_messages_by_session(
         &self,
         session_id: Uuid,
         limit: u32,
@@ -212,7 +211,7 @@ impl Sqlite {
             .await?)
     }
 
-    async fn list_user_messages_by_session(
+    pub async fn list_user_messages_by_session(
         &self,
         session_id: Uuid,
         limit: u32,
@@ -223,7 +222,7 @@ impl Sqlite {
             .await?)
     }
 
-    async fn get_user_message(
+    pub async fn get_user_message(
         &self,
         user_message_id: Uuid,
     ) -> Result<Option<UserMessage>, DatabaseError> {
@@ -233,7 +232,7 @@ impl Sqlite {
             .await?)
     }
 
-    async fn create_user_message(
+    pub async fn create_user_message(
         &self,
         user_message_item: UserMessage,
     ) -> Result<UserMessage, DatabaseError> {
@@ -243,7 +242,7 @@ impl Sqlite {
             .await?)
     }
 
-    async fn update_user_message(
+    pub async fn update_user_message(
         &self,
         user_message_item: UserMessage,
     ) -> Result<UserMessage, DatabaseError> {
@@ -253,14 +252,14 @@ impl Sqlite {
             .await?)
     }
 
-    async fn delete_user_message(&self, user_message_id: Uuid) -> Result<(), DatabaseError> {
+    pub async fn delete_user_message(&self, user_message_id: Uuid) -> Result<(), DatabaseError> {
         Ok(self
             .conn
             .call(move |conn| user_message_table::delete(conn, user_message_id))
             .await?)
     }
 
-    async fn get_user_message_part(
+    pub async fn get_user_message_part(
         &self,
         part_id: Uuid,
     ) -> Result<Option<UserMessagePart>, DatabaseError> {
@@ -270,7 +269,7 @@ impl Sqlite {
             .await?)
     }
 
-    async fn create_user_message_part(
+    pub async fn create_user_message_part(
         &self,
         part: UserMessagePart,
     ) -> Result<UserMessagePart, DatabaseError> {
@@ -280,7 +279,7 @@ impl Sqlite {
             .await?)
     }
 
-    async fn update_user_message_part(
+    pub async fn update_user_message_part(
         &self,
         part: UserMessagePart,
     ) -> Result<UserMessagePart, DatabaseError> {
@@ -290,14 +289,14 @@ impl Sqlite {
             .await?)
     }
 
-    async fn delete_user_message_part(&self, part_id: Uuid) -> Result<(), DatabaseError> {
+    pub async fn delete_user_message_part(&self, part_id: Uuid) -> Result<(), DatabaseError> {
         Ok(self
             .conn
             .call(move |conn| user_message_part_table::delete(conn, part_id))
             .await?)
     }
 
-    async fn get_assistant_message(
+    pub async fn get_assistant_message(
         &self,
         assistant_message_id: Uuid,
     ) -> Result<Option<AssistantMessage>, DatabaseError> {
@@ -307,7 +306,7 @@ impl Sqlite {
             .await?)
     }
 
-    async fn get_assistant_message_by_harness_id(
+    pub async fn get_assistant_message_by_harness_id(
         &self,
         session_id: Uuid,
         harness_message_id: String,
@@ -320,7 +319,7 @@ impl Sqlite {
             .await?)
     }
 
-    async fn create_assistant_message(
+    pub async fn create_assistant_message(
         &self,
         assistant_message_item: AssistantMessage,
     ) -> Result<AssistantMessage, DatabaseError> {
@@ -330,7 +329,7 @@ impl Sqlite {
             .await?)
     }
 
-    async fn update_assistant_message(
+    pub async fn update_assistant_message(
         &self,
         assistant_message_item: AssistantMessage,
     ) -> Result<AssistantMessage, DatabaseError> {
@@ -340,7 +339,7 @@ impl Sqlite {
             .await?)
     }
 
-    async fn delete_assistant_message(
+    pub async fn delete_assistant_message(
         &self,
         assistant_message_id: Uuid,
     ) -> Result<(), DatabaseError> {
@@ -350,7 +349,7 @@ impl Sqlite {
             .await?)
     }
 
-    async fn get_assistant_message_part(
+    pub async fn get_assistant_message_part(
         &self,
         part_id: Uuid,
     ) -> Result<Option<AssistantMessagePart>, DatabaseError> {
@@ -360,7 +359,7 @@ impl Sqlite {
             .await?)
     }
 
-    async fn get_assistant_message_part_by_harness_id(
+    pub async fn get_assistant_message_part_by_harness_id(
         &self,
         assistant_message_id: Uuid,
         harness_part_id: String,
@@ -377,7 +376,7 @@ impl Sqlite {
             .await?)
     }
 
-    async fn create_assistant_message_part(
+    pub async fn create_assistant_message_part(
         &self,
         part: AssistantMessagePart,
     ) -> Result<AssistantMessagePart, DatabaseError> {
@@ -387,7 +386,7 @@ impl Sqlite {
             .await?)
     }
 
-    async fn update_assistant_message_part(
+    pub async fn update_assistant_message_part(
         &self,
         part: AssistantMessagePart,
     ) -> Result<AssistantMessagePart, DatabaseError> {
@@ -397,107 +396,10 @@ impl Sqlite {
             .await?)
     }
 
-    async fn delete_assistant_message_part(&self, part_id: Uuid) -> Result<(), DatabaseError> {
+    pub async fn delete_assistant_message_part(&self, part_id: Uuid) -> Result<(), DatabaseError> {
         Ok(self
             .conn
             .call(move |conn| assistant_message_part_table::delete(conn, part_id))
             .await?)
     }
-}
-
-pub trait Database {
-    async fn list_projects(&self) -> Result<Vec<Project>, DatabaseError>;
-    async fn get_project(&self, project_id: Uuid) -> Result<Option<Project>, DatabaseError>;
-    async fn create_project(&self, project: Project) -> Result<Project, DatabaseError>;
-    async fn update_project(&self, project: Project) -> Result<Project, DatabaseError>;
-    async fn delete_project(&self, project_id: Uuid) -> Result<(), DatabaseError>;
-
-    async fn list_sessions_by_project(
-        &self,
-        project_id: Uuid,
-    ) -> Result<Vec<Session>, DatabaseError>;
-    async fn get_session(&self, session_id: Uuid) -> Result<Option<Session>, DatabaseError>;
-    async fn create_session(&self, session: Session) -> Result<Session, DatabaseError>;
-    async fn update_session(&self, session: Session) -> Result<Session, DatabaseError>;
-    async fn delete_session(&self, session_id: Uuid) -> Result<(), DatabaseError>;
-
-    async fn list_messages_by_session(
-        &self,
-        session_id: Uuid,
-        limit: u32,
-    ) -> Result<Vec<Message>, DatabaseError>;
-
-    async fn list_user_messages_by_session(
-        &self,
-        session_id: Uuid,
-        limit: u32,
-    ) -> Result<Vec<UserMessage>, DatabaseError>;
-    async fn get_user_message(
-        &self,
-        user_message_id: Uuid,
-    ) -> Result<Option<UserMessage>, DatabaseError>;
-    async fn create_user_message(
-        &self,
-        user_message: UserMessage,
-    ) -> Result<UserMessage, DatabaseError>;
-    async fn update_user_message(
-        &self,
-        user_message: UserMessage,
-    ) -> Result<UserMessage, DatabaseError>;
-    async fn delete_user_message(&self, user_message_id: Uuid) -> Result<(), DatabaseError>;
-
-    async fn get_user_message_part(
-        &self,
-        part_id: Uuid,
-    ) -> Result<Option<UserMessagePart>, DatabaseError>;
-    async fn create_user_message_part(
-        &self,
-        part: UserMessagePart,
-    ) -> Result<UserMessagePart, DatabaseError>;
-    async fn update_user_message_part(
-        &self,
-        part: UserMessagePart,
-    ) -> Result<UserMessagePart, DatabaseError>;
-    async fn delete_user_message_part(&self, part_id: Uuid) -> Result<(), DatabaseError>;
-
-    async fn get_assistant_message(
-        &self,
-        assistant_message_id: Uuid,
-    ) -> Result<Option<AssistantMessage>, DatabaseError>;
-    async fn get_assistant_message_by_harness_id(
-        &self,
-        session_id: Uuid,
-        harness_message_id: String,
-    ) -> Result<Option<AssistantMessage>, DatabaseError>;
-    async fn create_assistant_message(
-        &self,
-        assistant_message: AssistantMessage,
-    ) -> Result<AssistantMessage, DatabaseError>;
-    async fn update_assistant_message(
-        &self,
-        assistant_message: AssistantMessage,
-    ) -> Result<AssistantMessage, DatabaseError>;
-    async fn delete_assistant_message(
-        &self,
-        assistant_message_id: Uuid,
-    ) -> Result<(), DatabaseError>;
-
-    async fn get_assistant_message_part(
-        &self,
-        part_id: Uuid,
-    ) -> Result<Option<AssistantMessagePart>, DatabaseError>;
-    async fn get_assistant_message_part_by_harness_id(
-        &self,
-        assistant_message_id: Uuid,
-        harness_part_id: String,
-    ) -> Result<Option<AssistantMessagePart>, DatabaseError>;
-    async fn create_assistant_message_part(
-        &self,
-        part: AssistantMessagePart,
-    ) -> Result<AssistantMessagePart, DatabaseError>;
-    async fn update_assistant_message_part(
-        &self,
-        part: AssistantMessagePart,
-    ) -> Result<AssistantMessagePart, DatabaseError>;
-    async fn delete_assistant_message_part(&self, part_id: Uuid) -> Result<(), DatabaseError>;
 }

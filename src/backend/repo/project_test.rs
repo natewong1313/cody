@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::backend::{
     BackendContext,
-    db::sqlite::Sqlite,
+    db::Database,
     harness::opencode::OpencodeHarness,
     proto_project::ProjectModel,
     repo::project::{Project, ProjectRepo, ProjectRepoError},
@@ -23,8 +23,8 @@ fn test_project(name: &str, dir: &str) -> Project {
     }
 }
 
-fn test_repo() -> ProjectRepo<Sqlite> {
-    let db = Sqlite::new_in_memory().expect("in-memory db should initialize");
+async fn test_repo() -> ProjectRepo {
+    let db = Database::new_in_memory().await.expect("in-memory db should initialize");
     let harness = OpencodeHarness::new_for_test(1);
     let ctx = BackendContext::new(db, harness);
     ProjectRepo::new(ctx)
@@ -105,14 +105,14 @@ fn project_proto_deserialize_rejects_invalid_datetime() {
 
 #[tokio::test]
 async fn list_is_empty_for_new_repo() {
-    let repo = test_repo();
+    let repo = test_repo().await;
     let projects = repo.list().await.expect("list should succeed");
     assert!(projects.is_empty());
 }
 
 #[tokio::test]
 async fn create_and_get_project() {
-    let repo = test_repo();
+    let repo = test_repo().await;
     let project = test_project("proj", "/tmp/proj");
 
     let created = repo.create(&project).await.expect("create should succeed");
@@ -127,7 +127,7 @@ async fn create_and_get_project() {
 
 #[tokio::test]
 async fn get_returns_none_for_missing_project() {
-    let repo = test_repo();
+    let repo = test_repo().await;
     let missing = Uuid::new_v4();
 
     let fetched = repo.get(&missing).await.expect("get should succeed");
@@ -136,7 +136,7 @@ async fn get_returns_none_for_missing_project() {
 
 #[tokio::test]
 async fn update_project() {
-    let repo = test_repo();
+    let repo = test_repo().await;
     let created = repo
         .create(&test_project("orig", "/tmp/orig"))
         .await
@@ -155,7 +155,7 @@ async fn update_project() {
 
 #[tokio::test]
 async fn delete_project() {
-    let repo = test_repo();
+    let repo = test_repo().await;
     let created = repo
         .create(&test_project("delete-me", "/tmp/delete-me"))
         .await
@@ -171,7 +171,7 @@ async fn delete_project() {
 
 #[tokio::test]
 async fn create_maps_database_errors() {
-    let repo = test_repo();
+    let repo = test_repo().await;
     let invalid = test_project("", "/tmp/proj");
 
     let err = repo

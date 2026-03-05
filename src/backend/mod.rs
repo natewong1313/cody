@@ -1,5 +1,5 @@
 use crate::backend::{
-    db::{Database, DatabaseStartupError, sqlite::Sqlite},
+    db::{Database, DatabaseStartupError},
     harness::{Harness, opencode::OpencodeHarness},
     repo::{message::MessageRepo, project::ProjectRepo, session::SessionRepo},
 };
@@ -48,18 +48,12 @@ pub use proto_message::{
     SubscribeMessagesBySessionRequest, messages_client::MessagesClient,
 };
 
-pub struct BackendContext<D>
-where
-    D: Database,
-{
-    db: Arc<D>,
+pub struct BackendContext {
+    db: Arc<Database>,
     harness: OpencodeHarness,
 }
 
-impl<D> Clone for BackendContext<D>
-where
-    D: Database,
-{
+impl Clone for BackendContext {
     fn clone(&self) -> Self {
         Self {
             db: Arc::clone(&self.db),
@@ -68,11 +62,8 @@ where
     }
 }
 
-impl<D> BackendContext<D>
-where
-    D: Database,
-{
-    fn new(db: D, harness: OpencodeHarness) -> Self {
+impl BackendContext {
+    fn new(db: Database, harness: OpencodeHarness) -> Self {
         Self {
             db: Arc::new(db),
             harness,
@@ -81,12 +72,12 @@ where
 }
 
 pub struct BackendService {
-    ctx: BackendContext<Sqlite>,
-    project_repo: ProjectRepo<Sqlite>,
+    ctx: BackendContext,
+    project_repo: ProjectRepo,
     projects_sender: watch::Sender<Vec<Project>>,
     project_sender_by_id: Mutex<HashMap<Uuid, watch::Sender<Option<Project>>>>,
-    session_repo: SessionRepo<Sqlite>,
-    message_repo: MessageRepo<Sqlite>,
+    session_repo: SessionRepo,
+    message_repo: MessageRepo,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -98,8 +89,8 @@ pub enum BackendServiceError {
 }
 
 impl BackendService {
-    pub fn new() -> Result<Self, BackendServiceError> {
-        let db = Sqlite::new()?;
+    pub async fn new() -> Result<Self, BackendServiceError> {
+        let db = Database::new().await?;
         let harness =
             OpencodeHarness::new().map_err(|e| BackendServiceError::Harness(e.to_string()))?;
         let ctx = BackendContext::new(db, harness);
@@ -121,10 +112,10 @@ impl BackendService {
     }
 }
 
-pub fn spawn_backend(
+pub async fn spawn_backend(
     addr: SocketAddr,
 ) -> Result<JoinHandle<Result<(), tonic::transport::Error>>, BackendServiceError> {
-    let backend = Arc::new(BackendService::new()?);
+    let backend = Arc::new(BackendService::new().await?);
 
     let project_service = ProjectServer::new(backend.clone());
     let session_service = SessionServer::new(backend.clone());

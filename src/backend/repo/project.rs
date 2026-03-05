@@ -59,18 +59,12 @@ impl TryFrom<proto_project::ProjectModel> for Project {
     }
 }
 
-pub struct ProjectRepo<D>
-where
-    D: crate::backend::db::Database,
-{
-    ctx: BackendContext<D>,
+pub struct ProjectRepo {
+    ctx: BackendContext,
 }
 
-impl<D> ProjectRepo<D>
-where
-    D: crate::backend::db::Database,
-{
-    pub fn new(ctx: BackendContext<D>) -> Self {
+impl ProjectRepo {
+    pub fn new(ctx: BackendContext) -> Self {
         Self { ctx }
     }
 

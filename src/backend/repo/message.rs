@@ -2,7 +2,7 @@ use uuid::Uuid;
 
 use crate::backend::{
     BackendContext,
-    db::{Database, DatabaseError},
+    db::DatabaseError,
     harness::Harness,
     proto_message,
     repo::{
@@ -62,18 +62,12 @@ pub enum MessageRepoError {
     Harness(#[from] crate::backend::harness::HarnessError),
 }
 
-pub struct MessageRepo<D>
-where
-    D: Database,
-{
-    ctx: BackendContext<D>,
+pub struct MessageRepo {
+    ctx: BackendContext,
 }
 
-impl<D> MessageRepo<D>
-where
-    D: Database,
-{
-    pub fn new(ctx: BackendContext<D>) -> Self {
+impl MessageRepo {
+    pub fn new(ctx: BackendContext) -> Self {
         Self { ctx }
     }
 

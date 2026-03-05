@@ -7,7 +7,6 @@ use uuid::Uuid;
 use super::required_field;
 use crate::backend::{
     BackendService,
-    db::Database,
     harness::{Harness, HarnessAssistantEvent},
     proto_message::{
         self, CreateUserMessageReply, CreateUserMessageRequest, ListMessagesBySessionReply,

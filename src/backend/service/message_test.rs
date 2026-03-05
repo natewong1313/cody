@@ -10,7 +10,7 @@ use crate::backend::{
 
 #[tokio::test]
 async fn list_messages_by_session_returns_empty_for_new_session() {
-    let backend = test_backend(closed_port());
+    let backend = test_backend(closed_port()).await;
     let result = backend
         .list_messages_by_session(Request::new(ListMessagesBySessionRequest {
             session_id: uuid::Uuid::new_v4().to_string(),
@@ -23,7 +23,7 @@ async fn list_messages_by_session_returns_empty_for_new_session() {
 
 #[tokio::test]
 async fn subscribe_messages_by_session_rejects_unknown_session() {
-    let backend = test_backend(closed_port());
+    let backend = test_backend(closed_port()).await;
     let result = backend
         .subscribe_messages_by_session(Request::new(SubscribeMessagesBySessionRequest {
             session_id: uuid::Uuid::new_v4().to_string(),

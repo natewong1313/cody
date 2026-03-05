@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::backend::{
     BackendContext, Project,
-    db::sqlite::Sqlite,
+    db::Database,
     harness::opencode::OpencodeHarness,
     proto_session::SessionModel,
     repo::{
@@ -49,8 +49,8 @@ fn test_session(project_id: Uuid, name: &str, show_in_gui: bool) -> Session {
     }
 }
 
-fn test_repos(port: u32) -> (ProjectRepo<Sqlite>, SessionRepo<Sqlite>) {
-    let db = Sqlite::new_in_memory().expect("in-memory db should initialize");
+async fn test_repos(port: u32) -> (ProjectRepo, SessionRepo) {
+    let db = Database::new_in_memory().await.expect("in-memory db should initialize");
     let harness = OpencodeHarness::new_for_test(port);
     let ctx = BackendContext::new(db, harness);
     (ProjectRepo::new(ctx.clone()), SessionRepo::new(ctx))
@@ -204,7 +204,7 @@ async fn spawn_fake_opencode_server() -> (u32, tokio::task::JoinHandle<()>) {
 #[tokio::test]
 async fn list_by_project_returns_only_project_sessions() {
     let (port, server) = spawn_fake_opencode_server().await;
-    let (project_repo, session_repo) = test_repos(port);
+    let (project_repo, session_repo) = test_repos(port).await;
 
     let p1 = project_repo
         .create(&test_project("p1", "/tmp/p1"))
@@ -243,7 +243,7 @@ async fn list_by_project_returns_only_project_sessions() {
 
 #[tokio::test]
 async fn get_returns_none_for_missing_session() {
-    let (_project_repo, session_repo) = test_repos(closed_port());
+    let (_project_repo, session_repo) = test_repos(closed_port()).await;
     let missing = Uuid::new_v4();
 
     let fetched = session_repo
@@ -255,7 +255,7 @@ async fn get_returns_none_for_missing_session() {
 
 #[tokio::test]
 async fn create_returns_project_not_found_when_project_missing() {
-    let (_project_repo, session_repo) = test_repos(closed_port());
+    let (_project_repo, session_repo) = test_repos(closed_port()).await;
     let missing_project = Uuid::new_v4();
     let session = test_session(missing_project, "missing-project", true);
 
@@ -269,7 +269,7 @@ async fn create_returns_project_not_found_when_project_missing() {
 
 #[tokio::test]
 async fn create_does_not_persist_when_harness_fails() {
-    let (project_repo, session_repo) = test_repos(closed_port());
+    let (project_repo, session_repo) = test_repos(closed_port()).await;
     let project = project_repo
         .create(&test_project("p", "/tmp/p"))
         .await
@@ -292,7 +292,7 @@ async fn create_does_not_persist_when_harness_fails() {
 #[tokio::test]
 async fn update_and_delete_session() {
     let (port, server) = spawn_fake_opencode_server().await;
-    let (project_repo, session_repo) = test_repos(port);
+    let (project_repo, session_repo) = test_repos(port).await;
     let project = project_repo
         .create(&test_project("p", "/tmp/p"))
         .await

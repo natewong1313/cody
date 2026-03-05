@@ -85,18 +85,12 @@ impl TryFrom<proto_session::SessionModel> for Session {
     }
 }
 
-pub struct SessionRepo<D>
-where
-    D: crate::backend::db::Database,
-{
-    ctx: BackendContext<D>,
+pub struct SessionRepo {
+    ctx: BackendContext,
 }
 
-impl<D> SessionRepo<D>
-where
-    D: crate::backend::db::Database,
-{
-    pub fn new(ctx: BackendContext<D>) -> Self {
+impl SessionRepo {
+    pub fn new(ctx: BackendContext) -> Self {
         Self { ctx }
     }
 

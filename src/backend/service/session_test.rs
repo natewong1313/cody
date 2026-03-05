@@ -16,7 +16,7 @@ use crate::backend::{
 #[tokio::test]
 async fn list_sessions_by_project_returns_only_matching_project() {
     let (port, server) = spawn_fake_opencode_server().await;
-    let backend = test_backend(port);
+    let backend = test_backend(port).await;
 
     let p1 = backend
         .project_repo
@@ -61,7 +61,7 @@ async fn list_sessions_by_project_returns_only_matching_project() {
 
 #[tokio::test]
 async fn list_sessions_by_project_rejects_invalid_project_id() {
-    let backend = test_backend(closed_port());
+    let backend = test_backend(closed_port()).await;
 
     let err = backend
         .list_sessions_by_project(Request::new(ListSessionsByProjectRequest {
@@ -76,7 +76,7 @@ async fn list_sessions_by_project_rejects_invalid_project_id() {
 
 #[tokio::test]
 async fn get_session_rejects_invalid_session_id() {
-    let backend = test_backend(closed_port());
+    let backend = test_backend(closed_port()).await;
 
     let err = backend
         .get_session(Request::new(GetSessionRequest {
@@ -91,7 +91,7 @@ async fn get_session_rejects_invalid_session_id() {
 
 #[tokio::test]
 async fn create_session_rejects_missing_session_field() {
-    let backend = test_backend(closed_port());
+    let backend = test_backend(closed_port()).await;
 
     let err = backend
         .create_session(Request::new(CreateSessionRequest { session: None }))
@@ -105,7 +105,7 @@ async fn create_session_rejects_missing_session_field() {
 #[tokio::test]
 async fn create_session_happy_path() {
     let (port, server) = spawn_fake_opencode_server().await;
-    let backend = test_backend(port);
+    let backend = test_backend(port).await;
 
     let project = backend
         .project_repo
@@ -131,7 +131,7 @@ async fn create_session_happy_path() {
 
 #[tokio::test]
 async fn create_session_returns_not_found_for_missing_project() {
-    let backend = test_backend(closed_port());
+    let backend = test_backend(closed_port()).await;
     let session = valid_session_model(Uuid::new_v4());
 
     let err = backend
@@ -147,7 +147,7 @@ async fn create_session_returns_not_found_for_missing_project() {
 
 #[tokio::test]
 async fn create_session_returns_unavailable_when_harness_fails() {
-    let backend = test_backend(closed_port());
+    let backend = test_backend(closed_port()).await;
     let project = backend
         .project_repo
         .create(&test_project("proj", "/tmp/proj"))
@@ -167,7 +167,7 @@ async fn create_session_returns_unavailable_when_harness_fails() {
 #[tokio::test]
 async fn update_and_delete_session_happy_path() {
     let (port, server) = spawn_fake_opencode_server().await;
-    let backend = test_backend(port);
+    let backend = test_backend(port).await;
     let project = backend
         .project_repo
         .create(&test_project("proj", "/tmp/proj"))
