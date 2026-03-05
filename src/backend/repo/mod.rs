@@ -3,6 +3,7 @@ pub mod message;
 pub mod project;
 pub mod session;
 pub mod user_message;
+pub mod user_message_part;
 
 #[cfg(test)]
 mod message_test;

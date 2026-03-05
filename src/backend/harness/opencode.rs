@@ -9,7 +9,7 @@ use crate::backend::harness::{
     Harness, HarnessAssistantEvent, HarnessAssistantEventStream, HarnessError, HarnessMessage,
     HarnessSessionStatus, OpencodePartInput, OpencodeSendMessageRequest,
 };
-use crate::backend::repo::user_message::{UserMessage, UserMessagePart};
+use crate::backend::repo::{user_message::UserMessage, user_message_part::UserMessagePart};
 use crate::backend::{
     harness::opencode_client::{
         OpencodeApiClient, OpencodeCreateSessionRequest, OpencodeEventPayload, OpencodeMessage,

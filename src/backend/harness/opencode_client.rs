@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::pin::Pin;
 
 use crate::backend::harness::Model;
-use crate::backend::repo::user_message::{UserMessage, UserMessagePart};
+use crate::backend::repo::{user_message::UserMessage, user_message_part::UserMessagePart};
 
 #[derive(Clone)]
 pub struct OpencodeApiClient {

@@ -1,6 +1,12 @@
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
+use tonic::Status;
 use uuid::Uuid;
+
+use crate::backend::{
+    proto_message,
+    proto_utils::{format_naive_datetime, parse_naive_datetime, parse_uuid},
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserMessage {
@@ -17,19 +23,41 @@ pub struct UserMessage {
     pub updated_at: NaiveDateTime,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UserMessagePart {
-    pub id: Uuid,
-    pub user_message_id: Uuid,
-    pub session_id: Uuid,
-    pub position: i64,
-    pub part_type: String,
-    pub text: Option<String>,
-    pub file_name: Option<String>,
-    pub file_url: Option<String>,
-    pub agent_name: Option<String>,
-    pub subtask_prompt: Option<String>,
-    pub subtask_description: Option<String>,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
+impl From<UserMessage> for proto_message::UserMessageModel {
+    fn from(value: UserMessage) -> Self {
+        Self {
+            id: value.id.to_string(),
+            session_id: value.session_id.to_string(),
+            agent: value.agent,
+            model_provider_id: value.model_provider_id,
+            model_id: value.model_id,
+            system_prompt: value.system_prompt,
+            structured_output_type: value.structured_output_type,
+            tools_list: value.tools_list,
+            thinking_variant: value.thinking_variant,
+            created_at: format_naive_datetime(value.created_at),
+            updated_at: format_naive_datetime(value.updated_at),
+            parts: Vec::new(),
+        }
+    }
+}
+
+impl TryFrom<proto_message::UserMessageModel> for UserMessage {
+    type Error = Status;
+
+    fn try_from(value: proto_message::UserMessageModel) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: parse_uuid("user_message.id", &value.id)?,
+            session_id: parse_uuid("user_message.session_id", &value.session_id)?,
+            agent: value.agent,
+            model_provider_id: value.model_provider_id,
+            model_id: value.model_id,
+            system_prompt: value.system_prompt,
+            structured_output_type: value.structured_output_type,
+            tools_list: value.tools_list,
+            thinking_variant: value.thinking_variant,
+            created_at: parse_naive_datetime("user_message.created_at", &value.created_at)?,
+            updated_at: parse_naive_datetime("user_message.updated_at", &value.updated_at)?,
+        })
+    }
 }

@@ -15,7 +15,8 @@ use crate::backend::{
         message::{Message, MessageRepo, MessageRepoError},
         project::Project,
         session::Session,
-        user_message::{UserMessage, UserMessagePart},
+        user_message::UserMessage,
+        user_message_part::UserMessagePart,
     },
 };
 
@@ -73,6 +74,7 @@ fn assistant_message(
 ) -> AssistantMessage {
     AssistantMessage {
         id,
+        harness_message_id: None,
         session_id,
         user_message_id,
         agent: "build".to_string(),

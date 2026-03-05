@@ -4,15 +4,52 @@ use crate::backend::{
     BackendContext,
     db::{Database, DatabaseError},
     harness::Harness,
+    proto_message,
     repo::{
-        assistant_message::AssistantMessage,
-        user_message::{UserMessage, UserMessagePart},
+        assistant_message::{AssistantMessage, AssistantMessagePart},
+        user_message::UserMessage,
+        user_message_part::UserMessagePart,
     },
 };
 
 pub enum Message {
     User(UserMessage),
     Assistant(AssistantMessage),
+}
+
+impl From<Message> for proto_message::MessageHistory {
+    fn from(value: Message) -> Self {
+        match value {
+            Message::User(user) => Self {
+                message: Some(proto_message::message_history::Message::UserMessage(
+                    user.into(),
+                )),
+            },
+            Message::Assistant(assistant) => Self {
+                message: Some(proto_message::message_history::Message::AssistantMessage(
+                    assistant.into(),
+                )),
+            },
+        }
+    }
+}
+
+pub fn join_user_message_parts(
+    message: UserMessage,
+    parts: Vec<UserMessagePart>,
+) -> proto_message::UserMessageModel {
+    let mut model: proto_message::UserMessageModel = message.into();
+    model.parts = parts.into_iter().map(Into::into).collect();
+    model
+}
+
+pub fn join_assistant_message_parts(
+    message: AssistantMessage,
+    parts: Vec<AssistantMessagePart>,
+) -> proto_message::AssistantMessageModel {
+    let mut model: proto_message::AssistantMessageModel = message.into();
+    model.parts = parts.into_iter().map(Into::into).collect();
+    model
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -90,5 +127,17 @@ where
         }
 
         Ok(created_message)
+    }
+
+    pub async fn list_user_messages(
+        &self,
+        session_id: &Uuid,
+        limit: u32,
+    ) -> Result<Vec<UserMessage>, MessageRepoError> {
+        Ok(self
+            .ctx
+            .db
+            .list_user_messages_by_session(*session_id, limit)
+            .await?)
     }
 }
