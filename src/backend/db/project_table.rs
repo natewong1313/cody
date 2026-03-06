@@ -3,22 +3,23 @@ use tokio_rusqlite::named_params;
 use tokio_rusqlite::rusqlite::Connection;
 use uuid::Uuid;
 
-use crate::backend::Project;
 use crate::backend::db::DatabaseError;
+use crate::backend::models::project_model::ProjectModel;
 
-pub fn list(conn: &Connection) -> Result<Vec<Project>, DatabaseError> {
+pub fn list(conn: &Connection) -> Result<Vec<ProjectModel>, DatabaseError> {
     let mut stmt = conn.prepare("SELECT * FROM projects ORDER BY updated_at DESC")?;
-    let rows = from_rows::<Project>(stmt.query([])?);
+    let rows = from_rows::<ProjectModel>(stmt.query([])?);
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
-pub fn get(conn: &Connection, project_id: Uuid) -> Result<Option<Project>, DatabaseError> {
+pub fn get(conn: &Connection, project_id: Uuid) -> Result<Option<ProjectModel>, DatabaseError> {
     let mut stmt = conn.prepare("SELECT * FROM projects WHERE id = :id")?;
-    let mut rows = from_rows::<Project>(stmt.query(named_params! {":id": project_id.to_string()})?);
+    let mut rows =
+        from_rows::<ProjectModel>(stmt.query(named_params! {":id": project_id.to_string()})?);
     Ok(rows.next().transpose()?)
 }
 
-pub fn create(conn: &Connection, project: &Project) -> Result<Project, DatabaseError> {
+pub fn create(conn: &Connection, project: &ProjectModel) -> Result<ProjectModel, DatabaseError> {
     let params = to_params_named(project)?;
     let mut stmt = conn.prepare(
         "
@@ -27,11 +28,11 @@ pub fn create(conn: &Connection, project: &Project) -> Result<Project, DatabaseE
         RETURNING *
     ",
     )?;
-    let rows = from_rows::<Project>(stmt.query(params.to_slice().as_slice())?);
+    let rows = from_rows::<ProjectModel>(stmt.query(params.to_slice().as_slice())?);
     super::expect_one_returned_row("create_project", rows)
 }
 
-pub fn update(conn: &Connection, project: &Project) -> Result<Project, DatabaseError> {
+pub fn update(conn: &Connection, project: &ProjectModel) -> Result<ProjectModel, DatabaseError> {
     let mut updated = project.clone();
     updated.updated_at = chrono::Utc::now().naive_utc();
 
@@ -44,7 +45,7 @@ pub fn update(conn: &Connection, project: &Project) -> Result<Project, DatabaseE
         RETURNING *
     ",
     )?;
-    let rows = from_rows::<Project>(stmt.query(params.to_slice().as_slice())?);
+    let rows = from_rows::<ProjectModel>(stmt.query(params.to_slice().as_slice())?);
     super::expect_one_returned_row("update_project", rows)
 }
 

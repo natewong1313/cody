@@ -1,13 +1,13 @@
-use crate::backend::{Project, Session};
+use crate::backend::{ProjectModel, Session};
 use crate::components::button::{ButtonSize, ButtonVariant, StyledButton};
 use crate::pages::{PageAction, PageContext, Route};
 use crate::query::QueryState;
 use crate::theme::{BG_50, BG_500, BG_800, BG_900, BG_950, FUCHSIA_500, RADIUS_MD};
 mod session_tab;
 use egui::epaint::CornerRadiusF32;
-use egui::{CentralPanel, Color32, Frame, Label, RichText, Ui, vec2};
+use egui::{vec2, CentralPanel, Color32, Frame, Label, RichText, Ui};
 use egui_dock::{DockArea, DockState, Style, TabAddAlign};
-use egui_flex::{Flex, item};
+use egui_flex::{item, Flex};
 use egui_phosphor::regular;
 use session_tab::{SessionTabStateMap, TabViewer};
 use std::collections::{HashMap, HashSet};
@@ -77,7 +77,7 @@ impl ProjectPage {
             });
     }
 
-    fn render_project(&mut self, ui: &mut Ui, page_ctx: &mut PageContext, project: &Project) {
+    fn render_project(&mut self, ui: &mut Ui, page_ctx: &mut PageContext, project: &ProjectModel) {
         self.render_project_navbar(ui, page_ctx, project);
         ui.add_space(12.0);
 
@@ -98,7 +98,12 @@ impl ProjectPage {
         }
     }
 
-    fn render_project_navbar(&self, ui: &mut Ui, page_ctx: &mut PageContext, project: &Project) {
+    fn render_project_navbar(
+        &self,
+        ui: &mut Ui,
+        page_ctx: &mut PageContext,
+        project: &ProjectModel,
+    ) {
         Frame::new().fill(BG_950).inner_margin(8.0).show(ui, |ui| {
             ui.set_width(ui.available_width());
 

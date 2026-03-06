@@ -3,8 +3,9 @@ use tokio_rusqlite::Connection;
 use uuid::Uuid;
 
 use crate::backend::{
-    Project, Session,
+    Session,
     db::migrations::SQLITE_MIGRATIONS,
+    models::project_model::ProjectModel,
     repo::{
         assistant_message::{AssistantMessage, AssistantMessagePart},
         message::Message,
@@ -130,25 +131,25 @@ impl Database {
         Ok(Self { conn: conn.into() })
     }
 
-    pub async fn list_projects(&self) -> Result<Vec<Project>, DatabaseError> {
+    pub async fn list_projects(&self) -> Result<Vec<ProjectModel>, DatabaseError> {
         Ok(self.conn.call(|conn| project_table::list(conn)).await?)
     }
 
-    pub async fn get_project(&self, project_id: Uuid) -> Result<Option<Project>, DatabaseError> {
+    pub async fn get_project(&self, project_id: Uuid) -> Result<Option<ProjectModel>, DatabaseError> {
         Ok(self
             .conn
             .call(move |conn| project_table::get(conn, project_id))
             .await?)
     }
 
-    pub async fn create_project(&self, project: Project) -> Result<Project, DatabaseError> {
+    pub async fn create_project(&self, project: ProjectModel) -> Result<ProjectModel, DatabaseError> {
         Ok(self
             .conn
             .call(move |conn| project_table::create(conn, &project))
             .await?)
     }
 
-    pub async fn update_project(&self, project: Project) -> Result<Project, DatabaseError> {
+    pub async fn update_project(&self, project: ProjectModel) -> Result<ProjectModel, DatabaseError> {
         Ok(self
             .conn
             .call(move |conn| project_table::update(conn, &project))

@@ -11,10 +11,10 @@ use tokio::{
 use uuid::Uuid;
 
 use crate::backend::{
-    BackendContext, BackendService, Project, Session,
+    BackendContext, BackendService, ProjectModel, Session,
     db::Database,
     harness::opencode::OpencodeHarness,
-    proto_project::ProjectModel,
+    proto_project::ProjectModel as ProtoProjectModel,
     proto_session::SessionModel,
     repo::{message::MessageRepo, project::ProjectRepo, session::SessionRepo},
 };
@@ -109,9 +109,9 @@ pub async fn test_backend(port: u32) -> Arc<BackendService> {
     })
 }
 
-pub fn test_project(name: &str, dir: &str) -> Project {
+pub fn test_project(name: &str, dir: &str) -> ProjectModel {
     let now = Utc::now().naive_utc();
-    Project {
+    ProjectModel {
         id: Uuid::new_v4(),
         name: name.to_string(),
         dir: dir.to_string(),
@@ -139,8 +139,8 @@ pub fn test_session(project_id: Uuid, name: &str, show_in_gui: bool) -> Session 
     }
 }
 
-pub fn valid_project_model() -> ProjectModel {
-    ProjectModel {
+pub fn valid_project_model() -> ProtoProjectModel {
+    ProtoProjectModel {
         id: Uuid::new_v4().to_string(),
         name: "proj".to_string(),
         dir: "/tmp/proj".to_string(),

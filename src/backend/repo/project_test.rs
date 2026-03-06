@@ -6,15 +6,16 @@ use crate::backend::{
     BackendContext,
     db::Database,
     harness::opencode::OpencodeHarness,
-    proto_project::ProjectModel,
-    repo::project::{Project, ProjectRepo, ProjectRepoError},
+    models::project_model::ProjectModel,
+    proto_project::ProjectModel as ProtoProjectModel,
+    repo::project::{ProjectRepo, ProjectRepoError},
 };
 
 use super::test_utils::fixed_datetime;
 
-fn test_project(name: &str, dir: &str) -> Project {
+fn test_project(name: &str, dir: &str) -> ProjectModel {
     let now = Utc::now().naive_utc();
-    Project {
+    ProjectModel {
         id: Uuid::new_v4(),
         name: name.to_string(),
         dir: dir.to_string(),
@@ -34,7 +35,7 @@ async fn test_repo() -> ProjectRepo {
 fn project_proto_serialize_to_model() {
     let id = Uuid::parse_str("11111111-2222-3333-4444-555555555555").expect("uuid should parse");
     let ts = fixed_datetime();
-    let project = Project {
+    let project = ProjectModel {
         id,
         name: "proj".to_string(),
         dir: "/tmp/proj".to_string(),
@@ -42,7 +43,7 @@ fn project_proto_serialize_to_model() {
         updated_at: ts,
     };
 
-    let model: ProjectModel = project.into();
+    let model: ProtoProjectModel = project.into();
 
     assert_eq!(model.id, "11111111-2222-3333-4444-555555555555");
     assert_eq!(model.name, "proj");
@@ -53,7 +54,7 @@ fn project_proto_serialize_to_model() {
 
 #[test]
 fn project_proto_deserialize_from_model() {
-    let model = ProjectModel {
+    let model = ProtoProjectModel {
         id: "11111111-2222-3333-4444-555555555555".to_string(),
         name: "proj".to_string(),
         dir: "/tmp/proj".to_string(),
@@ -61,7 +62,7 @@ fn project_proto_deserialize_from_model() {
         updated_at: "2025-01-02 03:04:05.123456".to_string(),
     };
 
-    let project = Project::try_from(model).expect("valid project model should deserialize");
+    let project = ProjectModel::try_from(model).expect("valid project model should deserialize");
 
     assert_eq!(
         project.id,
@@ -75,7 +76,7 @@ fn project_proto_deserialize_from_model() {
 
 #[test]
 fn project_proto_deserialize_rejects_invalid_uuid() {
-    let model = ProjectModel {
+    let model = ProtoProjectModel {
         id: "not-a-uuid".to_string(),
         name: "proj".to_string(),
         dir: "/tmp/proj".to_string(),
@@ -83,14 +84,14 @@ fn project_proto_deserialize_rejects_invalid_uuid() {
         updated_at: "2025-01-02 03:04:05.123456".to_string(),
     };
 
-    let err = Project::try_from(model).expect_err("invalid uuid should fail");
+    let err = ProjectModel::try_from(model).expect_err("invalid uuid should fail");
     assert_eq!(err.code(), Code::InvalidArgument);
     assert!(err.message().contains("project.id"));
 }
 
 #[test]
 fn project_proto_deserialize_rejects_invalid_datetime() {
-    let model = ProjectModel {
+    let model = ProtoProjectModel {
         id: "11111111-2222-3333-4444-555555555555".to_string(),
         name: "proj".to_string(),
         dir: "/tmp/proj".to_string(),
@@ -98,7 +99,7 @@ fn project_proto_deserialize_rejects_invalid_datetime() {
         updated_at: "2025-01-02 03:04:05.123456".to_string(),
     };
 
-    let err = Project::try_from(model).expect_err("invalid datetime should fail");
+    let err = ProjectModel::try_from(model).expect_err("invalid datetime should fail");
     assert_eq!(err.code(), Code::InvalidArgument);
     assert!(err.message().contains("project.created_at"));
 }

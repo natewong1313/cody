@@ -7,7 +7,7 @@ use tonic::Code;
 use uuid::Uuid;
 
 use crate::backend::{
-    BackendContext, Project,
+    BackendContext, ProjectModel,
     db::Database,
     harness::opencode::OpencodeHarness,
     proto_session::SessionModel,
@@ -19,9 +19,9 @@ use crate::backend::{
 
 use super::test_utils::{closed_port, fixed_datetime};
 
-fn test_project(name: &str, dir: &str) -> Project {
+fn test_project(name: &str, dir: &str) -> ProjectModel {
     let now = Utc::now().naive_utc();
-    Project {
+    ProjectModel {
         id: Uuid::new_v4(),
         name: name.to_string(),
         dir: dir.to_string(),

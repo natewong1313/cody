@@ -5,7 +5,7 @@ use tonic::{Request, Response, Status};
 
 use super::required_field;
 use crate::backend::{
-    BackendService, Project,
+    BackendService, ProjectModel,
     proto_project::{
         CreateProjectReply, CreateProjectRequest, DeleteProjectReply, DeleteProjectRequest,
         GetProjectReply, GetProjectRequest, ListProjectsReply, ListProjectsRequest,
@@ -94,7 +94,7 @@ impl ProjectService for Arc<BackendService> {
     ) -> Result<Response<CreateProjectReply>, Status> {
         let req = request.into_inner();
         let model = required_field(req.project, "project")?;
-        let project = Project::try_from(model)?;
+        let project = ProjectModel::try_from(model)?;
 
         let created = self.project_repo.create(&project).await?;
         notify_project_subscribers(self, created.id, Some(created.clone()), "create")?;
@@ -115,7 +115,7 @@ impl ProjectService for Arc<BackendService> {
     ) -> Result<Response<UpdateProjectReply>, Status> {
         let req = request.into_inner();
         let model = required_field(req.project, "project")?;
-        let project = Project::try_from(model)?;
+        let project = ProjectModel::try_from(model)?;
 
         let updated = self.project_repo.update(&project).await?;
         notify_project_subscribers(self, updated.id, Some(updated.clone()), "update")?;
@@ -177,7 +177,7 @@ impl ProjectService for Arc<BackendService> {
 fn notify_project_subscribers(
     backend: &BackendService,
     project_id: uuid::Uuid,
-    project: Option<Project>,
+    project: Option<ProjectModel>,
     action: &str,
 ) -> Result<(), Status> {
     let sender = backend

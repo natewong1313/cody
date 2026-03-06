@@ -12,7 +12,7 @@ use tokio::{sync::watch, task::JoinHandle};
 use tonic::transport::Server;
 use uuid::Uuid;
 
-pub use repo::project::Project;
+pub use models::project_model::ProjectModel;
 pub use repo::session::Session;
 mod db;
 mod harness;
@@ -74,8 +74,8 @@ impl BackendContext {
 pub struct BackendService {
     ctx: BackendContext,
     project_repo: ProjectRepo,
-    projects_sender: watch::Sender<Vec<Project>>,
-    project_sender_by_id: Mutex<HashMap<Uuid, watch::Sender<Option<Project>>>>,
+    projects_sender: watch::Sender<Vec<ProjectModel>>,
+    project_sender_by_id: Mutex<HashMap<Uuid, watch::Sender<Option<ProjectModel>>>>,
     session_repo: SessionRepo,
     message_repo: MessageRepo,
 }

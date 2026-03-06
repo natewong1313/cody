@@ -1,4 +1,4 @@
-use crate::backend::{Project, Session};
+use crate::backend::{ProjectModel, Session};
 use crate::components::button::{ButtonSize, ButtonVariant, StyledButton};
 use crate::components::dir_button::DirButton;
 use crate::components::project_card::ProjectCard;
@@ -119,7 +119,7 @@ impl ProjectsPage {
         &mut self,
         ui: &mut Ui,
         page_ctx: &mut super::PageContext,
-        projects: &[Project],
+        projects: &[ProjectModel],
     ) {
         const GRID_MAX_WIDTH: f32 = 700.0;
         const GRID_PADDING: f32 = 16.0;
@@ -154,7 +154,7 @@ impl ProjectsPage {
         &mut self,
         ui: &mut Ui,
         page_ctx: &mut super::PageContext,
-        projects: &[Project],
+        projects: &[ProjectModel],
     ) {
         const GRID_COLUMNS: usize = 3;
         const GRID_GAP: f32 = 16.0;
@@ -276,7 +276,7 @@ impl ProjectsPage {
     fn on_create_project_click(&mut self, page_ctx: &mut super::PageContext) {
         let now = Utc::now().naive_utc();
         let project_id = Uuid::new_v4();
-        let project = Project {
+        let project = ProjectModel {
             id: project_id,
             name: self.form_fields.name.clone(),
             dir: self.form_fields.dir.clone(),

@@ -1,7 +1,5 @@
 use crate::backend::repo::{
-    session::Session,
-    user_message::UserMessage,
-    user_message_part::UserMessagePart,
+    session::Session, user_message::UserMessage, user_message_part::UserMessagePart,
 };
 use futures::Stream;
 use serde::{Deserialize, Serialize};

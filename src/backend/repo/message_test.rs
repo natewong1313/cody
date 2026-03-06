@@ -10,10 +10,10 @@ use crate::backend::{
     db::Database,
     harness::Harness,
     harness::opencode::OpencodeHarness,
+    models::project_model::ProjectModel,
     repo::{
         assistant_message::AssistantMessage,
         message::{Message, MessageRepo, MessageRepoError},
-        project::Project,
         session::Session,
         user_message::UserMessage,
         user_message_part::UserMessagePart,
@@ -22,8 +22,8 @@ use crate::backend::{
 
 use super::test_utils::{closed_port, fixed_datetime, wait_for_port};
 
-fn test_project(id: Uuid, at: NaiveDateTime) -> Project {
-    Project {
+fn test_project(id: Uuid, at: NaiveDateTime) -> ProjectModel {
+    ProjectModel {
         id,
         name: "proj".to_string(),
         dir: "/tmp/proj".to_string(),
@@ -138,7 +138,7 @@ async fn create_user_message_sends_message_to_harness() {
     std::fs::create_dir_all(&project_dir).expect("project temp directory should be created");
     let project_dir_string = project_dir.to_string_lossy().to_string();
 
-    db.create_project(Project {
+    db.create_project(ProjectModel {
         id: project_id,
         name: "proj".to_string(),
         dir: project_dir_string.clone(),

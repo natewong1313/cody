@@ -7,14 +7,14 @@ use tonic::{Request, transport::Channel};
 use uuid::Uuid;
 
 use crate::backend::{
-    Project, ProjectClient, SubscribeProjectReply, SubscribeProjectRequest, SubscribeProjectsReply,
+    ProjectClient, ProjectModel, SubscribeProjectReply, SubscribeProjectRequest, SubscribeProjectsReply,
     SubscribeProjectsRequest,
 };
 
 use super::QueryState;
 
-pub type ProjectsState = QueryState<Vec<Project>>;
-pub type ProjectState = QueryState<Option<Project>>;
+pub type ProjectsState = QueryState<Vec<ProjectModel>>;
+pub type ProjectState = QueryState<Option<ProjectModel>>;
 
 pub struct Projects {
     backend_channel: Channel,
@@ -70,11 +70,11 @@ impl Projects {
         });
     }
 
-    fn map(reply: SubscribeProjectsReply) -> Result<Vec<Project>, String> {
+    fn map(reply: SubscribeProjectsReply) -> Result<Vec<ProjectModel>, String> {
         reply
             .projects
             .into_iter()
-            .map(Project::try_from)
+            .map(ProjectModel::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| e.to_string())
     }
@@ -148,10 +148,10 @@ impl Projects {
         });
     }
 
-    fn map_project(reply: SubscribeProjectReply) -> Result<Option<Project>, String> {
+    fn map_project(reply: SubscribeProjectReply) -> Result<Option<ProjectModel>, String> {
         reply
             .project
-            .map(Project::try_from)
+            .map(ProjectModel::try_from)
             .transpose()
             .map_err(|e| e.to_string())
     }
