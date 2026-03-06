@@ -1,11 +1,7 @@
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::backend::{
-    BackendContext,
-    db::DatabaseError,
-    models::project_model::ProjectModel,
-};
+use crate::backend::{BackendContext, db::DatabaseError, models::project_model::ProjectModel};
 
 #[derive(Debug, Error)]
 pub enum ProjectRepoError {

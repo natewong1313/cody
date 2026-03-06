@@ -11,10 +11,10 @@ use crate::backend::{
     harness::Harness,
     harness::opencode::OpencodeHarness,
     models::project_model::ProjectModel,
+    models::session_model::SessionModel,
     repo::{
         assistant_message::AssistantMessage,
         message::{Message, MessageRepo, MessageRepoError},
-        session::Session,
         user_message::UserMessage,
         user_message_part::UserMessagePart,
     },
@@ -32,8 +32,8 @@ fn test_project(id: Uuid, at: NaiveDateTime) -> ProjectModel {
     }
 }
 
-fn test_session(id: Uuid, project_id: Uuid, at: NaiveDateTime) -> Session {
-    Session {
+fn test_session(id: Uuid, project_id: Uuid, at: NaiveDateTime) -> SessionModel {
+    SessionModel {
         id,
         project_id,
         parent_session_id: None,
@@ -128,7 +128,9 @@ async fn create_user_message_sends_message_to_harness() {
         .expect("test harness with process should start");
     wait_for_port(port);
 
-    let db = Database::new_in_memory().await.expect("in-memory db should initialize");
+    let db = Database::new_in_memory()
+        .await
+        .expect("in-memory db should initialize");
     let now = fixed_datetime();
     let project_id = Uuid::new_v4();
     let session_id = Uuid::new_v4();

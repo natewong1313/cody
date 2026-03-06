@@ -6,12 +6,12 @@ use tonic::{Request, transport::Channel};
 use uuid::Uuid;
 
 use crate::backend::{
-    ListSessionsByProjectReply, ListSessionsByProjectRequest, Session, SessionClient,
+    ListSessionsByProjectReply, ListSessionsByProjectRequest, SessionClient, SessionModel,
 };
 
 use super::QueryState;
 
-pub type SessionsState = QueryState<Vec<Session>>;
+pub type SessionsState = QueryState<Vec<SessionModel>>;
 
 pub struct Sessions {
     backend_channel: Channel,
@@ -83,11 +83,11 @@ impl Sessions {
         });
     }
 
-    fn map(reply: ListSessionsByProjectReply) -> Result<Vec<Session>, String> {
+    fn map(reply: ListSessionsByProjectReply) -> Result<Vec<SessionModel>, String> {
         reply
             .sessions
             .into_iter()
-            .map(Session::try_from)
+            .map(SessionModel::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| e.to_string())
     }

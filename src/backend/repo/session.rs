@@ -1,32 +1,9 @@
-use chrono::NaiveDateTime;
 use thiserror::Error;
-use tonic::Status;
 use uuid::Uuid;
 
 use crate::backend::{
-    BackendContext,
-    db::DatabaseError,
-    harness::Harness,
-    proto_session,
-    proto_utils::{format_naive_datetime, parse_naive_datetime, parse_uuid},
+    BackendContext, db::DatabaseError, harness::Harness, models::session_model::SessionModel,
 };
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct Session {
-    pub id: Uuid,
-    pub project_id: Uuid,
-    pub parent_session_id: Option<Uuid>,
-    pub show_in_gui: bool,
-    pub name: String,
-    pub harness_type: String,
-    pub harness_session_id: String,
-    pub dir: Option<String>,
-    pub summary_additions: Option<i64>,
-    pub summary_deletions: Option<i64>,
-    pub summary_files: Option<i64>,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
-}
 
 #[derive(Debug, Error)]
 pub enum SessionRepoError {
@@ -50,41 +27,6 @@ impl From<SessionRepoError> for tonic::Status {
     }
 }
 
-impl From<Session> for proto_session::SessionModel {
-    fn from(session: Session) -> Self {
-        Self {
-            id: session.id.to_string(),
-            project_id: session.project_id.to_string(),
-            show_in_gui: session.show_in_gui,
-            name: session.name,
-            created_at: format_naive_datetime(session.created_at),
-            updated_at: format_naive_datetime(session.updated_at),
-        }
-    }
-}
-
-impl TryFrom<proto_session::SessionModel> for Session {
-    type Error = Status;
-
-    fn try_from(model: proto_session::SessionModel) -> Result<Self, Self::Error> {
-        Ok(Self {
-            id: parse_uuid("session.id", &model.id)?,
-            project_id: parse_uuid("session.project_id", &model.project_id)?,
-            parent_session_id: None,
-            show_in_gui: model.show_in_gui,
-            name: model.name,
-            harness_type: "opencode".to_string(),
-            harness_session_id: String::new(),
-            dir: None,
-            summary_additions: None,
-            summary_deletions: None,
-            summary_files: None,
-            created_at: parse_naive_datetime("session.created_at", &model.created_at)?,
-            updated_at: parse_naive_datetime("session.updated_at", &model.updated_at)?,
-        })
-    }
-}
-
 pub struct SessionRepo {
     ctx: BackendContext,
 }
@@ -97,15 +39,15 @@ impl SessionRepo {
     pub async fn list_by_project(
         &self,
         project_id: &Uuid,
-    ) -> Result<Vec<Session>, SessionRepoError> {
+    ) -> Result<Vec<SessionModel>, SessionRepoError> {
         Ok(self.ctx.db.list_sessions_by_project(*project_id).await?)
     }
 
-    pub async fn get(&self, id: &Uuid) -> Result<Option<Session>, SessionRepoError> {
+    pub async fn get(&self, id: &Uuid) -> Result<Option<SessionModel>, SessionRepoError> {
         Ok(self.ctx.db.get_session(*id).await?)
     }
 
-    pub async fn create(&self, session: &Session) -> Result<Session, SessionRepoError> {
+    pub async fn create(&self, session: &SessionModel) -> Result<SessionModel, SessionRepoError> {
         let project = self
             .ctx
             .db
@@ -130,7 +72,7 @@ impl SessionRepo {
         Ok(self.ctx.db.create_session(created).await?)
     }
 
-    pub async fn update(&self, session: &Session) -> Result<Session, SessionRepoError> {
+    pub async fn update(&self, session: &SessionModel) -> Result<SessionModel, SessionRepoError> {
         let mut updated = session.clone();
         if updated.harness_session_id.is_empty() {
             if let Some(existing) = self.ctx.db.get_session(updated.id).await? {

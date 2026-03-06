@@ -9,6 +9,7 @@ use crate::backend::{
         SubscribeProjectRequest, SubscribeProjectsRequest, UpdateProjectRequest,
         project_server::Project as ProjectService,
     },
+    proto_utils::naive_datetime_to_timestamp,
     service::test_helpers::{closed_port, test_backend, test_project, valid_project_model},
 };
 
@@ -97,7 +98,7 @@ async fn create_project_rejects_invalid_model() {
 async fn update_project_rejects_invalid_model() {
     let backend = test_backend(closed_port()).await;
     let mut invalid = valid_project_model();
-    invalid.created_at = "not-a-datetime".to_string();
+    invalid.created_at = None;
 
     let err = backend
         .update_project(Request::new(UpdateProjectRequest {
@@ -237,10 +238,7 @@ async fn subscribe_project_emits_update_and_delete_events() {
     updated_model.id = created.id.to_string();
     updated_model.name = "updated".to_string();
     updated_model.dir = "/tmp/updated".to_string();
-    updated_model.created_at = created
-        .created_at
-        .format("%Y-%m-%d %H:%M:%S%.f")
-        .to_string();
+    updated_model.created_at = Some(naive_datetime_to_timestamp(created.created_at));
 
     backend
         .update_project(Request::new(UpdateProjectRequest {

@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::backend::{
     proto_session,
-    proto_utils::{format_naive_datetime, parse_naive_datetime, parse_uuid},
+    proto_utils::{naive_datetime_to_timestamp, parse_uuid, timestamp_to_naive_datetime},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31,8 +31,8 @@ impl From<SessionModel> for proto_session::SessionModel {
             project_id: session.project_id.to_string(),
             show_in_gui: session.show_in_gui,
             name: session.name,
-            created_at: format_naive_datetime(session.created_at),
-            updated_at: format_naive_datetime(session.updated_at),
+            created_at: Some(naive_datetime_to_timestamp(session.created_at)),
+            updated_at: Some(naive_datetime_to_timestamp(session.updated_at)),
         }
     }
 }
@@ -52,8 +52,8 @@ impl TryFrom<proto_session::SessionModel> for SessionModel {
             summary_additions: None,
             summary_deletions: None,
             summary_files: None,
-            created_at: parse_naive_datetime("session.created_at", &model.created_at)?,
-            updated_at: parse_naive_datetime("session.updated_at", &model.updated_at)?,
+            created_at: timestamp_to_naive_datetime("session.created_at", model.created_at)?,
+            updated_at: timestamp_to_naive_datetime("session.updated_at", model.updated_at)?,
         })
     }
 }

@@ -3,14 +3,14 @@ use tonic::{Request, transport::Channel};
 use uuid::Uuid;
 
 use crate::backend::{
-    ProjectClient, ProjectModel, Session, SessionClient, proto_project::CreateProjectRequest,
+    ProjectClient, ProjectModel, SessionClient, SessionModel, proto_project::CreateProjectRequest,
     proto_session::CreateSessionRequest,
 };
 
 pub fn create_project_with_initial_session(
     backend_channel: Channel,
     project: ProjectModel,
-    session: Session,
+    session: SessionModel,
 ) -> Promise<Result<Uuid, String>> {
     let project_id = project.id;
 

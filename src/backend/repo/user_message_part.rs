@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::backend::{
     proto_message,
-    proto_utils::{format_naive_datetime, parse_naive_datetime, parse_uuid},
+    proto_utils::{naive_datetime_to_timestamp, parse_uuid, timestamp_to_naive_datetime},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,8 +39,8 @@ impl From<UserMessagePart> for proto_message::UserMessagePartModel {
             agent_name: value.agent_name,
             subtask_prompt: value.subtask_prompt,
             subtask_description: value.subtask_description,
-            created_at: format_naive_datetime(value.created_at),
-            updated_at: format_naive_datetime(value.updated_at),
+            created_at: Some(naive_datetime_to_timestamp(value.created_at)),
+            updated_at: Some(naive_datetime_to_timestamp(value.updated_at)),
         }
     }
 }
@@ -64,8 +64,14 @@ impl TryFrom<proto_message::UserMessagePartModel> for UserMessagePart {
             agent_name: value.agent_name,
             subtask_prompt: value.subtask_prompt,
             subtask_description: value.subtask_description,
-            created_at: parse_naive_datetime("user_message_part.created_at", &value.created_at)?,
-            updated_at: parse_naive_datetime("user_message_part.updated_at", &value.updated_at)?,
+            created_at: timestamp_to_naive_datetime(
+                "user_message_part.created_at",
+                value.created_at,
+            )?,
+            updated_at: timestamp_to_naive_datetime(
+                "user_message_part.updated_at",
+                value.updated_at,
+            )?,
         })
     }
 }

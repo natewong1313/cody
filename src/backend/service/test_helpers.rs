@@ -1,4 +1,5 @@
 use chrono::Utc;
+use prost_types::Timestamp;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
@@ -11,11 +12,10 @@ use tokio::{
 use uuid::Uuid;
 
 use crate::backend::{
-    BackendContext, BackendService, ProjectModel, Session,
+    BackendContext, BackendService, ProjectModel, SessionModel,
     db::Database,
     harness::opencode::OpencodeHarness,
     proto_project::ProjectModel as ProtoProjectModel,
-    proto_session::SessionModel,
     repo::{message::MessageRepo, project::ProjectRepo, session::SessionRepo},
 };
 
@@ -93,8 +93,17 @@ fn return_create_session_body() -> String {
     )
 }
 
+fn fixed_timestamp() -> Timestamp {
+    Timestamp {
+        seconds: 1_735_787_045,
+        nanos: 123_456_000,
+    }
+}
+
 pub async fn test_backend(port: u32) -> Arc<BackendService> {
-    let db = Database::new_in_memory().await.expect("in-memory db should initialize");
+    let db = Database::new_in_memory()
+        .await
+        .expect("in-memory db should initialize");
     let harness = OpencodeHarness::new_for_test(port);
     let ctx = BackendContext::new(db, harness);
     let (projects_sender, _) = watch::channel(Vec::new());
@@ -120,9 +129,9 @@ pub fn test_project(name: &str, dir: &str) -> ProjectModel {
     }
 }
 
-pub fn test_session(project_id: Uuid, name: &str, show_in_gui: bool) -> Session {
+pub fn test_session(project_id: Uuid, name: &str, show_in_gui: bool) -> SessionModel {
     let now = Utc::now().naive_utc();
-    Session {
+    SessionModel {
         id: Uuid::new_v4(),
         project_id,
         parent_session_id: None,
@@ -144,18 +153,26 @@ pub fn valid_project_model() -> ProtoProjectModel {
         id: Uuid::new_v4().to_string(),
         name: "proj".to_string(),
         dir: "/tmp/proj".to_string(),
-        created_at: "2025-01-02 03:04:05.123456".to_string(),
-        updated_at: "2025-01-02 03:04:05.123456".to_string(),
+        created_at: Some(fixed_timestamp()),
+        updated_at: Some(fixed_timestamp()),
     }
 }
 
 pub fn valid_session_model(project_id: Uuid) -> SessionModel {
+    let now = Utc::now().naive_utc();
     SessionModel {
-        id: Uuid::new_v4().to_string(),
-        project_id: project_id.to_string(),
+        id: Uuid::new_v4(),
+        project_id,
+        parent_session_id: None,
         show_in_gui: true,
         name: "sess".to_string(),
-        created_at: "2025-01-02 03:04:05.123456".to_string(),
-        updated_at: "2025-01-02 03:04:05.123456".to_string(),
+        harness_type: "opencode".to_string(),
+        harness_session_id: String::new(),
+        dir: None,
+        summary_additions: None,
+        summary_deletions: None,
+        summary_files: None,
+        created_at: now,
+        updated_at: now,
     }
 }

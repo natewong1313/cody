@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::backend::{
     proto_project,
-    proto_utils::{format_naive_datetime, parse_naive_datetime, parse_uuid},
+    proto_utils::{naive_datetime_to_timestamp, parse_uuid, timestamp_to_naive_datetime},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22,8 +22,8 @@ impl From<ProjectModel> for proto_project::ProjectModel {
             id: project.id.to_string(),
             name: project.name,
             dir: project.dir,
-            created_at: format_naive_datetime(project.created_at),
-            updated_at: format_naive_datetime(project.updated_at),
+            created_at: Some(naive_datetime_to_timestamp(project.created_at)),
+            updated_at: Some(naive_datetime_to_timestamp(project.updated_at)),
         }
     }
 }
@@ -35,8 +35,8 @@ impl TryFrom<proto_project::ProjectModel> for ProjectModel {
             id: parse_uuid("project.id", &model.id)?,
             name: model.name,
             dir: model.dir,
-            created_at: parse_naive_datetime("project.created_at", &model.created_at)?,
-            updated_at: parse_naive_datetime("project.updated_at", &model.updated_at)?,
+            created_at: timestamp_to_naive_datetime("project.created_at", model.created_at)?,
+            updated_at: timestamp_to_naive_datetime("project.updated_at", model.updated_at)?,
         })
     }
 }

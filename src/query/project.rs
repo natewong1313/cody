@@ -7,8 +7,8 @@ use tonic::{Request, transport::Channel};
 use uuid::Uuid;
 
 use crate::backend::{
-    ProjectClient, ProjectModel, SubscribeProjectReply, SubscribeProjectRequest, SubscribeProjectsReply,
-    SubscribeProjectsRequest,
+    ProjectClient, ProjectModel, SubscribeProjectReply, SubscribeProjectRequest,
+    SubscribeProjectsReply, SubscribeProjectsRequest,
 };
 
 use super::QueryState;

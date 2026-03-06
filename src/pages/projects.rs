@@ -1,4 +1,4 @@
-use crate::backend::{ProjectModel, Session};
+use crate::backend::{ProjectModel, SessionModel};
 use crate::components::button::{ButtonSize, ButtonVariant, StyledButton};
 use crate::components::dir_button::DirButton;
 use crate::components::project_card::ProjectCard;
@@ -284,7 +284,7 @@ impl ProjectsPage {
             updated_at: now,
         };
 
-        let session = Session {
+        let session = SessionModel {
             id: Uuid::new_v4(),
             project_id,
             parent_session_id: None,

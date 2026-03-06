@@ -2,7 +2,10 @@ use chrono::{NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::backend::{proto_message, proto_utils::format_naive_datetime};
+use crate::backend::{
+    proto_message,
+    proto_utils::{naive_datetime_to_timestamp, optional_naive_datetime_to_timestamp},
+};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum AssistantPartKind {
@@ -599,8 +602,8 @@ impl From<AssistantMessagePart> for proto_message::AssistantMessagePartModel {
             retry_error_json: value.retry_error_json,
             retry_created_at: value.retry_created_at,
             compaction_auto: value.compaction_auto,
-            created_at: format_naive_datetime(value.created_at),
-            updated_at: format_naive_datetime(value.updated_at),
+            created_at: Some(naive_datetime_to_timestamp(value.created_at)),
+            updated_at: Some(naive_datetime_to_timestamp(value.updated_at)),
             tool_state_raw: value.tool_state_raw,
             tool_state_time_start: value.tool_state_time_start,
             tool_state_time_end: value.tool_state_time_end,
@@ -637,9 +640,9 @@ impl From<AssistantMessage> for proto_message::AssistantMessageModel {
             token_cache_read: value.token_cache_read,
             token_cache_write: value.token_cache_write,
             error_message: value.error_message,
-            created_at: format_naive_datetime(value.created_at),
-            updated_at: format_naive_datetime(value.updated_at),
-            completed_at: value.completed_at.map(format_naive_datetime),
+            created_at: Some(naive_datetime_to_timestamp(value.created_at)),
+            updated_at: Some(naive_datetime_to_timestamp(value.updated_at)),
+            completed_at: optional_naive_datetime_to_timestamp(value.completed_at),
             parts: Vec::new(),
         }
     }

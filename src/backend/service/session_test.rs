@@ -115,7 +115,7 @@ async fn create_session_happy_path() {
 
     let created = backend
         .create_session(Request::new(CreateSessionRequest {
-            session: Some(valid_session_model(project.id)),
+            session: Some(valid_session_model(project.id).into()),
         }))
         .await
         .expect("create_session should succeed")
@@ -132,7 +132,7 @@ async fn create_session_happy_path() {
 #[tokio::test]
 async fn create_session_returns_not_found_for_missing_project() {
     let backend = test_backend(closed_port()).await;
-    let session = valid_session_model(Uuid::new_v4());
+    let session = valid_session_model(Uuid::new_v4()).into();
 
     let err = backend
         .create_session(Request::new(CreateSessionRequest {
@@ -156,7 +156,7 @@ async fn create_session_returns_unavailable_when_harness_fails() {
 
     let err = backend
         .create_session(Request::new(CreateSessionRequest {
-            session: Some(valid_session_model(project.id)),
+            session: Some(valid_session_model(project.id).into()),
         }))
         .await
         .expect_err("closed harness port should fail");
@@ -176,7 +176,7 @@ async fn update_and_delete_session_happy_path() {
 
     let created = backend
         .create_session(Request::new(CreateSessionRequest {
-            session: Some(valid_session_model(project.id)),
+            session: Some(valid_session_model(project.id).into()),
         }))
         .await
         .expect("create_session should succeed")

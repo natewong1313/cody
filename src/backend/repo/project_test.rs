@@ -1,4 +1,5 @@
 use chrono::Utc;
+use prost_types::Timestamp;
 use tonic::Code;
 use uuid::Uuid;
 
@@ -13,6 +14,13 @@ use crate::backend::{
 
 use super::test_utils::fixed_datetime;
 
+fn fixed_timestamp() -> Timestamp {
+    Timestamp {
+        seconds: 1_735_787_045,
+        nanos: 123_456_000,
+    }
+}
+
 fn test_project(name: &str, dir: &str) -> ProjectModel {
     let now = Utc::now().naive_utc();
     ProjectModel {
@@ -25,7 +33,9 @@ fn test_project(name: &str, dir: &str) -> ProjectModel {
 }
 
 async fn test_repo() -> ProjectRepo {
-    let db = Database::new_in_memory().await.expect("in-memory db should initialize");
+    let db = Database::new_in_memory()
+        .await
+        .expect("in-memory db should initialize");
     let harness = OpencodeHarness::new_for_test(1);
     let ctx = BackendContext::new(db, harness);
     ProjectRepo::new(ctx)
@@ -48,8 +58,8 @@ fn project_proto_serialize_to_model() {
     assert_eq!(model.id, "11111111-2222-3333-4444-555555555555");
     assert_eq!(model.name, "proj");
     assert_eq!(model.dir, "/tmp/proj");
-    assert_eq!(model.created_at, "2025-01-02 03:04:05.123456");
-    assert_eq!(model.updated_at, "2025-01-02 03:04:05.123456");
+    assert_eq!(model.created_at, Some(fixed_timestamp()));
+    assert_eq!(model.updated_at, Some(fixed_timestamp()));
 }
 
 #[test]
@@ -58,8 +68,8 @@ fn project_proto_deserialize_from_model() {
         id: "11111111-2222-3333-4444-555555555555".to_string(),
         name: "proj".to_string(),
         dir: "/tmp/proj".to_string(),
-        created_at: "2025-01-02 03:04:05.123456".to_string(),
-        updated_at: "2025-01-02 03:04:05.123456".to_string(),
+        created_at: Some(fixed_timestamp()),
+        updated_at: Some(fixed_timestamp()),
     };
 
     let project = ProjectModel::try_from(model).expect("valid project model should deserialize");
@@ -80,8 +90,8 @@ fn project_proto_deserialize_rejects_invalid_uuid() {
         id: "not-a-uuid".to_string(),
         name: "proj".to_string(),
         dir: "/tmp/proj".to_string(),
-        created_at: "2025-01-02 03:04:05.123456".to_string(),
-        updated_at: "2025-01-02 03:04:05.123456".to_string(),
+        created_at: Some(fixed_timestamp()),
+        updated_at: Some(fixed_timestamp()),
     };
 
     let err = ProjectModel::try_from(model).expect_err("invalid uuid should fail");
@@ -95,8 +105,11 @@ fn project_proto_deserialize_rejects_invalid_datetime() {
         id: "11111111-2222-3333-4444-555555555555".to_string(),
         name: "proj".to_string(),
         dir: "/tmp/proj".to_string(),
-        created_at: "not-a-datetime".to_string(),
-        updated_at: "2025-01-02 03:04:05.123456".to_string(),
+        created_at: Some(Timestamp {
+            seconds: 1_735_787_045,
+            nanos: 1_000_000_000,
+        }),
+        updated_at: Some(fixed_timestamp()),
     };
 
     let err = ProjectModel::try_from(model).expect_err("invalid datetime should fail");

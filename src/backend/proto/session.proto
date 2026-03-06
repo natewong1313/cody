@@ -1,6 +1,8 @@
 syntax = "proto3";
 package session;
 
+import "google/protobuf/timestamp.proto";
+
 service Session {
     rpc ListSessionsByProject (ListSessionsByProjectRequest) returns (ListSessionsByProjectReply);
     rpc GetSession(GetSessionRequest) returns (GetSessionReply);
@@ -14,8 +16,8 @@ message SessionModel {
   string project_id = 2;
   bool show_in_gui = 3;
   string name = 4;
-  string created_at = 5;
-  string updated_at = 6;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
 }
 
 message ListSessionsByProjectRequest {

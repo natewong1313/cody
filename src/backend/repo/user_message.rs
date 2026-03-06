@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::backend::{
     proto_message,
-    proto_utils::{format_naive_datetime, parse_naive_datetime, parse_uuid},
+    proto_utils::{naive_datetime_to_timestamp, parse_uuid, timestamp_to_naive_datetime},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,8 +35,8 @@ impl From<UserMessage> for proto_message::UserMessageModel {
             structured_output_type: value.structured_output_type,
             tools_list: value.tools_list,
             thinking_variant: value.thinking_variant,
-            created_at: format_naive_datetime(value.created_at),
-            updated_at: format_naive_datetime(value.updated_at),
+            created_at: Some(naive_datetime_to_timestamp(value.created_at)),
+            updated_at: Some(naive_datetime_to_timestamp(value.updated_at)),
             parts: Vec::new(),
         }
     }
@@ -56,8 +56,8 @@ impl TryFrom<proto_message::UserMessageModel> for UserMessage {
             structured_output_type: value.structured_output_type,
             tools_list: value.tools_list,
             thinking_variant: value.thinking_variant,
-            created_at: parse_naive_datetime("user_message.created_at", &value.created_at)?,
-            updated_at: parse_naive_datetime("user_message.updated_at", &value.updated_at)?,
+            created_at: timestamp_to_naive_datetime("user_message.created_at", value.created_at)?,
+            updated_at: timestamp_to_naive_datetime("user_message.updated_at", value.updated_at)?,
         })
     }
 }

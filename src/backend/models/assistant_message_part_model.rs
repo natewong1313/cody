@@ -2,7 +2,7 @@ use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::backend::{proto_message, proto_utils::format_naive_datetime};
+use crate::backend::{proto_message, proto_utils::naive_datetime_to_timestamp};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AssistantMessagePartModel {
@@ -123,8 +123,8 @@ impl From<AssistantMessagePartModel> for proto_message::AssistantMessagePartMode
             retry_error_json: value.retry_error_json,
             retry_created_at: value.retry_created_at,
             compaction_auto: value.compaction_auto,
-            created_at: format_naive_datetime(value.created_at),
-            updated_at: format_naive_datetime(value.updated_at),
+            created_at: Some(naive_datetime_to_timestamp(value.created_at)),
+            updated_at: Some(naive_datetime_to_timestamp(value.updated_at)),
             tool_state_raw: value.tool_state_raw,
             tool_state_time_start: value.tool_state_time_start,
             tool_state_time_end: value.tool_state_time_end,

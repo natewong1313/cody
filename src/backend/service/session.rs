@@ -3,7 +3,7 @@ use tonic::{Request, Response, Status};
 
 use super::required_field;
 use crate::backend::{
-    BackendService, Session,
+    BackendService, SessionModel,
     proto_session::{
         CreateSessionReply, CreateSessionRequest, DeleteSessionReply, DeleteSessionRequest,
         GetSessionReply, GetSessionRequest, ListSessionsByProjectReply,
@@ -45,7 +45,7 @@ impl SessionService for Arc<BackendService> {
     ) -> Result<Response<CreateSessionReply>, Status> {
         let req = request.into_inner();
         let model = required_field(req.session, "session")?;
-        let session = Session::try_from(model)?;
+        let session = SessionModel::try_from(model)?;
 
         let created = self.session_repo.create(&session).await?;
 
@@ -60,7 +60,7 @@ impl SessionService for Arc<BackendService> {
     ) -> Result<Response<UpdateSessionReply>, Status> {
         let req = request.into_inner();
         let model = required_field(req.session, "session")?;
-        let session = Session::try_from(model)?;
+        let session = SessionModel::try_from(model)?;
 
         let updated = self.session_repo.update(&session).await?;
 

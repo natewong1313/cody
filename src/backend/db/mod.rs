@@ -3,9 +3,9 @@ use tokio_rusqlite::Connection;
 use uuid::Uuid;
 
 use crate::backend::{
-    Session,
     db::migrations::SQLITE_MIGRATIONS,
     models::project_model::ProjectModel,
+    models::session_model::SessionModel,
     repo::{
         assistant_message::{AssistantMessage, AssistantMessagePart},
         message::Message,
@@ -135,21 +135,30 @@ impl Database {
         Ok(self.conn.call(|conn| project_table::list(conn)).await?)
     }
 
-    pub async fn get_project(&self, project_id: Uuid) -> Result<Option<ProjectModel>, DatabaseError> {
+    pub async fn get_project(
+        &self,
+        project_id: Uuid,
+    ) -> Result<Option<ProjectModel>, DatabaseError> {
         Ok(self
             .conn
             .call(move |conn| project_table::get(conn, project_id))
             .await?)
     }
 
-    pub async fn create_project(&self, project: ProjectModel) -> Result<ProjectModel, DatabaseError> {
+    pub async fn create_project(
+        &self,
+        project: ProjectModel,
+    ) -> Result<ProjectModel, DatabaseError> {
         Ok(self
             .conn
             .call(move |conn| project_table::create(conn, &project))
             .await?)
     }
 
-    pub async fn update_project(&self, project: ProjectModel) -> Result<ProjectModel, DatabaseError> {
+    pub async fn update_project(
+        &self,
+        project: ProjectModel,
+    ) -> Result<ProjectModel, DatabaseError> {
         Ok(self
             .conn
             .call(move |conn| project_table::update(conn, &project))
@@ -166,28 +175,37 @@ impl Database {
     pub async fn list_sessions_by_project(
         &self,
         project_id: Uuid,
-    ) -> Result<Vec<Session>, DatabaseError> {
+    ) -> Result<Vec<SessionModel>, DatabaseError> {
         Ok(self
             .conn
             .call(move |conn| session_table::list_by_project(conn, project_id))
             .await?)
     }
 
-    pub async fn get_session(&self, session_id: Uuid) -> Result<Option<Session>, DatabaseError> {
+    pub async fn get_session(
+        &self,
+        session_id: Uuid,
+    ) -> Result<Option<SessionModel>, DatabaseError> {
         Ok(self
             .conn
             .call(move |conn| session_table::get(conn, session_id))
             .await?)
     }
 
-    pub async fn create_session(&self, session: Session) -> Result<Session, DatabaseError> {
+    pub async fn create_session(
+        &self,
+        session: SessionModel,
+    ) -> Result<SessionModel, DatabaseError> {
         Ok(self
             .conn
             .call(move |conn| session_table::create(conn, &session))
             .await?)
     }
 
-    pub async fn update_session(&self, session: Session) -> Result<Session, DatabaseError> {
+    pub async fn update_session(
+        &self,
+        session: SessionModel,
+    ) -> Result<SessionModel, DatabaseError> {
         Ok(self
             .conn
             .call(move |conn| session_table::update(conn, &session))

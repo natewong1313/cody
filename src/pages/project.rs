@@ -1,13 +1,13 @@
-use crate::backend::{ProjectModel, Session};
+use crate::backend::{ProjectModel, SessionModel};
 use crate::components::button::{ButtonSize, ButtonVariant, StyledButton};
 use crate::pages::{PageAction, PageContext, Route};
 use crate::query::QueryState;
 use crate::theme::{BG_50, BG_500, BG_800, BG_900, BG_950, FUCHSIA_500, RADIUS_MD};
 mod session_tab;
 use egui::epaint::CornerRadiusF32;
-use egui::{vec2, CentralPanel, Color32, Frame, Label, RichText, Ui};
+use egui::{CentralPanel, Color32, Frame, Label, RichText, Ui, vec2};
 use egui_dock::{DockArea, DockState, Style, TabAddAlign};
-use egui_flex::{item, Flex};
+use egui_flex::{Flex, item};
 use egui_phosphor::regular;
 use session_tab::{SessionTabStateMap, TabViewer};
 use std::collections::{HashMap, HashSet};
@@ -139,7 +139,7 @@ impl ProjectPage {
         });
     }
 
-    fn sync_session_tabs(&mut self, sessions: &[Session]) {
+    fn sync_session_tabs(&mut self, sessions: &[SessionModel]) {
         let next_tab_ids: Vec<Uuid> = sessions.iter().map(|session| session.id).collect();
         let next_set: HashSet<Uuid> = next_tab_ids.iter().copied().collect();
 
@@ -176,9 +176,9 @@ impl ProjectPage {
         &mut self,
         ui: &mut Ui,
         _page_ctx: &mut super::PageContext,
-        sessions: &[Session],
+        sessions: &[SessionModel],
     ) {
-        let sessions_by_id: HashMap<Uuid, &Session> = sessions
+        let sessions_by_id: HashMap<Uuid, &SessionModel> = sessions
             .iter()
             .map(|session| (session.id, session))
             .collect();

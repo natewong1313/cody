@@ -1,4 +1,5 @@
 use chrono::Utc;
+use prost_types::Timestamp;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpListener,
@@ -10,10 +11,11 @@ use crate::backend::{
     BackendContext, ProjectModel,
     db::Database,
     harness::opencode::OpencodeHarness,
-    proto_session::SessionModel,
+    models::session_model::SessionModel,
+    proto_session::SessionModel as ProtoSessionModel,
     repo::{
         project::ProjectRepo,
-        session::{Session, SessionRepo, SessionRepoError},
+        session::{SessionRepo, SessionRepoError},
     },
 };
 
@@ -30,9 +32,9 @@ fn test_project(name: &str, dir: &str) -> ProjectModel {
     }
 }
 
-fn test_session(project_id: Uuid, name: &str, show_in_gui: bool) -> Session {
+fn test_session(project_id: Uuid, name: &str, show_in_gui: bool) -> SessionModel {
     let now = Utc::now().naive_utc();
-    Session {
+    SessionModel {
         id: Uuid::new_v4(),
         project_id,
         parent_session_id: None,
@@ -49,8 +51,17 @@ fn test_session(project_id: Uuid, name: &str, show_in_gui: bool) -> Session {
     }
 }
 
+fn fixed_timestamp() -> Timestamp {
+    Timestamp {
+        seconds: 1_735_787_045,
+        nanos: 123_456_000,
+    }
+}
+
 async fn test_repos(port: u32) -> (ProjectRepo, SessionRepo) {
-    let db = Database::new_in_memory().await.expect("in-memory db should initialize");
+    let db = Database::new_in_memory()
+        .await
+        .expect("in-memory db should initialize");
     let harness = OpencodeHarness::new_for_test(port);
     let ctx = BackendContext::new(db, harness);
     (ProjectRepo::new(ctx.clone()), SessionRepo::new(ctx))
@@ -62,7 +73,7 @@ fn session_proto_serialize_to_model() {
     let project_id =
         Uuid::parse_str("11111111-2222-3333-4444-555555555555").expect("uuid should parse");
     let ts = fixed_datetime();
-    let session = Session {
+    let session = SessionModel {
         id,
         project_id,
         parent_session_id: None,
@@ -78,28 +89,28 @@ fn session_proto_serialize_to_model() {
         updated_at: ts,
     };
 
-    let model: SessionModel = session.into();
+    let model: ProtoSessionModel = session.into();
 
-    assert_eq!(model.id, "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
-    assert_eq!(model.project_id, "11111111-2222-3333-4444-555555555555");
+    assert_eq!(model.id, id.to_string());
+    assert_eq!(model.project_id, project_id.to_string());
     assert!(model.show_in_gui);
     assert_eq!(model.name, "sess");
-    assert_eq!(model.created_at, "2025-01-02 03:04:05.123456");
-    assert_eq!(model.updated_at, "2025-01-02 03:04:05.123456");
+    assert_eq!(model.created_at, Some(fixed_timestamp()));
+    assert_eq!(model.updated_at, Some(fixed_timestamp()));
 }
 
 #[test]
 fn session_proto_deserialize_from_model() {
-    let model = SessionModel {
+    let model = ProtoSessionModel {
         id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee".to_string(),
         project_id: "11111111-2222-3333-4444-555555555555".to_string(),
         show_in_gui: false,
         name: "sess".to_string(),
-        created_at: "2025-01-02 03:04:05.123456".to_string(),
-        updated_at: "2025-01-02 03:04:05.123456".to_string(),
+        created_at: Some(fixed_timestamp()),
+        updated_at: Some(fixed_timestamp()),
     };
 
-    let session = Session::try_from(model).expect("valid session model should deserialize");
+    let session = SessionModel::try_from(model).expect("valid session model should deserialize");
 
     assert_eq!(
         session.id,
@@ -117,48 +128,51 @@ fn session_proto_deserialize_from_model() {
 
 #[test]
 fn session_proto_deserialize_rejects_invalid_id() {
-    let model = SessionModel {
+    let model = ProtoSessionModel {
         id: "not-a-uuid".to_string(),
         project_id: "11111111-2222-3333-4444-555555555555".to_string(),
         show_in_gui: true,
         name: "sess".to_string(),
-        created_at: "2025-01-02 03:04:05.123456".to_string(),
-        updated_at: "2025-01-02 03:04:05.123456".to_string(),
+        created_at: Some(fixed_timestamp()),
+        updated_at: Some(fixed_timestamp()),
     };
 
-    let err = Session::try_from(model).expect_err("invalid session id should fail");
+    let err = SessionModel::try_from(model).expect_err("invalid session id should fail");
     assert_eq!(err.code(), Code::InvalidArgument);
     assert!(err.message().contains("session.id"));
 }
 
 #[test]
 fn session_proto_deserialize_rejects_invalid_project_id() {
-    let model = SessionModel {
+    let model = ProtoSessionModel {
         id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee".to_string(),
         project_id: "not-a-uuid".to_string(),
         show_in_gui: true,
         name: "sess".to_string(),
-        created_at: "2025-01-02 03:04:05.123456".to_string(),
-        updated_at: "2025-01-02 03:04:05.123456".to_string(),
+        created_at: Some(fixed_timestamp()),
+        updated_at: Some(fixed_timestamp()),
     };
 
-    let err = Session::try_from(model).expect_err("invalid project id should fail");
+    let err = SessionModel::try_from(model).expect_err("invalid project id should fail");
     assert_eq!(err.code(), Code::InvalidArgument);
     assert!(err.message().contains("session.project_id"));
 }
 
 #[test]
 fn session_proto_deserialize_rejects_invalid_datetime() {
-    let model = SessionModel {
+    let model = ProtoSessionModel {
         id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee".to_string(),
         project_id: "11111111-2222-3333-4444-555555555555".to_string(),
         show_in_gui: true,
         name: "sess".to_string(),
-        created_at: "not-a-datetime".to_string(),
-        updated_at: "2025-01-02 03:04:05.123456".to_string(),
+        created_at: Some(Timestamp {
+            seconds: 1_735_787_045,
+            nanos: 1_000_000_000,
+        }),
+        updated_at: Some(fixed_timestamp()),
     };
 
-    let err = Session::try_from(model).expect_err("invalid datetime should fail");
+    let err = SessionModel::try_from(model).expect_err("invalid datetime should fail");
     assert_eq!(err.code(), Code::InvalidArgument);
     assert!(err.message().contains("session.created_at"));
 }

@@ -1,6 +1,8 @@
 syntax = "proto3";
 package messages;
 
+import "google/protobuf/timestamp.proto";
+
 service Messages {
   rpc ListMessagesBySession (ListMessagesBySessionRequest) returns (ListMessagesBySessionReply);
   rpc SubscribeMessagesBySession (SubscribeMessagesBySessionRequest) returns (stream SubscribeMessagesBySessionReply);
@@ -19,8 +21,8 @@ message UserMessagePartModel {
   optional string agent_name = 9;
   optional string subtask_prompt = 10;
   optional string subtask_description = 11;
-  string created_at = 12;
-  string updated_at = 13;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
 }
 
 message UserMessageModel {
@@ -33,8 +35,8 @@ message UserMessageModel {
   string structured_output_type = 7;
   string tools_list = 8;
   optional string thinking_variant = 9;
-  string created_at = 10;
-  string updated_at = 11;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
   repeated UserMessagePartModel parts = 12;
 }
 
@@ -87,8 +89,8 @@ message AssistantMessagePartModel {
   optional string retry_error_json = 46;
   optional int64 retry_created_at = 47;
   optional bool compaction_auto = 48;
-  string created_at = 49;
-  string updated_at = 50;
+  google.protobuf.Timestamp created_at = 49;
+  google.protobuf.Timestamp updated_at = 50;
   optional string tool_state_raw = 51;
   optional int64 tool_state_time_start = 52;
   optional int64 tool_state_time_end = 53;
@@ -121,9 +123,9 @@ message AssistantMessageModel {
   int64 token_cache_read = 14;
   int64 token_cache_write = 15;
   optional string error_message = 16;
-  string created_at = 17;
-  string updated_at = 18;
-  optional string completed_at = 19;
+  google.protobuf.Timestamp created_at = 17;
+  google.protobuf.Timestamp updated_at = 18;
+  google.protobuf.Timestamp completed_at = 19;
   repeated AssistantMessagePartModel parts = 20;
 }
 

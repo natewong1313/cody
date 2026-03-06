@@ -15,7 +15,7 @@ use crate::backend::{
         OpencodeApiClient, OpencodeCreateSessionRequest, OpencodeEventPayload, OpencodeMessage,
         OpencodeSessionStatus,
     },
-    repo::session::Session,
+    models::session_model::SessionModel,
 };
 
 #[derive(Error, Debug)]
@@ -146,7 +146,7 @@ impl Harness for OpencodeHarness {
 
     async fn create_session(
         &self,
-        session: Session,
+        session: SessionModel,
         directory: Option<&str>,
     ) -> anyhow::Result<String> {
         let request = OpencodeCreateSessionRequest {

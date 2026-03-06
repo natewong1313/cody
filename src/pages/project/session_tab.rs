@@ -1,9 +1,9 @@
-use crate::backend::Session;
+use crate::backend::SessionModel;
 use crate::components::button::StyledButton;
 use crate::theme::{BG_700, BG_800, RADIUS_MD, STROKE_WIDTH};
-use egui::{vec2, Align2, Color32, Frame, Id, Stroke, TextEdit, TopBottomPanel};
+use egui::{Align2, Color32, Frame, Id, Stroke, TextEdit, TopBottomPanel, vec2};
 use egui_dock::tab_viewer::OnCloseResponse;
-use egui_flex::{item, Flex};
+use egui_flex::{Flex, item};
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -17,13 +17,13 @@ pub struct SessionTabState {
 
 /// A tab viewer is responsible for all session tabs within a project
 pub struct TabViewer<'sessions> {
-    sessions_by_id: &'sessions HashMap<Uuid, &'sessions Session>,
+    sessions_by_id: &'sessions HashMap<Uuid, &'sessions SessionModel>,
     sessions_states: &'sessions mut SessionTabStateMap,
 }
 
 impl<'sessions> TabViewer<'sessions> {
     pub fn new(
-        sessions_by_id: &'sessions HashMap<Uuid, &'sessions Session>,
+        sessions_by_id: &'sessions HashMap<Uuid, &'sessions SessionModel>,
         sessions_states: &'sessions mut SessionTabStateMap,
     ) -> Self {
         Self {

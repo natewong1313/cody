@@ -1,5 +1,6 @@
-use crate::backend::repo::{
-    session::Session, user_message::UserMessage, user_message_part::UserMessagePart,
+use crate::backend::{
+    models::session_model::SessionModel,
+    repo::{session::SessionRepo, user_message::UserMessage, user_message_part::UserMessagePart},
 };
 use futures::Stream;
 use serde::{Deserialize, Serialize};
@@ -104,7 +105,7 @@ pub trait Harness: Sized {
 
     async fn create_session(
         &self,
-        session: Session,
+        session: SessionModel,
         directory: Option<&str>,
     ) -> anyhow::Result<String>;
 
