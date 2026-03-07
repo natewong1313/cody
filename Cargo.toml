@@ -35,7 +35,7 @@ egui_dock = "0.18.0"
 thiserror = "2.0.18"
 chrono = { version = "0.4.43", features = ["serde"] }
 libc = "0.2.180"
-tokio = { version = "1.49.0", features = ["rt", "rt-multi-thread", "macros"] }
+tokio = { version = "1.49.0", features = ["rt", "rt-multi-thread", "macros", "process"] }
 rusqlite_migration = "2.3.0"
 rfd = "0.17"
 tonic = "0.14.5"
@@ -45,6 +45,8 @@ tonic-prost = "0.14.5"
 tokio-rusqlite = { version = "0.7.0", features = ["bundled", "chrono", "uuid"] }
 serde_rusqlite = "0.40.0"
 agent-client-protocol = "0.10.0"
+tokio-util = { version = "0.7.18", features = ["compat"] }
+async-trait = "0.1.89"
 
 [build-dependencies]
 tonic-prost-build = "0.14.5"

@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 pub use models::project_model::ProjectModel;
 pub use models::session_model::SessionModel;
-mod agent;
+pub mod agent;
 mod db;
 mod harness;
 mod models;
